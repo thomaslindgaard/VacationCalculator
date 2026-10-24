@@ -72,25 +72,25 @@ When implemented, the "Domain rules" section of `CLAUDE.md` must be updated to m
 
 ## 3. Feriefri days
 
-**Status:** Needs decisions
+**Status:** Planned
 
-A second type of day off with its own yearly allowance, separate from regular vacation.
+A second type of day off (feriefridage) with its own allowance, separate from regular vacation. The rules match the previous web version of the app (`vacationcalculator.html`).
 
-Agreed so far:
+Rules:
 
-- **Period:** the allowance follows the calendar year (1 January to 31 December).
-- Default allowance is 5 days per year, configurable per calendar year.
-- **Partial years:** no automatic pro-rating. If employment starts or ends mid-year, the user sets that year's allowance by hand.
-- Has its own balance: total / used / booked / remaining.
-- Can be booked as full or half days.
-- Shown separately from vacation in the summary, the list and the calendar.
+- **Period:** Feriefri follows the same holiday year as vacation (1 September to 31 August). A booked Feriefri day counts against the holiday year its date falls in.
+- **Allowance:** the full allowance is available from the start of the holiday year; it is not earned month by month. Default 5 days, configurable per holiday year (0 to 20).
+- **Partial years:** no automatic pro-rating. If employment starts or ends mid-year, the user sets that holiday year's allowance by hand.
+- **Using the previous holiday year's days:** unused Feriefri days from the previous holiday year can still be used until 31 December, like vacation. After 31 December they are gone.
+- **Payout on 31 December:** the unused Feriefri days still open on 31 December (previous holiday year's leftover plus the current holiday year's remaining) may not exceed 5. Anything above 5 must be used before 31 December or is paid out in January. The banner warns about these days.
+- **Half days:** a Feriefri day can be a full or a half day.
+- **One type per day:** a day is either vacation or Feriefri. Booking one type on a day removes the other.
+- **Can't exceed the allowance:** booking a full day that would go over the holiday year's allowance books a half day instead if that fits (with a message); otherwise it is refused ("All 5 Feriefri days are used").
+- **No order of use:** the app doesn't prefer Feriefri over vacation or the reverse.
+- **Free working days:** Feriefri is not part of the check for whether there are enough free working days left; that check covers vacation only.
+- Has its own balance per holiday year: allowance / used / booked / remaining, shown separately from vacation in the summary, the list and the calendar.
 
-Open questions:
-
-1. **Expiry:** do unused Feriefri days expire on 31 December, carry over, or get paid out? Should the app warn about them the same way it warns about vacation?
-2. **Carry-over:** should Feriefri have a "carried over from last year" field?
-3. **Order of use:** does it matter which is used first? For example, should the app suggest using Feriefri before regular vacation?
-4. **Deadline warning:** when working out whether days will be lost, should vacation and Feriefri compete for the same free working days left in the year? (Proposed: yes, combined.)
+**Agents:** `domain-logic` (day type, allowance, balance and payout rules), then `wpf-ui` (settings field, summary, list).
 
 **Agents:** `domain-logic` (day type, allowance, balance rules), then `wpf-ui` (settings field, summary, list).
 
@@ -122,17 +122,16 @@ Proposed: the calendar becomes the main view, and the existing vacation list and
 
 Clicking the same day repeatedly switches between full and half days.
 
-Proposed behaviour:
+Proposed behaviour (as in the previous web version):
 
-- A selector above the calendar picks what clicks register: **Vacation** or **Feriefri**.
-- Clicking a free working day cycles: **free → full day → half day → free**.
-- Clicking a day already booked with the *other* type switches it to the selected type as a full day.
+- **Left-click** a working day cycles vacation: **free → full day → half day → free**.
+- **Right-click** a working day cycles Feriefri the same way: **free → full day → half day → free**, within the Feriefri allowance rules (feature 3).
+- Clicking a day booked with the other type replaces it (one type per day).
 
 Open questions:
 
-1. Is the cycle order right (full first, then half, then cleared)? Or should it be half → full → free?
-2. Is a type selector acceptable, or should the cycle go through both types instead: free → vacation → vacation ½ → Feriefri → Feriefri ½ → free?
-3. Should there be a way to book a range in the calendar (e.g. click and drag, or Shift+click), or is the range form enough?
+1. Is left-click for vacation and right-click for Feriefri the scheme you want (instead of the type selector proposed earlier)?
+2. Should there be a way to book a range in the calendar (e.g. click and drag, or Shift+click), or is the range form enough?
 
 **Agents:** `domain-logic` (cycle logic as a tested function), then `wpf-ui` (click handling).
 
