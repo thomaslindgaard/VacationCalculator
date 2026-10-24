@@ -98,11 +98,13 @@ When implemented, the "Domain rules" section of `CLAUDE.md` must be updated to m
 
 Changes feature 2: 5th-week transfers are no longer registered per holiday year. The app only knows whether transfer is allowed and how many days can be transferred, and calculates what happens to each holiday year's unused days at its deadline: transferred, paid out or lost.
 
-Settings (employment-wide, in the sidebar):
+Settings (in the sidebar):
 
-- **"Unused days can be transferred to the next holiday year"** (on/off, default off).
-- **"Days that can be transferred"** (number, default **5**, as in the Holiday Act). It can be set higher when the employee has a personal agreement in their contract. Shown only when transfer is on.
-- **"Unused days paid out instead of lost"**: **None** (default), **Some** (a number of days) or **All**.
+- **"Unused days can be transferred to the next holiday year"** (on/off, default off). Employment-wide.
+- Per holiday year (configurable year to year, for the holiday year shown):
+  - **"Days that can be transferred"** (number, default **5**, as in the Holiday Act). It can be set higher when the employee has a personal agreement in their contract. Shown only when transfer is on.
+  - **"Unused days paid out instead of lost"**: **None** (default), **Some** (a number of days) or **All**.
+  - A holiday year without its own values uses the previous holiday year's values; if there are none, the defaults (5 days, none paid out).
 
 Calculation at each holiday year's deadline (31 December of the following year), from the days still unused after all bookings (used and booked ahead):
 
