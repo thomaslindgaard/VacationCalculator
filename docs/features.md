@@ -175,7 +175,7 @@ Details decided for the implementation:
 
 ## 4. Danish public holidays
 
-**Status:** Planned
+**Status:** In progress
 
 Danish public holidays (helligdage) are calculated automatically for every year, marked in the calendar (feature 5), and can't be booked as vacation or Feriefri. They don't count as working days, so they never use up vacation or Feriefri.
 
