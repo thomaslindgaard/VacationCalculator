@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using VacationCalculator.App.Services;
 using VacationCalculator.Core;
 
@@ -34,7 +36,7 @@ public sealed record HolidayYearRow(
 public sealed class MainViewModel : ObservableObject
 {
     private readonly DataStore _store;
-    private readonly VacationData _data;
+    private VacationData _data;
     private YearSettings _settings;
     private CalendarYearStatus _status;
     private IReadOnlyList<HolidayYearRow> _holidayYearRows = [];
@@ -67,8 +69,8 @@ public sealed class MainViewModel : ObservableObject
         DeleteEntryCommand = new RelayCommand(p => DeleteEntry((EntryRow)p!));
         AddHolidayCommand = new RelayCommand(_ => AddHoliday());
         RemoveHolidayCommand = new RelayCommand(p => RemoveHoliday((DateOnly)p!));
-        ResetTransferLimitCommand = new RelayCommand(_ => { _data.ClearTransferLimit(DeadlineYear); SaveAndRefresh(); });
-        ResetPayoutCommand = new RelayCommand(_ => { _data.ClearPayout(DeadlineYear); SaveAndRefresh(); });
+        ResetTransferLimitCommand = new RelayCommand(_ => Apply(() => _data.ClearTransferLimit(DeadlineYear)));
+        ResetPayoutCommand = new RelayCommand(_ => Apply(() => _data.ClearPayout(DeadlineYear)));
 
         Refresh();
     }
@@ -157,9 +159,7 @@ public sealed class MainViewModel : ObservableObject
             if (date == _data.EmployedSince)
                 return;
 
-            _data.EmployedSince = date;
-            OnPropertyChanged();
-            SaveAndRefresh();
+            Apply(() => _data.EmployedSince = date);
         }
     }
 
@@ -196,8 +196,7 @@ public sealed class MainViewModel : ObservableObject
             if (value.StartYear == 0 || value == _data.EffectiveFirstTrackedHolidayYear(Today))
                 return;
 
-            _data.FirstTrackedHolidayYear = value.StartYear;
-            SaveAndRefresh();
+            Apply(() => _data.FirstTrackedHolidayYear = value.StartYear);
         }
     }
 
@@ -210,8 +209,7 @@ public sealed class MainViewModel : ObservableObject
             if (value == _data.OpeningBalanceDays)
                 return;
 
-            _data.OpeningBalanceDays = value;
-            SaveAndRefresh();
+            Apply(() => _data.OpeningBalanceDays = value);
         }
     }
 
@@ -224,9 +222,7 @@ public sealed class MainViewModel : ObservableObject
             if (value == _data.TransferAllowed)
                 return;
 
-            _data.TransferAllowed = value;
-            OnPropertyChanged();
-            SaveAndRefresh();
+            Apply(() => _data.TransferAllowed = value);
         }
     }
 
@@ -244,8 +240,7 @@ public sealed class MainViewModel : ObservableObject
             if (DeadlineSettings.TransferLimitIsOwn && value == DeadlineSettings.TransferLimitDays)
                 return;
 
-            _data.SetTransferLimit(DeadlineYear, value);
-            SaveAndRefresh();
+            Apply(() => _data.SetTransferLimit(DeadlineYear, value));
         }
     }
 
@@ -278,8 +273,7 @@ public sealed class MainViewModel : ObservableObject
             if (DeadlineSettings.PayoutMode != PayoutMode.Some || (DeadlineSettings.PayoutIsOwn && value == DeadlineSettings.PayoutDays))
                 return;
 
-            _data.SetPayout(DeadlineYear, PayoutMode.Some, value);
-            SaveAndRefresh();
+            Apply(() => _data.SetPayout(DeadlineYear, PayoutMode.Some, value));
         }
     }
 
@@ -291,8 +285,8 @@ public sealed class MainViewModel : ObservableObject
         if (mode == DeadlineSettings.PayoutMode)
             return;
 
-        _data.SetPayout(DeadlineYear, mode, DeadlineSettings.PayoutDays);
-        SaveAndRefresh();
+        var days = DeadlineSettings.PayoutDays;
+        Apply(() => _data.SetPayout(DeadlineYear, mode, days));
     }
 
     private static string Source(HolidayYear? from, bool isOwn) =>
@@ -541,22 +535,27 @@ public sealed class MainViewModel : ObservableObject
             return;
         }
 
-        var holidays = _data.AllPublicHolidays();
-        _data.Days = IsHalfDay && start == end
-            ? Bookings.BookHalfDay(_data.Days, start, DayType.Vacation, NewDescription.Trim(), holidays)
-            : Bookings.BookRange(_data.Days, start, end, DayType.Vacation, NewDescription.Trim(), holidays);
+        var description = NewDescription.Trim();
+        var halfDay = IsHalfDay && start == end;
+        // On a failed save the form stays filled so the booking can be retried.
+        if (!Apply(() =>
+            {
+                var holidays = _data.AllPublicHolidays();
+                _data.Days = halfDay
+                    ? Bookings.BookHalfDay(_data.Days, start, DayType.Vacation, description, holidays)
+                    : Bookings.BookRange(_data.Days, start, end, DayType.Vacation, description, holidays);
+            }))
+            return;
+
         IsHalfDay = false;
         NewStart = null;
         NewEnd = null;
         NewDescription = "";
-        ErrorMessage = "";
-        SaveAndRefresh();
     }
 
     private void DeleteEntry(EntryRow row)
     {
-        _data.Days = Bookings.RemoveDays(_data.Days, row.Period.Dates);
-        SaveAndRefresh();
+        Apply(() => _data.Days = Bookings.RemoveDays(_data.Days, row.Period.Dates));
     }
 
     private void AddHoliday()
@@ -568,22 +567,25 @@ public sealed class MainViewModel : ObservableObject
         }
 
         var date = DateOnly.FromDateTime(value);
-        var settings = GetOrCreateSettings(date.Year);
-        if (!settings.PublicHolidays.Contains(date))
-        {
-            settings.PublicHolidays.Add(date);
-            settings.PublicHolidays.Sort();
-        }
+        if (!Apply(() =>
+            {
+                var settings = GetOrCreateSettings(date.Year);
+                if (!settings.PublicHolidays.Contains(date))
+                {
+                    settings.PublicHolidays.Add(date);
+                    settings.PublicHolidays.Sort();
+                }
+            }))
+            return;
 
         NewHoliday = null;
-        ErrorMessage = date.Year == SelectedYear ? "" : $"Added to {date.Year}'s holidays.";
-        SaveAndRefresh();
+        if (date.Year != SelectedYear)
+            ErrorMessage = $"Added to {date.Year}'s holidays.";
     }
 
     private void RemoveHoliday(DateOnly date)
     {
-        _settings.PublicHolidays.Remove(date);
-        SaveAndRefresh();
+        Apply(() => _settings.PublicHolidays.Remove(date));
     }
 
     private YearSettings GetOrCreateSettings(int year)
@@ -600,18 +602,34 @@ public sealed class MainViewModel : ObservableObject
     private int CountWorkingDays(DateOnly start, DateOnly end) =>
         BalanceCalculator.CountWorkingDays(start, end, _data.AllPublicHolidays());
 
-    private void SaveAndRefresh()
+    // Same JSON settings as DataStore, so a snapshot round-trips exactly what would be saved.
+    private static readonly JsonSerializerOptions SnapshotOptions = new() { Converters = { new JsonStringEnumConverter() } };
+
+    /// <summary>
+    /// Applies a user change and saves it. If saving fails, the in-memory data is restored to what it was before the
+    /// change, so the app always shows what is on disk. Returns whether the change was saved.
+    /// </summary>
+    private bool Apply(Action mutate)
     {
+        var snapshot = JsonSerializer.Serialize(_data, SnapshotOptions);
+        ErrorMessage = "";
         try
         {
+            mutate();
             _data.EnsureFirstTrackedHolidayYear(Today);
             _store.Save(_data);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            ErrorMessage = $"Could not save to {_store.Path}: {ex.Message}";
+            _data = JsonSerializer.Deserialize<VacationData>(snapshot, SnapshotOptions)!;
+            _settings = GetOrCreateSettings(_settings.Year);
+            Refresh();
+            ErrorMessage = $"Could not save: {ex.Message.TrimEnd('.', ' ')}. Your change was not saved.";
+            return false;
         }
+
         Refresh();
+        return true;
     }
 
     private void Refresh()
@@ -628,6 +646,7 @@ public sealed class MainViewModel : ObservableObject
         HolidayYearRows = BalanceCalculator.CalculateHolidayYears(_data, HolidayYear.InCalendarYear(_settings.Year), Today)
             .Select(HolidayYearRow.From).ToList();
         OnPropertyChanged(nameof(EmployedSince));
+        OnPropertyChanged(nameof(TransferAllowed));
         OnPropertyChanged(nameof(FirstTrackedChoices));
         OnPropertyChanged(nameof(FirstTrackedHolidayYear));
         OnPropertyChanged(nameof(OpeningBalanceDays));

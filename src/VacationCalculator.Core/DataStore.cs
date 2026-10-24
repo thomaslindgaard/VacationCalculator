@@ -34,11 +34,32 @@ public sealed class DataStore(string path)
         Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path)!);
 
         // Write to a temp file first so a crash mid-write can't corrupt existing data.
+        // File.Create truncates a stale temp file left behind by an earlier crash.
         var tempPath = Path + ".tmp";
-        using (var stream = File.Create(tempPath))
+        try
         {
-            JsonSerializer.Serialize(stream, data, Options);
+            using (var stream = File.Create(tempPath))
+            {
+                JsonSerializer.Serialize(stream, data, Options);
+            }
+            File.Move(tempPath, Path, overwrite: true);
         }
-        File.Move(tempPath, Path, overwrite: true);
+        catch
+        {
+            TryDelete(tempPath);
+            throw; // rethrow the original exception unchanged
+        }
+    }
+
+    private static void TryDelete(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch
+        {
+            // Best effort: never mask the original failure.
+        }
     }
 }

@@ -16,12 +16,14 @@ public abstract class HolidayYearVmTestBase : IDisposable
 
     // The app formats decimals in the user's culture (comma on a Danish machine); pin invariant so expected text is stable.
     private readonly CultureInfo _oldCulture = CultureInfo.CurrentCulture;
+    private readonly CultureInfo _oldUICulture = CultureInfo.CurrentUICulture;
 
     protected HolidayYearVmTestBase() => CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
 
     public void Dispose()
     {
         CultureInfo.CurrentCulture = _oldCulture;
+        CultureInfo.CurrentUICulture = _oldUICulture;
         if (Directory.Exists(Dir))
             Directory.Delete(Dir, recursive: true);
     }

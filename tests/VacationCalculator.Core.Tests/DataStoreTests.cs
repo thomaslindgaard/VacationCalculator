@@ -8,8 +8,67 @@ public class DataStoreTests : IDisposable
 
     public void Dispose()
     {
-        if (Directory.Exists(_dir))
-            Directory.Delete(_dir, recursive: true);
+        if (!Directory.Exists(_dir))
+            return;
+        foreach (var file in Directory.EnumerateFiles(_dir, "*", SearchOption.AllDirectories))
+            File.SetAttributes(file, FileAttributes.Normal);
+        Directory.Delete(_dir, recursive: true);
+    }
+
+    [Fact]
+    public void Save_ReadOnlyTarget_ThrowsOriginalException_RemovesTempFile_KeepsTargetContent()
+    {
+        var store = StoreWith("""{ "Days": [ { "Date": "2026-01-05", "Description": "keep" } ] }""");
+        var before = File.ReadAllText(store.Path);
+        File.SetAttributes(store.Path, FileAttributes.ReadOnly);
+
+        var ex = Record.Exception(() => store.Save(new VacationData()));
+
+        Assert.IsType<UnauthorizedAccessException>(ex);
+        Assert.False(File.Exists(store.Path + ".tmp"));
+        Assert.Equal(before, File.ReadAllText(store.Path));
+        Assert.Equal("keep", Assert.Single(store.Load().Days).Description);
+    }
+
+    [Fact]
+    public void Save_LockedTarget_ThrowsIOOrAccessException_RemovesTempFile_KeepsTargetContent()
+    {
+        var store = StoreWith("""{ "Days": [ { "Date": "2026-01-05", "Description": "keep" } ] }""");
+        var before = File.ReadAllText(store.Path);
+
+        Exception? ex;
+        using (new FileStream(store.Path, FileMode.Open, FileAccess.Read, FileShare.None))
+            ex = Record.Exception(() => store.Save(new VacationData()));
+
+        // Windows reports replacing a file held open without sharing as access denied;
+        // either way it is one of the two types the App handles.
+        Assert.True(ex is IOException or UnauthorizedAccessException, $"Unexpected: {ex}");
+        Assert.False(File.Exists(store.Path + ".tmp"));
+        Assert.Equal(before, File.ReadAllText(store.Path));
+    }
+
+    [Fact]
+    public void Save_StaleTempFileFromEarlierCrash_IsOverwrittenAndRemoved()
+    {
+        var store = StoreWith("""{ "Days": [] }""");
+        // A longer, half-written temp file: truncation must not leave its tail behind
+        File.WriteAllText(store.Path + ".tmp", "{ \"Days\": [ garbage " + new string('x', 10_000));
+
+        store.Save(new VacationData { Days = [Day("2026-07-06", "Summer")] }); // Mon
+
+        Assert.False(File.Exists(store.Path + ".tmp"));
+        Assert.Equal([Day("2026-07-06", "Summer")], store.Load().Days);
+    }
+
+    [Fact]
+    public void Save_Normal_LeavesNoTempFile()
+    {
+        var store = new DataStore(Path.Combine(_dir, "data.json"));
+
+        store.Save(new VacationData { Days = [Day("2026-07-07", "Dentist")] }); // Tue
+
+        Assert.False(File.Exists(store.Path + ".tmp"));
+        Assert.Equal([Day("2026-07-07", "Dentist")], store.Load().Days);
     }
 
     private static DateOnly D(string date) => DateOnly.Parse(date);
