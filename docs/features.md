@@ -54,7 +54,7 @@ What the app shows:
 
 - For each open holiday year: earned so far, used, booked ahead, remaining, and its deadline.
 - The status banner warns about the holiday year whose deadline is 31 December of the selected calendar year. It splits unused days into **days that will be lost** (within the first 20) and **days that will be paid out** (the 5th week, unless transferred).
-- Warns when bookings go beyond earned days (advance holiday) and when they exceed what can be earned by 31 August.
+- **Booking beyond earned days is allowed.** The app never blocks a vacation booking because too few days have been earned. Instead it shows clearly that the number has been exceeded: the remaining figure goes negative and is highlighted, and the banner states by how many days the earned balance is exceeded. It also says so when bookings exceed what can be earned by 31 August of the holiday year. (Feriefri is different: it can't be booked beyond its allowance, see feature 3.)
 
 Decisions:
 
@@ -116,22 +116,24 @@ Proposed: the calendar becomes the main view, and the existing vacation list and
 
 ---
 
-## 5. Click to cycle day state
+## 5. Click to cycle day state, and range booking
 
-**Status:** Needs decisions
+**Status:** Planned
 
-Clicking the same day repeatedly switches between full and half days.
-
-Proposed behaviour (as in the previous web version):
+Clicking the same day repeatedly switches between full and half days. Behaviour matches the previous web version:
 
 - **Left-click** a working day cycles vacation: **free → full day → half day → free**.
 - **Right-click** a working day cycles Feriefri the same way: **free → full day → half day → free**, within the Feriefri allowance rules (feature 3).
 - Clicking a day booked with the other type replaces it (one type per day).
 
-Open questions:
+Booking a range in the calendar:
 
-1. Is left-click for vacation and right-click for Feriefri the scheme you want (instead of the type selector proposed earlier)?
-2. Should there be a way to book a range in the calendar (e.g. click and drag, or Shift+click), or is the range form enough?
+- **Drag** across days with the left button to book them as full vacation days, or with the right button for Feriefri.
+- **Shift+click** books every day from the last clicked day to the clicked day, with the type of the button used.
+- Weekends and public holidays in the range are skipped. Days already booked in the range are set to the new type as full days.
+- Feriefri ranges stop at the allowance: days that don't fit are not booked, and a message says how many were left out.
+
+**Agents:** `domain-logic` (cycle and range logic as tested functions), then `wpf-ui` (mouse handling).
 
 **Agents:** `domain-logic` (cycle logic as a tested function), then `wpf-ui` (click handling).
 
