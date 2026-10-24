@@ -14,9 +14,9 @@ Register a single day as a half day (0.5) instead of a full day.
 
 - A booked day counts as either 1 or 0.5 days against the balance.
 - Balances, used/booked/remaining figures and the status banner show half days (e.g. "12.5 days").
-- A booking that spans several days uses full days. Half days are set per day (in practice through the calendar, feature 4).
+- A booking that spans several days uses full days. Half days are set per day (in practice through the calendar, features 5 and 6).
 
-**Data model change (prerequisite for features 2 to 5):** today an entry is a date range. Clicking single days in a calendar, mixing full and half days, and mixing vacation and Feriefri all work per day, so storage moves to one record per booked day: `Date`, `DayType` (Vacation / Feriefri), `Amount` (1 or 0.5) and an optional description. The "Add vacation" form still accepts a range and creates one record per working day in it.
+**Data model change (prerequisite for features 2, 3, 5 and 6):** today an entry is a date range. Clicking single days in a calendar, mixing full and half days, and mixing vacation and Feriefri all work per day, so storage moves to one record per booked day: `Date`, `DayType` (Vacation / Feriefri), `Amount` (1 or 0.5) and an optional description. The "Add vacation" form still accepts a range and creates one record per working day in it.
 
 - Existing data files with range entries must load and be converted on first save, without losing anything.
 - The vacation list groups consecutive days of the same type back into ranges for display.
@@ -96,7 +96,40 @@ Rules:
 
 ---
 
-## 4. Full-year calendar
+## 4. Danish public holidays
+
+**Status:** Planned
+
+Danish public holidays (helligdage) are calculated automatically for every year, marked in the calendar (feature 5), and can't be booked as vacation or Feriefri. They don't count as working days, so they never use up vacation or Feriefri.
+
+Holidays, matching the previous web version:
+
+| Holiday | Date |
+|---|---|
+| Nytårsdag (New Year's Day) | 1 January |
+| Skærtorsdag (Maundy Thursday) | Easter − 3 days |
+| Langfredag (Good Friday) | Easter − 2 days |
+| Påskedag (Easter Sunday) | Easter |
+| 2. påskedag (Easter Monday) | Easter + 1 day |
+| Kristi himmelfartsdag (Ascension Day) | Easter + 39 days |
+| Pinsedag (Whit Sunday) | Easter + 49 days |
+| 2. pinsedag (Whit Monday) | Easter + 50 days |
+| Juleaftensdag (Christmas Eve) | 24 December |
+| Juledag (Christmas Day) | 25 December |
+| 2. juledag (Boxing Day) | 26 December |
+| Nytårsaftensdag (New Year's Eve) | 31 December |
+
+- Easter Sunday is calculated with the Gregorian (Western) Easter algorithm.
+- Each holiday has its Danish name, shown in the calendar tooltip.
+- Clicking, dragging or Shift+clicking over a holiday never books it. Ranges skip it.
+- The manual public-holiday list stays, for extra days off such as Grundlovsdag (5 June) or company days. Manual days follow the same rules: marked, not bookable, not working days.
+- Existing bookings that fall on a holiday (e.g. from an older data file) are not counted and are shown in the calendar as a conflict.
+
+**Agents:** `domain-logic` (holiday calculation with tests for several years' Easter dates), then `wpf-ui` (marking and blocking in the calendar).
+
+---
+
+## 5. Full-year calendar
 
 **Status:** Planned (some details proposed below)
 
@@ -116,7 +149,7 @@ Proposed: the calendar becomes the main view, and the existing vacation list and
 
 ---
 
-## 5. Click to cycle day state, and range booking
+## 6. Click to cycle day state, and range booking
 
 **Status:** Planned
 
@@ -135,15 +168,11 @@ Booking a range in the calendar:
 
 **Agents:** `domain-logic` (cycle and range logic as tested functions), then `wpf-ui` (mouse handling).
 
-**Agents:** `domain-logic` (cycle logic as a tested function), then `wpf-ui` (click handling).
-
 ---
 
 ## Later ideas (not agreed)
 
 - Main-holiday check (hovedferie): warn if fewer than 15 consecutive days (3 weeks) are booked between 1 May and 30 September.
-- Mark public holidays by right-clicking a day in the calendar instead of using the date picker.
-- Option to pre-fill Danish public holidays (helligdage).
 
 ## Sources
 
