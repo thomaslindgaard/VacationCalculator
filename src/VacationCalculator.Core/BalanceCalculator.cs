@@ -6,7 +6,7 @@ public enum BalanceStatus
     AllPlanned,
     /// <summary>Unbooked days remain and there is still time to book them.</summary>
     DaysToPlan,
-    /// <summary>More unbooked days remain than there are free working days left in the year.</summary>
+    /// <summary>More unbooked days remain than there are free working days left in the year (today included).</summary>
     DaysWillBeLost,
     /// <summary>More days are booked than the year's allowance.</summary>
     OverBooked,
@@ -52,9 +52,11 @@ public static class BalanceCalculator
     /// <summary>
     /// Balance for <paramref name="settings"/>' year. Only <see cref="DayType.Vacation"/> records on
     /// working days inside the year count: used = on or before <paramref name="today"/>, planned = after.
-    /// <see cref="YearBalance.WorkingDaysLeft"/> sums, for each working day after today (or the whole
-    /// year if today is before it), the part not booked: 1 if free, 0.5 if half booked, 0 if fully
-    /// booked (with any day type, since a day has only one type).
+    /// <see cref="YearBalance.WorkingDaysLeft"/> sums, for each working day from today through
+    /// 31 December (the whole year if today is before it, nothing if today is after it), the part not
+    /// booked: 1 if free, 0.5 if half booked, 0 if fully booked (with any day type, since a day has
+    /// only one type). Today is included because it can still be booked; a day booked today counts as
+    /// used, so it is not free.
     /// </summary>
     public static YearBalance Calculate(YearSettings settings, IEnumerable<BookedDay> days, DateOnly today)
     {
@@ -81,7 +83,8 @@ public static class BalanceCalculator
         }
 
         var yearEnd = new DateOnly(year, 12, 31);
-        var firstOpenDay = today < new DateOnly(year, 1, 1) ? new DateOnly(year, 1, 1) : today.AddDays(1);
+        var yearStart = new DateOnly(year, 1, 1);
+        var firstOpenDay = today < yearStart ? yearStart : today;
         decimal workingDaysLeft = 0;
         for (var d = firstOpenDay; d <= yearEnd; d = d.AddDays(1))
         {

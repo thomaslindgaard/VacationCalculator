@@ -67,7 +67,7 @@ Every completed update to the app is committed and pushed to GitHub (`origin`, h
 - Allowance is per calendar year: `AllowanceDays + CarryOverDays`. Unused days expire on 31 December.
 - Only working days count: weekdays that are not in that year's `PublicHolidays`. Public holidays are entered by the user; no country's calendar is built in.
 - Bookings are stored per day (`BookedDay`: date, `DayType` Vacation/Feriefri, `Amount` 1 or 0.5, description), at most one record per date. Ranges are only an input/display concept: `Bookings.BookRange` creates one record per working day, and `Bookings.GroupPeriods` groups days back into periods for display.
-- Balances count only `Vacation` days on working days, as decimals. A booked day of either type is not free when counting free working days left.
+- Balances count only `Vacation` days on working days, as decimals. Free working days left are counted from today (inclusive) through 31 December; a booked day of either type is not free, a half-booked day is half free.
 - "Used" = vacation dates on or before today; "planned" = after today.
 
 ## Conventions

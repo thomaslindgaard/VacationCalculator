@@ -49,26 +49,26 @@ public class HalfDayIndependentTests : IDisposable
         // Thu 2026-12-31
         var b = BalanceCalculator.Calculate(Year(2026), [B("2026-12-31", 0.5m)], D("2026-12-31"));
         Assert.Equal(0.5m, b.UsedDays);
-        Assert.Equal(0m, b.WorkingDaysLeft);
+        Assert.Equal(0.5m, b.WorkingDaysLeft); // today counts; its other half is still free
     }
 
     [Fact]
     public void HalfBookedDay_ReducesWorkingDaysLeftByHalf_AndFlagsLoss()
     {
-        // today Mon 2026-12-28; left: Tue 29, Wed 30 (half booked), Thu 31 = 2.5
+        // today Mon 2026-12-28 (included); left: Mon 28, Tue 29, Wed 30 (half booked), Thu 31 = 3.5
         var b = BalanceCalculator.Calculate(Year(2026), [B("2026-12-30", 0.5m)], D("2026-12-28"));
-        Assert.Equal(2.5m, b.WorkingDaysLeft);
+        Assert.Equal(3.5m, b.WorkingDaysLeft);
         Assert.Equal(24.5m, b.RemainingDays);
-        Assert.Equal(22m, b.DaysAtRisk);
+        Assert.Equal(21m, b.DaysAtRisk);
         Assert.Equal(BalanceStatus.DaysWillBeLost, b.Status);
     }
 
     [Fact]
     public void RemainingEqualToFreeHalfDays_IsNotLost()
     {
-        // allowance 3, half on Tue 29 -> remaining 2.5; free left = 1 + 0.5 + 1 = 2.5 (Tue half, Wed, Thu)
-        var b = BalanceCalculator.Calculate(Year(2026, 3), [B("2026-12-29", 0.5m)], D("2026-12-28"));
-        Assert.Equal(2.5m, b.WorkingDaysLeft);
+        // allowance 4, half on Tue 29 -> remaining 3.5; free left = 1 + 0.5 + 1 + 1 = 3.5 (Mon today, Tue half, Wed, Thu)
+        var b = BalanceCalculator.Calculate(Year(2026, 4), [B("2026-12-29", 0.5m)], D("2026-12-28"));
+        Assert.Equal(3.5m, b.WorkingDaysLeft);
         Assert.Equal(0m, b.DaysAtRisk);
         Assert.Equal(BalanceStatus.DaysToPlan, b.Status);
     }
@@ -76,11 +76,11 @@ public class HalfDayIndependentTests : IDisposable
     [Fact]
     public void FeriefriHalfDay_DoesNotCountButTakesHalfAFreeDay()
     {
-        // today Mon 2026-12-28; Wed 30 Feriefri half
+        // today Mon 2026-12-28 (included); Wed 30 Feriefri half -> 1 + 1 + 0.5 + 1
         var b = BalanceCalculator.Calculate(Year(2026), [B("2026-12-30", 0.5m, DayType.Feriefri)], D("2026-12-28"));
         Assert.Equal(0m, b.UsedDays + b.PlannedDays);
         Assert.Equal(25m, b.RemainingDays);
-        Assert.Equal(2.5m, b.WorkingDaysLeft);
+        Assert.Equal(3.5m, b.WorkingDaysLeft);
     }
 
     [Fact]
@@ -128,7 +128,7 @@ public class HalfDayIndependentTests : IDisposable
 
         Assert.Equal(2m, b26.UsedDays);   // 28, 29
         Assert.Equal(1m, b26.PlannedDays); // 30
-        Assert.Equal(0m, b26.WorkingDaysLeft); // 30 booked, 31 holiday
+        Assert.Equal(0m, b26.WorkingDaysLeft); // 29 (today) and 30 booked, 31 holiday
         Assert.Equal(0m, b27.UsedDays);
         Assert.Equal(5m, b27.PlannedDays);
     }

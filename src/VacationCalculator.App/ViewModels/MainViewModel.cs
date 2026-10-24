@@ -120,20 +120,26 @@ public sealed class MainViewModel : ObservableObject
         {
             var b = Balance;
             var deadline = $"31 December {b.Year}";
+            // The free-day count starts today in the current year, and covers the whole year for a future one.
+            var window = b.Year > Today.Year
+                ? $"in {b.Year} up to and including {deadline}"
+                : $"from today through {deadline}";
             return b.Status switch
             {
                 BalanceStatus.AllPlanned =>
-                    $"All {Days(b.TotalDays)} are used or booked. Nothing will expire.",
+                    (b.TotalDays == 1
+                        ? $"The {Days(b.TotalDays)} is used or booked."
+                        : $"All {Days(b.TotalDays)} are used or booked.") + " Nothing will expire.",
                 BalanceStatus.DaysToPlan =>
-                    $"You have {Days(b.RemainingDays)} not yet booked. They must be used before {deadline} " +
-                    $"({b.WorkingDaysLeft:0.##} working days are still free).",
+                    $"You have {Days(b.RemainingDays)} not yet booked. {(b.RemainingDays == 1 ? "It" : "They")} must be used by {deadline} " +
+                    $"({WorkingDays(b.WorkingDaysLeft)} still free).",
                 BalanceStatus.DaysWillBeLost =>
-                    $"You have {Days(b.RemainingDays)} not yet booked, but only {b.WorkingDaysLeft:0.##} working days are left " +
-                    $"before {deadline}. {Days(b.DaysAtRisk)} will be lost even if you book every remaining day.",
+                    $"You have {Days(b.RemainingDays)} not yet booked, but only {WorkingDaysLeft(b.WorkingDaysLeft)} " +
+                    $"{window}. {Days(b.DaysAtRisk)} will be lost even if you book every remaining day.",
                 BalanceStatus.OverBooked =>
                     $"You have booked {Days(-b.RemainingDays)} more than your allowance for {b.Year}.",
                 BalanceStatus.Expired =>
-                    $"{Days(b.RemainingDays)} were not used in {b.Year} and have expired.",
+                    $"{Days(b.RemainingDays)} {(b.RemainingDays == 1 ? "was" : "were")} not used in {b.Year} and {(b.RemainingDays == 1 ? "has" : "have")} expired.",
                 _ => "",
             };
         }
@@ -327,4 +333,8 @@ public sealed class MainViewModel : ObservableObject
     }
 
     private static string Days(decimal days) => days == 1 ? "1 day" : $"{days:0.##} days";
+
+    private static string WorkingDays(decimal days) => days == 1 ? "1 working day is" : $"{days:0.##} working days are";
+
+    private static string WorkingDaysLeft(decimal days) => $"{WorkingDays(days)} left";
 }
