@@ -149,6 +149,14 @@ Rules:
 - **Free working days:** Feriefri is not part of the check for whether there are enough free working days left; that check covers vacation only.
 - Has its own balance per holiday year: allowance / used / booked / remaining, shown separately from vacation in the summary, the list and the calendar.
 
+Details decided for the implementation:
+
+- **Allowance per holiday year** inherits like the other per-year settings: a holiday year without its own value uses the nearest earlier year's, otherwise the default 5.
+- **Order of use:** like vacation, oldest first. In September–December a Feriefri booking uses the previous holiday year's leftover first, then the current year's allowance.
+- **31 December of calendar year Y:** the open days are the previous holiday year's leftover plus the current holiday year's remaining. If that is more than 5, the excess (open − 5) is paid out in January, taken from the previous year's leftover first. Whatever is left of the previous year's leftover after that is lost. The current year's remaining days (less any of them paid out) stay usable until its own 31 December.
+- **Booking Feriefri** in the form: a type choice (Vacation / Feriefri) next to the dates. A Feriefri range books working days in date order until the allowance is used up; a full day that doesn't fit becomes a half day if 0.5 fits; the rest is not booked and a message says how many days were left out. A single day or half day that doesn't fit is refused with "All N Feriefri days for 2025/26 are used."
+- **Banner:** a separate Feriefri line when days will be paid out or lost at 31 December, e.g. "Feriefri: 2 days must be used by 31 December 2026, otherwise they are paid out in January."
+
 **Agents:** `domain-logic` (day type, allowance, balance and payout rules), then `wpf-ui` (settings field, summary, list).
 
 **Agents:** `domain-logic` (day type, allowance, balance rules), then `wpf-ui` (settings field, summary, list).
