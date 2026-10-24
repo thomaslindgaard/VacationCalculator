@@ -12,6 +12,18 @@ dotnet run --project src/VacationCalculator.App
 
 Run `dotnet build` and `dotnet test` before reporting any change as done.
 
+## Delegation
+
+The main session does not write or change app code itself. It delegates every task to the matching agent in `.claude/agents/`:
+
+- `domain-logic`: anything in `src/VacationCalculator.Core` or `tests/`, meaning rules, calculations, models and persistence.
+- `wpf-ui`: anything in `src/VacationCalculator.App`, meaning XAML, styles, view models and bindings.
+- `code-reviewer`: reviews every change before it is committed.
+
+The main session's job is to plan the work, split features that touch both Core and UI into a `domain-logic` task first and then a `wpf-ui` task (passing along what Core exposes), give each agent a clear brief, check the reported results, run `dotnet build` / `dotnet test`, and commit and push (see Git).
+
+If an agent's report is wrong or incomplete, send it back to that agent with what needs fixing instead of fixing it in the main session. The only work the main session does directly is outside every agent's scope: git, `CLAUDE.md`, the agent definitions, and the solution or `.gitignore` files.
+
 ## Git
 
 Every completed update to the app is committed and pushed to GitHub (`origin`, https://github.com/thomaslindgaard/VacationCalculator) without asking first:
