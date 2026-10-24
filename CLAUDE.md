@@ -1,6 +1,6 @@
 # Vacation Calculator
 
-WPF desktop app (builds `VacationCalculator.exe`; shown to users as "Vacation Calculator") (.NET 9, C#) that tracks vacation days per calendar year and warns when unused days must be taken before 31 December.
+WPF desktop app (.NET 9, C#) that tracks vacation days per calendar year and warns when unused days must be taken before 31 December. It builds `VacationCalculator.exe`; in user-facing text the name is always written "Vacation Calculator".
 
 ## Commands
 
@@ -12,20 +12,37 @@ dotnet run --project src/VacationCalculator.App
 
 Run `dotnet build` and `dotnet test` before reporting any change as done.
 
-## Delegation
+## Agent workflow (main session)
 
-The main session does not write or change app code itself. It delegates every task to the matching agent in `.claude/agents/`:
+This section is for the main session. If you are running as one of the agents below, ignore it and do only your own task.
 
-- `domain-logic`: anything in `src/VacationCalculator.Core` or `tests/`, meaning rules, calculations, models and persistence.
-- `wpf-ui`: anything in `src/VacationCalculator.App`, meaning XAML, styles, view models and bindings.
-- `tester`: tests every change made by `domain-logic` and `wpf-ui`, adding its own edge-case tests. It never edits `src/`.
-- `code-reviewer`: reviews every change before it is committed.
+The main session never writes or changes app code (`src/`, `tests/`) itself. It plans, delegates to the agents in `.claude/agents/`, verifies, and commits. This applies to every change, however small.
 
-The main session's job is to plan the work, split features that touch both Core and UI into a `domain-logic` task first and then a `wpf-ui` task (passing along what Core exposes), give each agent a clear brief, check the reported results, run `dotnet build` / `dotnet test`, and commit and push (see Git).
+### Agents
 
-Order for every change: implementation (`domain-logic` and/or `wpf-ui`), then `tester` (given the original request, not just the implementer's summary), then `code-reviewer`, then commit. If `tester` reports FAIL or `code-reviewer` finds a problem, send it back to the owning implementation agent and repeat from `tester`.
+| Agent | Model | Owns | Does |
+|---|---|---|---|
+| `domain-logic` | opus | `src/VacationCalculator.Core`, its tests | Rules, calculations, models, persistence. Test-first. |
+| `wpf-ui` | sonnet | `src/VacationCalculator.App` | XAML, styles, view models, bindings. Checks the app launches. |
+| `tester` | sonnet | additional tests under `tests/` | Independent edge-case and regression tests; PASS/FAIL verdict. Never edits `src/`. |
+| `code-reviewer` | opus | nothing (read-only) | Reviews the full diff for bugs and data-loss risks. |
 
-If an agent's report is wrong or incomplete, send it back to that agent with what needs fixing instead of fixing it in the main session. The only work the main session does directly is outside every agent's scope: git, `CLAUDE.md`, the agent definitions, and the solution or `.gitignore` files.
+### Steps for every change
+
+1. **Plan.** Restate the request, decide which agents are involved, and ask the user about anything genuinely ambiguous before starting.
+2. **Implement.** A Core-only change goes to `domain-logic`, a UI-only change to `wpf-ui`. A feature that touches both: `domain-logic` first, then `wpf-ui`, passing along the Core API that `domain-logic` reported.
+3. **Test.** Send `tester` the user's original request (not just the implementer's summary) and which agent made the change.
+4. **Review.** Send `code-reviewer` the request and a summary of what changed.
+5. **Fix loop.** If `tester` reports FAIL, `code-reviewer` reports a real problem, or a report is wrong or incomplete, send the specifics back to the owning implementation agent and repeat from step 3. Do not fix it in the main session.
+6. **Verify and ship.** Run `dotnet build VacationCalculator.sln` and `dotnet test` yourself, then commit and push (see Git). Tell the user what changed and what was verified.
+
+### Writing a brief
+
+Each agent only knows what its brief says (plus this file). Include the user's request in their words, the goal and acceptance criteria, relevant files, decisions already made, and what earlier agents reported (e.g. new Core API, failing test names).
+
+### Done directly by the main session
+
+Only work outside every agent's scope: answering questions, git, `CLAUDE.md`, `.claude/` (agent definitions, settings), the solution file and `.gitignore`.
 
 ## Git
 
@@ -41,7 +58,7 @@ Every completed update to the app is committed and pushed to GitHub (`origin`, h
 
 - `src/VacationCalculator.Core` (net9.0): models, `BalanceCalculator` (all vacation-day arithmetic), `DataStore` (JSON persistence). No UI dependencies.
 - `src/VacationCalculator.App` (net9.0-windows, WPF): `MainWindow.xaml`, `ViewModels/` (hand-rolled MVVM: `ObservableObject`, `RelayCommand`, `MainViewModel`). Shared styles live in `App.xaml`.
-- `tests/VacationCalculator.Core.Tests` (xUnit): tests for Core only.
+- `tests/VacationCalculator.Core.Tests` (xUnit): tests for Core. `tester` may add `tests/VacationCalculator.App.Tests` for view-model tests.
 
 ## Domain rules
 
