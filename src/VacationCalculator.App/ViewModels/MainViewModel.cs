@@ -57,11 +57,11 @@ public sealed class MainViewModel : ObservableObject
             _theme.Changed += (_, _) => OnThemeChanged();
         _today = today ?? (() => DateOnly.FromDateTime(DateTime.Today));
         _data = store.Load();
-        _settings = GetOrCreateSettings(Today.Year);
+        _settings = GetOrCreateSettings(ClampYear(Today.Year));
         _status = BalanceCalculator.CalculateCalendarYear(_data, _settings.Year, Today);
 
-        PreviousYearCommand = new RelayCommand(_ => SelectedYear--);
-        NextYearCommand = new RelayCommand(_ => SelectedYear++);
+        PreviousYearCommand = new RelayCommand(_ => SelectedYear--, _ => SelectedYear > MinYear);
+        NextYearCommand = new RelayCommand(_ => SelectedYear++, _ => SelectedYear < MaxYear);
         CurrentYearCommand = new RelayCommand(_ => SelectedYear = Today.Year);
         AddEntryCommand = new RelayCommand(_ => AddEntry());
         DeleteEntryCommand = new RelayCommand(p => DeleteEntry((EntryRow)p!));
@@ -122,17 +122,28 @@ public sealed class MainViewModel : ObservableObject
     public ObservableCollection<EntryRow> Entries { get; } = [];
     public ObservableCollection<DateOnly> Holidays { get; } = [];
 
+    /// <summary>Earliest selectable calendar year: it involves holiday years Y-1 and Y, both of which Core must support.</summary>
+    public const int MinYear = HolidayYear.MinStartYear + 1;
+
+    /// <summary>Latest selectable calendar year: holiday year Y (start year) is the later one involved.</summary>
+    public const int MaxYear = HolidayYear.MaxStartYear;
+
+    private static int ClampYear(int year) => Math.Clamp(year, MinYear, MaxYear);
+
     public int SelectedYear
     {
         get => _settings.Year;
         set
         {
+            value = ClampYear(value);
             if (value == _settings.Year)
                 return;
 
             _settings = GetOrCreateSettings(value);
             ErrorMessage = "";
             OnPropertyChanged();
+            PreviousYearCommand.RaiseCanExecuteChanged();
+            NextYearCommand.RaiseCanExecuteChanged();
             Refresh();
         }
     }

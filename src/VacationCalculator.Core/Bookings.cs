@@ -34,8 +34,10 @@ public static class Bookings
             (start, end) = (end, start);
 
         var byDate = ToDictionary(days);
-        for (var d = start; d <= end; d = d.AddDays(1))
+        // Day numbers, so that an end of 9999-12-31 doesn't step past DateOnly.MaxValue.
+        for (var n = start.DayNumber; n <= end.DayNumber; n++)
         {
+            var d = DateOnly.FromDayNumber(n);
             if (BalanceCalculator.IsWorkingDay(d, holidays))
                 byDate[d] = new BookedDay { Date = d, Type = type, Amount = BookedDay.FullDay, Description = description ?? "" };
         }
@@ -110,9 +112,10 @@ public static class Bookings
     {
         if (previous.Type != next.Type || !string.Equals(previous.Description, next.Description, StringComparison.Ordinal))
             return false;
-        for (var d = previous.Date.AddDays(1); d < next.Date; d = d.AddDays(1))
+        // Day numbers, like BookRange, so no date past DateOnly.MaxValue is ever formed.
+        for (var n = previous.Date.DayNumber + 1; n < next.Date.DayNumber; n++)
         {
-            if (BalanceCalculator.IsWorkingDay(d, holidays))
+            if (BalanceCalculator.IsWorkingDay(DateOnly.FromDayNumber(n), holidays))
                 return false;
         }
         return true;

@@ -288,4 +288,116 @@ public class BookingsTests
     {
         Assert.Empty(Bookings.GroupPeriods([], 2026, NoHolidays));
     }
+
+    // ---- DateOnly.MinValue / MaxValue boundaries ----
+
+    [Fact]
+    public void BookRange_EndingOnMaxValueDoesNotThrow()
+    {
+        // Mon 9999-12-27 .. Fri 9999-12-31 (DateOnly.MaxValue)
+        var days = Bookings.BookRange([], D("9999-12-27"), DateOnly.MaxValue, DayType.Vacation, "End of time", NoHolidays);
+
+        Assert.Equal(
+            [D("9999-12-27"), D("9999-12-28"), D("9999-12-29"), D("9999-12-30"), D("9999-12-31")],
+            days.Select(d => d.Date));
+    }
+
+    [Fact]
+    public void BookRange_SingleDayOnMaxValue()
+    {
+        // Fri 9999-12-31 in both From and To, as typed in the UI
+        var days = Bookings.BookRange([], DateOnly.MaxValue, DateOnly.MaxValue, DayType.Vacation, "", NoHolidays);
+
+        var day = Assert.Single(days);
+        Assert.Equal(DateOnly.MaxValue, day.Date);
+        Assert.Equal(1m, day.Amount);
+    }
+
+    [Fact]
+    public void BookRange_ReversedRangeEndingOnMaxValue()
+    {
+        // Fri 9999-12-31 .. Thu 9999-12-30, given in reverse order
+        var days = Bookings.BookRange([], DateOnly.MaxValue, D("9999-12-30"), DayType.Vacation, "", NoHolidays);
+
+        Assert.Equal([D("9999-12-30"), D("9999-12-31")], days.Select(d => d.Date));
+    }
+
+    [Fact]
+    public void BookRange_MaxValueAsHolidayIsSkipped()
+    {
+        // Thu 9999-12-30 .. Fri 9999-12-31, Fri is a holiday
+        var days = Bookings.BookRange([], D("9999-12-30"), DateOnly.MaxValue, DayType.Vacation, "", Holidays("9999-12-31"));
+
+        Assert.Equal([D("9999-12-30")], days.Select(d => d.Date));
+    }
+
+    [Fact]
+    public void BookHalfDay_OnMaxValue()
+    {
+        // Fri 9999-12-31
+        var days = Bookings.BookHalfDay([], DateOnly.MaxValue, DayType.Vacation, "Half", NoHolidays);
+
+        var day = Assert.Single(days);
+        Assert.Equal(DateOnly.MaxValue, day.Date);
+        Assert.Equal(0.5m, day.Amount);
+    }
+
+    [Fact]
+    public void GroupPeriods_PeriodEndingOnMaxValue()
+    {
+        // Thu 9999-12-23 .. Fri 9999-12-31 booked except the weekend 12-25/26; Fri 12-24 is a holiday
+        var holidays = Holidays("9999-12-24");
+        var days = Bookings.BookRange([], D("9999-12-23"), DateOnly.MaxValue, DayType.Vacation, "Xmas", holidays);
+        days = Bookings.BookHalfDay(days, DateOnly.MaxValue, DayType.Vacation, "Xmas", holidays);
+
+        var period = Assert.Single(Bookings.GroupPeriods(days, 9999, holidays));
+
+        Assert.Equal(D("9999-12-23"), period.Start);
+        Assert.Equal(DateOnly.MaxValue, period.End);
+        Assert.Equal(5.5m, period.Amount); // 23, 27, 28, 29, 30 full + 31 half
+        Assert.Equal(
+            [D("9999-12-23"), D("9999-12-27"), D("9999-12-28"), D("9999-12-29"), D("9999-12-30"), D("9999-12-31")],
+            period.Dates);
+    }
+
+    [Fact]
+    public void GroupPeriods_FreeWorkingDayBeforeMaxValueSplitsPeriod()
+    {
+        // Wed 9999-12-29 booked, Thu 12-30 free, Fri 12-31 booked
+        var days = new[] { Day("9999-12-29"), Day("9999-12-31") };
+
+        var periods = Bookings.GroupPeriods(days, 9999, NoHolidays);
+
+        Assert.Equal(2, periods.Count);
+        Assert.Equal(DateOnly.MaxValue, periods[1].Start);
+        Assert.Equal(DateOnly.MaxValue, periods[1].End);
+    }
+
+    [Fact]
+    public void RemoveDays_PeriodEndingOnMaxValue()
+    {
+        // Mon 9999-12-27 .. Fri 9999-12-31, plus an unrelated Mon 9999-12-20
+        var days = Bookings.BookRange([Day("9999-12-20")], D("9999-12-27"), DateOnly.MaxValue, DayType.Vacation, "", NoHolidays);
+        var period = Bookings.GroupPeriods(days, 9999, NoHolidays).Single(p => p.End == DateOnly.MaxValue);
+
+        var remaining = Bookings.RemoveDays(days, period.Dates);
+
+        Assert.Equal([D("9999-12-20")], remaining.Select(d => d.Date));
+    }
+
+    [Fact]
+    public void BookRange_StartingOnMinValue()
+    {
+        // Mon 0001-01-01 (DateOnly.MinValue) .. Sun 0001-01-07
+        var days = Bookings.BookRange([], D("0001-01-07"), DateOnly.MinValue, DayType.Vacation, "", NoHolidays);
+
+        Assert.Equal(
+            [D("0001-01-01"), D("0001-01-02"), D("0001-01-03"), D("0001-01-04"), D("0001-01-05")],
+            days.Select(d => d.Date));
+
+        var period = Assert.Single(Bookings.GroupPeriods(days, 1, NoHolidays));
+        Assert.Equal(DateOnly.MinValue, period.Start);
+        Assert.Equal(5m, period.Amount);
+        Assert.Empty(Bookings.RemoveDays(days, period.Dates));
+    }
 }
