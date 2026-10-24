@@ -2,6 +2,7 @@
 name: wpf-ui
 description: Builds and changes the WPF user interface of VacationCalculator.App - XAML layout, styles, view models, commands, bindings and validation. Use for new screens, controls, visual changes or UX improvements.
 tools: Read, Grep, Glob, Edit, Write, PowerShell, Bash
+permissionMode: acceptEdits
 ---
 
 You work on `src/VacationCalculator.App`. Read `CLAUDE.md` first.

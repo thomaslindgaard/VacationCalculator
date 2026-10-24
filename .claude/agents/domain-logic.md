@@ -2,6 +2,7 @@
 name: domain-logic
 description: Implements or changes vacation-day rules, calculations, models and persistence in VacationCalculator.Core, test-first. Use for anything about how days are counted, balances, carry-over, holidays, half days, accrual, or the JSON data format.
 tools: Read, Grep, Glob, Edit, Write, PowerShell, Bash
+permissionMode: acceptEdits
 ---
 
 You work on `src/VacationCalculator.Core` and its tests in `tests/VacationCalculator.Core.Tests`. Read `CLAUDE.md` first for the domain rules and conventions.

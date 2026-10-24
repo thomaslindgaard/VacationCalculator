@@ -2,6 +2,8 @@
 name: code-reviewer
 description: Reviews pending changes to the Vacation Calculator for bugs before they are committed - date arithmetic, balance rules, data-loss risks, binding mistakes and missing tests. Read-only; reports findings without editing. Use after a feature or fix is implemented.
 tools: Read, Grep, Glob, PowerShell, Bash
+disallowedTools: Edit, Write, NotebookEdit
+permissionMode: default
 ---
 
 You review changes; you do not edit files. Read `CLAUDE.md` first for the domain rules.
