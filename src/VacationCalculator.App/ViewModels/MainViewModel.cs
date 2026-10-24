@@ -4,8 +4,8 @@ using VacationCalculator.Core;
 
 namespace VacationCalculator.App.ViewModels;
 
-/// <summary>A vacation entry as shown for the selected year.</summary>
-public sealed record EntryRow(VacationEntry Entry, int WorkingDaysInYear, bool IsPast);
+/// <summary>A booked period as shown for the selected year.</summary>
+public sealed record EntryRow(BookedPeriod Period, bool IsPast);
 
 public sealed class MainViewModel : ObservableObject
 {
@@ -19,15 +19,19 @@ public sealed class MainViewModel : ObservableObject
     private DateTime? _newStart;
     private DateTime? _newEnd;
     private string _newDescription = "";
+    private bool _isHalfDay;
     private DateTime? _newHoliday;
     private string _errorMessage = "";
 
-    public MainViewModel(DataStore store)
+    private readonly Func<DateOnly> _today;
+
+    public MainViewModel(DataStore store, Func<DateOnly>? today = null)
     {
         _store = store;
+        _today = today ?? (() => DateOnly.FromDateTime(DateTime.Today));
         _data = store.Load();
         _settings = GetOrCreateSettings(Today.Year);
-        _balance = BalanceCalculator.Calculate(_settings, _data.Entries, Today);
+        _balance = BalanceCalculator.Calculate(_settings, _data.Days, Today);
 
         PreviousYearCommand = new RelayCommand(_ => SelectedYear--);
         NextYearCommand = new RelayCommand(_ => SelectedYear++);
@@ -40,7 +44,7 @@ public sealed class MainViewModel : ObservableObject
         Refresh();
     }
 
-    private static DateOnly Today => DateOnly.FromDateTime(DateTime.Today);
+    private DateOnly Today => _today();
 
     public string DataPath => _store.Path;
 
@@ -122,9 +126,9 @@ public sealed class MainViewModel : ObservableObject
                     $"All {Days(b.TotalDays)} are used or booked. Nothing will expire.",
                 BalanceStatus.DaysToPlan =>
                     $"You have {Days(b.RemainingDays)} not yet booked. They must be used before {deadline} " +
-                    $"({b.WorkingDaysLeft} working days are still free).",
+                    $"({b.WorkingDaysLeft:0.##} working days are still free).",
                 BalanceStatus.DaysWillBeLost =>
-                    $"You have {Days(b.RemainingDays)} not yet booked, but only {b.WorkingDaysLeft} working days are left " +
+                    $"You have {Days(b.RemainingDays)} not yet booked, but only {b.WorkingDaysLeft:0.##} working days are left " +
                     $"before {deadline}. {Days(b.DaysAtRisk)} will be lost even if you book every remaining day.",
                 BalanceStatus.OverBooked =>
                     $"You have booked {Days(-b.RemainingDays)} more than your allowance for {b.Year}.",
@@ -146,6 +150,7 @@ public sealed class MainViewModel : ObservableObject
             // Default to a single-day booking, and keep the range valid.
             if (value is not null && (NewEnd is null || NewEnd < value))
                 NewEnd = value;
+            UpdateHalfDayAvailability();
             OnPropertyChanged(nameof(NewEntryPreview));
         }
     }
@@ -155,9 +160,32 @@ public sealed class MainViewModel : ObservableObject
         get => _newEnd;
         set
         {
-            if (SetField(ref _newEnd, value))
+            if (!SetField(ref _newEnd, value))
+                return;
+
+            UpdateHalfDayAvailability();
+            OnPropertyChanged(nameof(NewEntryPreview));
+        }
+    }
+
+    /// <summary>A half day can only be booked for a single date.</summary>
+    public bool CanBookHalfDay => NewStart is { } start && NewEnd is { } end && start.Date == end.Date;
+
+    public bool IsHalfDay
+    {
+        get => _isHalfDay;
+        set
+        {
+            if (SetField(ref _isHalfDay, value))
                 OnPropertyChanged(nameof(NewEntryPreview));
         }
+    }
+
+    private void UpdateHalfDayAvailability()
+    {
+        OnPropertyChanged(nameof(CanBookHalfDay));
+        if (!CanBookHalfDay)
+            IsHalfDay = false;
     }
 
     public string NewDescription
@@ -168,8 +196,14 @@ public sealed class MainViewModel : ObservableObject
 
     public string NewEntryPreview =>
         NewStart is { } start && NewEnd is { } end && end >= start
-            ? $"{CountWorkingDays(DateOnly.FromDateTime(start), DateOnly.FromDateTime(end))} working day(s)"
+            ? $"{PreviewDays(DateOnly.FromDateTime(start), DateOnly.FromDateTime(end))} working day(s)"
             : "";
+
+    private string PreviewDays(DateOnly start, DateOnly end)
+    {
+        var days = CountWorkingDays(start, end);
+        return IsHalfDay && days > 0 ? "0.5" : days.ToString();
+    }
 
     public DateTime? NewHoliday
     {
@@ -204,7 +238,11 @@ public sealed class MainViewModel : ObservableObject
             return;
         }
 
-        _data.Entries.Add(new VacationEntry { Start = start, End = end, Description = NewDescription.Trim() });
+        var holidays = _data.AllPublicHolidays();
+        _data.Days = IsHalfDay && start == end
+            ? Bookings.BookHalfDay(_data.Days, start, DayType.Vacation, NewDescription.Trim(), holidays)
+            : Bookings.BookRange(_data.Days, start, end, DayType.Vacation, NewDescription.Trim(), holidays);
+        IsHalfDay = false;
         NewStart = null;
         NewEnd = null;
         NewDescription = "";
@@ -214,7 +252,7 @@ public sealed class MainViewModel : ObservableObject
 
     private void DeleteEntry(EntryRow row)
     {
-        _data.Entries.Remove(row.Entry);
+        _data.Days = Bookings.RemoveDays(_data.Days, row.Period.Dates);
         SaveAndRefresh();
     }
 
@@ -258,18 +296,8 @@ public sealed class MainViewModel : ObservableObject
         return settings;
     }
 
-    /// <summary>Working days in a range that may span several years, honouring each year's holidays.</summary>
-    private int CountWorkingDays(DateOnly start, DateOnly end)
-    {
-        var entry = new VacationEntry { Start = start, End = end };
-        var total = 0;
-        for (var year = start.Year; year <= end.Year; year++)
-        {
-            var holidays = _data.Years.Find(y => y.Year == year)?.PublicHolidays.ToHashSet() ?? [];
-            total += BalanceCalculator.CountWorkingDaysInYear(entry, year, holidays);
-        }
-        return total;
-    }
+    private int CountWorkingDays(DateOnly start, DateOnly end) =>
+        BalanceCalculator.CountWorkingDays(start, end, _data.AllPublicHolidays());
 
     private void SaveAndRefresh()
     {
@@ -286,22 +314,15 @@ public sealed class MainViewModel : ObservableObject
 
     private void Refresh()
     {
-        var year = _settings.Year;
-        var holidays = _settings.PublicHolidays.ToHashSet();
-
         Entries.Clear();
-        foreach (var entry in _data.Entries
-                     .Where(e => e.Start.Year <= year && e.End.Year >= year)
-                     .OrderBy(e => e.Start))
-        {
-            Entries.Add(new EntryRow(entry, BalanceCalculator.CountWorkingDaysInYear(entry, year, holidays), entry.End < Today));
-        }
+        foreach (var period in Bookings.GroupPeriods(_data.Days, _settings.Year, _data.AllPublicHolidays()))
+            Entries.Add(new EntryRow(period, period.End < Today));
 
         Holidays.Clear();
         foreach (var holiday in _settings.PublicHolidays.Order())
             Holidays.Add(holiday);
 
-        Balance = BalanceCalculator.Calculate(_settings, _data.Entries, Today);
+        Balance = BalanceCalculator.Calculate(_settings, _data.Days, Today);
         OnPropertyChanged(nameof(NewEntryPreview));
     }
 

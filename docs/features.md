@@ -2,13 +2,13 @@
 
 Planned features for Vacation Calculator, in the order they should be built. Each one depends on the ones before it.
 
-Status: **Planned** = agreed, ready to implement. **Needs decisions** = open questions below must be answered first.
+Status: **Done** = implemented. **Planned** = agreed, ready to implement. **Needs decisions** = open questions below must be answered first.
 
 ---
 
 ## 1. Half days
 
-**Status:** Planned
+**Status:** Done
 
 Register a single day as a half day (0.5) instead of a full day.
 
@@ -18,10 +18,10 @@ Register a single day as a half day (0.5) instead of a full day.
 
 **Data model change (prerequisite for features 2, 3, 5 and 6):** today an entry is a date range. Clicking single days in a calendar, mixing full and half days, and mixing vacation and Feriefri all work per day, so storage moves to one record per booked day: `Date`, `DayType` (Vacation / Feriefri), `Amount` (1 or 0.5) and an optional description. The "Add vacation" form still accepts a range and creates one record per working day in it.
 
-- Existing data files with range entries must load and be converted on first save, without losing anything.
+- No migration of the old range format: no data file exists yet, so nothing needs converting.
 - The vacation list groups consecutive days of the same type back into ranges for display.
 
-**Agents:** `domain-logic` (model, migration, calculations), then `wpf-ui` (show decimals, list grouping).
+**Agents:** `domain-logic` (model, calculations), then `wpf-ui` (show decimals, list grouping).
 
 ---
 
@@ -60,13 +60,13 @@ Decisions:
 
 - **Order of use:** when two holiday years are open (September to December), booked days use the oldest holiday year first.
 - **Holiday obstacle:** transferring days from the first 4 weeks because of a holiday obstacle (illness, parental leave) is out of scope for now.
-- **Existing settings:** the per-calendar-year "Days per year" and "Carried over from last year" fields are removed. Existing data files still load; those two values are dropped, and all booked days are kept.
+- **Existing settings:** the per-calendar-year "Days per year" and "Carried over from last year" fields are removed. No migration is needed.
 
 The app is a planning aid, not legal advice. Collective agreements (overenskomster) can change some of these rules, e.g. by forbidding transfers or limiting them to 10 days.
 
 When implemented, the "Domain rules" section of `CLAUDE.md` must be updated to match.
 
-**Agents:** `domain-logic` (holiday-year model, accrual, deadline and payout calculations, migration), then `wpf-ui` (settings, per-holiday-year summary, banner text).
+**Agents:** `domain-logic` (holiday-year model, accrual, deadline and payout calculations), then `wpf-ui` (settings, per-holiday-year summary, banner text).
 
 ---
 
@@ -123,7 +123,7 @@ Holidays, matching the previous web version:
 - Each holiday has its Danish name, shown in the calendar tooltip.
 - Clicking, dragging or Shift+clicking over a holiday never books it. Ranges skip it.
 - The manual public-holiday list stays, for extra days off such as Grundlovsdag (5 June) or company days. Manual days follow the same rules: marked, not bookable, not working days.
-- Existing bookings that fall on a holiday (e.g. from an older data file) are not counted and are shown in the calendar as a conflict.
+- Existing bookings that fall on a holiday (e.g. a manual holiday added after the day was booked) are not counted and are shown in the calendar as a conflict.
 
 **Agents:** `domain-logic` (holiday calculation with tests for several years' Easter dates), then `wpf-ui` (marking and blocking in the calendar).
 

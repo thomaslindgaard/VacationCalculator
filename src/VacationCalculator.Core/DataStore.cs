@@ -1,11 +1,16 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace VacationCalculator.Core;
 
 /// <summary>Loads and saves <see cref="VacationData"/> as a JSON file.</summary>
 public sealed class DataStore(string path)
 {
-    private static readonly JsonSerializerOptions Options = new() { WriteIndented = true };
+    private static readonly JsonSerializerOptions Options = new()
+    {
+        WriteIndented = true,
+        Converters = { new JsonStringEnumConverter() },
+    };
 
     public string Path { get; } = path;
 

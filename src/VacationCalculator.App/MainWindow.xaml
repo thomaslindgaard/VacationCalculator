@@ -61,13 +61,13 @@
                 <Border Style="{StaticResource Card}" Margin="0,0,8,0">
                     <StackPanel>
                         <TextBlock Text="Used" Style="{StaticResource StatLabel}" />
-                        <TextBlock Text="{Binding Balance.UsedDays}" Style="{StaticResource StatValue}" />
+                        <TextBlock Text="{Binding Balance.UsedDays, StringFormat={}{0:0.##}}" Style="{StaticResource StatValue}" />
                     </StackPanel>
                 </Border>
                 <Border Style="{StaticResource Card}" Margin="0,0,8,0">
                     <StackPanel>
                         <TextBlock Text="Booked ahead" Style="{StaticResource StatLabel}" />
-                        <TextBlock Text="{Binding Balance.PlannedDays}" Style="{StaticResource StatValue}" />
+                        <TextBlock Text="{Binding Balance.PlannedDays, StringFormat={}{0:0.##}}" Style="{StaticResource StatValue}" />
                     </StackPanel>
                 </Border>
                 <Border Style="{StaticResource Card}" Margin="0,0,8,0">
@@ -80,7 +80,7 @@
                 <Border Style="{StaticResource Card}">
                     <StackPanel>
                         <TextBlock Text="Free working days left" Style="{StaticResource StatLabel}" />
-                        <TextBlock Text="{Binding Balance.WorkingDaysLeft}" Style="{StaticResource StatValue}" />
+                        <TextBlock Text="{Binding Balance.WorkingDaysLeft, StringFormat={}{0:0.##}}" Style="{StaticResource StatValue}" />
                     </StackPanel>
                 </Border>
             </UniformGrid>
@@ -139,6 +139,8 @@
                             <TextBlock Text="Description" Style="{StaticResource FieldLabel}" />
                             <TextBox Text="{Binding NewDescription, UpdateSourceTrigger=PropertyChanged}" Width="180" Height="25" />
                         </StackPanel>
+                        <CheckBox Content="Half day" IsChecked="{Binding IsHalfDay}" IsEnabled="{Binding CanBookHalfDay}"
+                                  VerticalAlignment="Bottom" Margin="0,0,10,4" />
                         <StackPanel VerticalAlignment="Bottom" Orientation="Horizontal">
                             <Button Content="Add vacation" Command="{Binding AddEntryCommand}" IsDefault="True" Height="25" />
                             <TextBlock Text="{Binding NewEntryPreview}" Foreground="{StaticResource MutedBrush}"
@@ -161,10 +163,10 @@
                             </Style>
                         </DataGrid.RowStyle>
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="From" Binding="{Binding Entry.Start, StringFormat=d}" Width="100" />
-                            <DataGridTextColumn Header="To" Binding="{Binding Entry.End, StringFormat=d}" Width="100" />
-                            <DataGridTextColumn Header="Working days" Binding="{Binding WorkingDaysInYear}" Width="100" />
-                            <DataGridTextColumn Header="Description" Binding="{Binding Entry.Description}" Width="*" />
+                            <DataGridTextColumn Header="From" Binding="{Binding Period.Start, StringFormat=d}" Width="100" />
+                            <DataGridTextColumn Header="To" Binding="{Binding Period.End, StringFormat=d}" Width="100" />
+                            <DataGridTextColumn Header="Days" Binding="{Binding Period.Amount, StringFormat={}{0:0.##}}" Width="100" />
+                            <DataGridTextColumn Header="Description" Binding="{Binding Period.Description}" Width="*" />
                             <DataGridTemplateColumn Width="80">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>

@@ -58,7 +58,7 @@ Every completed update to the app is committed and pushed to GitHub (`origin`, h
 
 ## Layout
 
-- `src/VacationCalculator.Core` (net9.0): models, `BalanceCalculator` (all vacation-day arithmetic), `DataStore` (JSON persistence). No UI dependencies.
+- `src/VacationCalculator.Core` (net9.0): models, `BalanceCalculator` (balance arithmetic), `Bookings` (booking and grouping operations), `DataStore` (JSON persistence). No UI dependencies.
 - `src/VacationCalculator.App` (net9.0-windows, WPF): `MainWindow.xaml`, `ViewModels/` (hand-rolled MVVM: `ObservableObject`, `RelayCommand`, `MainViewModel`). Shared styles live in `App.xaml`.
 - `tests/VacationCalculator.Core.Tests` (xUnit): tests for Core. `tester` may add `tests/VacationCalculator.App.Tests` for view-model tests.
 
@@ -66,9 +66,9 @@ Every completed update to the app is committed and pushed to GitHub (`origin`, h
 
 - Allowance is per calendar year: `AllowanceDays + CarryOverDays`. Unused days expire on 31 December.
 - Only working days count: weekdays that are not in that year's `PublicHolidays`. Public holidays are entered by the user; no country's calendar is built in.
-- Entries are inclusive date ranges and may span years; each year counts only its own dates. Overlapping entries count each date once.
+- Bookings are stored per day (`BookedDay`: date, `DayType` Vacation/Feriefri, `Amount` 1 or 0.5, description), at most one record per date. Ranges are only an input/display concept: `Bookings.BookRange` creates one record per working day, and `Bookings.GroupPeriods` groups days back into periods for display.
+- Balances count only `Vacation` days on working days, as decimals. A booked day of either type is not free when counting free working days left.
 - "Used" = vacation dates on or before today; "planned" = after today.
-- Whole days only (allowance and carry-over may be decimals).
 
 ## Conventions
 

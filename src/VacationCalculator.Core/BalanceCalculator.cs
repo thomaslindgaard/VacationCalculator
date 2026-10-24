@@ -6,7 +6,7 @@ public enum BalanceStatus
     AllPlanned,
     /// <summary>Unbooked days remain and there is still time to book them.</summary>
     DaysToPlan,
-    /// <summary>More unbooked days remain than there are working days left in the year.</summary>
+    /// <summary>More unbooked days remain than there are free working days left in the year.</summary>
     DaysWillBeLost,
     /// <summary>More days are booked than the year's allowance.</summary>
     OverBooked,
@@ -18,9 +18,9 @@ public sealed record YearBalance(
     int Year,
     decimal AllowanceDays,
     decimal CarryOverDays,
-    int UsedDays,
-    int PlannedDays,
-    int WorkingDaysLeft,
+    decimal UsedDays,
+    decimal PlannedDays,
+    decimal WorkingDaysLeft,
     BalanceStatus Status)
 {
     public decimal TotalDays => AllowanceDays + CarryOverDays;
@@ -28,7 +28,7 @@ public sealed record YearBalance(
     /// <summary>Days neither taken nor booked. Negative when over-booked.</summary>
     public decimal RemainingDays => TotalDays - UsedDays - PlannedDays;
 
-    /// <summary>Days that cannot be fitted into the rest of the year, even taking every remaining working day off.</summary>
+    /// <summary>Days that cannot be fitted into the rest of the year, even taking every remaining free working day off.</summary>
     public decimal DaysAtRisk => Math.Max(0, RemainingDays - WorkingDaysLeft);
 }
 
@@ -49,40 +49,46 @@ public static class BalanceCalculator
         return count;
     }
 
-    /// <summary>Working days within <paramref name="year"/> covered by <paramref name="entry"/>.</summary>
-    public static int CountWorkingDaysInYear(VacationEntry entry, int year, ISet<DateOnly> holidays)
-    {
-        var (start, end) = Clamp(entry.Start, entry.End, year);
-        return start > end ? 0 : CountWorkingDays(start, end, holidays);
-    }
-
-    public static YearBalance Calculate(YearSettings settings, IEnumerable<VacationEntry> entries, DateOnly today)
+    /// <summary>
+    /// Balance for <paramref name="settings"/>' year. Only <see cref="DayType.Vacation"/> records on
+    /// working days inside the year count: used = on or before <paramref name="today"/>, planned = after.
+    /// <see cref="YearBalance.WorkingDaysLeft"/> sums, for each working day after today (or the whole
+    /// year if today is before it), the part not booked: 1 if free, 0.5 if half booked, 0 if fully
+    /// booked (with any day type, since a day has only one type).
+    /// </summary>
+    public static YearBalance Calculate(YearSettings settings, IEnumerable<BookedDay> days, DateOnly today)
     {
         var year = settings.Year;
-        var holidays = settings.PublicHolidays.ToHashSet();
+        var holidays = (settings.PublicHolidays ?? []).ToHashSet();
 
-        // Collect distinct dates so overlapping entries are not counted twice.
-        var vacationDays = new HashSet<DateOnly>();
-        foreach (var entry in entries)
+        // One record per date; if the input has duplicates, the first wins.
+        var byDate = new Dictionary<DateOnly, BookedDay>();
+        foreach (var day in days)
         {
-            var (start, end) = Clamp(entry.Start, entry.End, year);
-            for (var d = start; d <= end; d = d.AddDays(1))
-            {
-                if (IsWorkingDay(d, holidays))
-                    vacationDays.Add(d);
-            }
+            if (day.Date.Year == year && IsWorkingDay(day.Date, holidays))
+                byDate.TryAdd(day.Date, day);
         }
 
-        var used = vacationDays.Count(d => d <= today);
-        var planned = vacationDays.Count - used;
+        decimal used = 0, planned = 0;
+        foreach (var day in byDate.Values)
+        {
+            if (day.Type != DayType.Vacation)
+                continue;
+            if (day.Date <= today)
+                used += day.Amount;
+            else
+                planned += day.Amount;
+        }
 
         var yearEnd = new DateOnly(year, 12, 31);
         var firstOpenDay = today < new DateOnly(year, 1, 1) ? new DateOnly(year, 1, 1) : today.AddDays(1);
-        var workingDaysLeft = 0;
+        decimal workingDaysLeft = 0;
         for (var d = firstOpenDay; d <= yearEnd; d = d.AddDays(1))
         {
-            if (IsWorkingDay(d, holidays) && !vacationDays.Contains(d))
-                workingDaysLeft++;
+            if (!IsWorkingDay(d, holidays))
+                continue;
+            var booked = byDate.TryGetValue(d, out var day) ? day.Amount : 0;
+            workingDaysLeft += Math.Clamp(1 - booked, 0, 1);
         }
 
         var remaining = settings.AllowanceDays + settings.CarryOverDays - used - planned;
@@ -96,12 +102,5 @@ public static class BalanceCalculator
         };
 
         return new YearBalance(year, settings.AllowanceDays, settings.CarryOverDays, used, planned, workingDaysLeft, status);
-    }
-
-    private static (DateOnly Start, DateOnly End) Clamp(DateOnly start, DateOnly end, int year)
-    {
-        var yearStart = new DateOnly(year, 1, 1);
-        var yearEnd = new DateOnly(year, 12, 31);
-        return (start < yearStart ? yearStart : start, end > yearEnd ? yearEnd : end);
     }
 }
