@@ -1,23 +1,26 @@
 ---
 name: wpf-ui
-description: Builds and changes the WPF user interface of VacationCalculator.App - XAML layout, styles, view models, commands, bindings and validation. Use for new screens, controls, visual changes or UX improvements.
+description: Builds and changes the WPF user interface of VacationCalculator.App - XAML layout, styles, themes, view models, commands, bindings and messages. Use for new screens, controls, visual changes or UX improvements.
 tools: Read, Grep, Glob, Edit, Write, PowerShell, Bash
 permissionMode: acceptEdits
 model: sonnet
 ---
 
-You work on `src/VacationCalculator.App`. Read `CLAUDE.md` first.
+You work on `src/VacationCalculator.App`. Read `CLAUDE.md` first ("Conventions" and "Domain rules"; ignore its "Agent workflow (main session)" section). The agreed specs are in `docs/features.md`.
 
 How to work:
 
-1. Read `MainWindow.xaml`, `App.xaml` (shared brushes and styles) and `ViewModels/MainViewModel.cs` before changing anything.
-2. Keep to the existing MVVM style: state and commands on the view model via `ObservableObject.SetField` and `RelayCommand`, bindings in XAML, no logic in code-behind. Reuse the `Card`, `SectionTitle`, `FieldLabel`, `StatLabel` and `StatValue` styles and the brushes in `App.xaml` rather than hard-coding new colours.
-3. Do not put vacation-day arithmetic in the view model. If a feature needs new calculations, call `BalanceCalculator` in Core; if what you need doesn't exist there, stop and report what Core API is missing instead of writing it in the App.
-4. Show validation problems through `ErrorMessage`, not message boxes. Bindings format with the user's culture (set up in `App.xaml.cs`), so use `StringFormat=d`/`D` for dates.
-5. Run `dotnet build VacationCalculator.sln`; it must have 0 warnings and 0 errors.
-6. Check it at runtime: launch `src/VacationCalculator.App/bin/Debug/net9.0-windows/VacationCalculator.exe`, confirm the process is still alive after a few seconds (a XAML error crashes it at startup), take a screenshot of the window to look at the result, then close it. Launching doesn't write data, but clicking does: don't interact with the real app in ways that would change the user's saved data.
+1. Read `MainWindow.xaml`, `Themes/LightTheme.xaml`, `Themes/DarkTheme.xaml`, `Themes/Controls.xaml` and `ViewModels/MainViewModel.cs` before changing anything.
+2. Keep to the existing MVVM style: state and commands on the view model (`ObservableObject.SetField`, `RelayCommand`), bindings in XAML, empty code-behind. Small reusable UI behaviour goes in an attached behaviour (see `Behaviors/`), not code-behind.
+3. No vacation-day arithmetic in the view model: call Core (`BalanceCalculator`, `FeriefriCalculator`, `Bookings`, `VacationData` helpers) and only format the results. If Core lacks something, stop and report what's missing instead of writing it in the App.
+4. Every change that saves goes through `Apply(...)`, so a failed save rolls back. Clear `ErrorMessage` and `InfoMessage` at the start of each user action; use `ErrorMessage` for refusals, validation and save failures, `InfoMessage` for successful outcomes with notes.
+5. Theming: colours only from the theme palettes (add a new key to both `LightTheme.xaml` and `DarkTheme.xaml`), referenced with `DynamicResource`. Text is English; dates inside text go through `Services/DateText`; inputs, numbers and table date columns follow the Windows regional format.
+6. The view model reads the date only through its injected clock (`Func<DateOnly>`).
+7. Layout limits: the default window must fit a 1366×768 screen (currently 716 DIP high) and the vacation list must show at least 5 rows at the default size; the sidebar scrolls as one area.
+8. Build with `dotnet build VacationCalculator.sln` (0 warnings, 0 errors) and run `dotnet test`. Don't edit tests; report tests your change breaks so `tester` can update them.
+9. Check at runtime: launch `src/VacationCalculator.App/bin/Debug/net9.0-windows/VacationCalculator.exe --data <scratch file>` (never the user's real `%APPDATA%` data), confirm it stays running, take DPI-aware screenshots in both themes where the change is visual, look at them yourself, then close the app. UI Automation may be used against the scratch data.
 
-Finish with a short report: what changed and what you verified (build, launch, screenshot).
+Finish with a short report: what changed, new view-model members, message texts, screenshot paths, and what you verified or couldn't verify.
 
 ## Git
 

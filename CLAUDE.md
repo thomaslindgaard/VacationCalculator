@@ -23,8 +23,8 @@ The main session never writes or changes app code (`src/`, `tests/`) itself. It 
 | Agent | Model | Owns | Does |
 |---|---|---|---|
 | `domain-logic` | opus | `src/VacationCalculator.Core`, its tests | Rules, calculations, models, persistence. Test-first. |
-| `wpf-ui` | sonnet | `src/VacationCalculator.App` | XAML, styles, view models, bindings. Checks the app launches. |
-| `tester` | sonnet | additional tests under `tests/` | Independent edge-case and regression tests; PASS/FAIL verdict. Never edits `src/`. |
+| `wpf-ui` | sonnet | `src/VacationCalculator.App` | XAML, themes, view models, bindings, messages. Checks the app at runtime with `--data`. Doesn't edit tests. |
+| `tester` | sonnet | independent tests under `tests/`, and updating App tests after agreed changes | Independent edge-case and regression tests; PASS/FAIL verdict. Never edits `src/`. |
 | `code-reviewer` | opus | nothing (read-only) | Reviews the full diff for bugs and data-loss risks. |
 
 If the Agent tool says one of these agents doesn't exist, the session started before the agent files were added or changed (Claude Code loads `.claude/agents/` at startup). Stop and ask the user to restart Claude Code; don't substitute a general-purpose agent.
@@ -48,7 +48,11 @@ Each agent only knows what its brief says (plus this file). Include the user's r
 
 ### Done directly by the main session
 
-Only work outside every agent's scope: answering questions, git, `CLAUDE.md`, `.claude/` (agent definitions, settings), the solution file and `.gitignore`.
+Only work outside every agent's scope: answering questions, git, `CLAUDE.md`, `.claude/` (agent definitions, settings), `docs/`, the solution file and `.gitignore`.
+
+### Keep CLAUDE.md and the agent files in line
+
+The agent definitions in `.claude/agents/` repeat the conventions each agent needs. Whenever a rule or convention in this file changes (or an agent's scope or workflow changes), update the affected agent files in the same commit, and vice versa. Agents read both, and CLAUDE.md wins if they ever disagree. Agent file changes take effect in the next Claude Code session; until then, put new rules in the brief.
 
 ## Git
 
@@ -62,9 +66,15 @@ Every completed update to the app is committed and pushed to GitHub (`origin`, h
 
 ## Layout
 
-- `src/VacationCalculator.Core` (net9.0): models, `BalanceCalculator` (balance arithmetic), `Bookings` (booking and grouping operations), `DataStore` (JSON persistence). No UI dependencies.
-- `src/VacationCalculator.App` (net9.0-windows, WPF): `MainWindow.xaml` (sidebar + main content), `ViewModels/` (hand-rolled MVVM: `ObservableObject`, `RelayCommand`, `MainViewModel`), `Themes/` (`LightTheme.xaml` / `DarkTheme.xaml` palettes with identical keys, `Controls.xaml` control styles), `Services/ThemeService.cs` (Light/Dark/System, stored in `vacation-calculator-preferences.json` next to the data file).
-- `tests/VacationCalculator.Core.Tests` (xUnit): tests for Core. `tester` may add `tests/VacationCalculator.App.Tests` for view-model tests.
+- `src/VacationCalculator.Core` (net9.0), no UI dependencies:
+  - `Models.cs` (`VacationData`, `BookedDay`, per-year settings and their inheritance, `DeadlineSettings.Split`), `HolidayYear.cs` (`HolidayYear`, `Accrual`)
+  - `BalanceCalculator` (vacation allocation, balances, calendar-year status), `FeriefriCalculator`, `DanishHolidays`
+  - `Bookings` (booking, removing and grouping days; range cap), `DataStore` (JSON persistence, temp file then move)
+- `src/VacationCalculator.App` (net9.0-windows, WPF):
+  - `MainWindow.xaml` (sidebar + main content), `ViewModels/` (hand-rolled MVVM: `ObservableObject`, `RelayCommand`, `MainViewModel` with `Apply` for every save)
+  - `Themes/` (`LightTheme.xaml` / `DarkTheme.xaml` palettes with identical keys, `Controls.xaml` control styles), `Behaviors/` (attached behaviours, e.g. `CommitOnEnter`)
+  - `Services/`: `ThemeService` (Light/Dark/System, stored in `vacation-calculator-preferences.json` next to the data file), `DateText` (English dates in text), `DataPathResolver` (`--data` option)
+- `tests/VacationCalculator.Core.Tests` and `tests/VacationCalculator.App.Tests` (xUnit). Files named `*Independent*` and most App tests are written by `tester`.
 
 ## Domain rules
 
@@ -92,5 +102,7 @@ Vacation follows the Danish Holiday Act (ferieloven, samtidighedsferie); full sp
 - UI must work in both light and dark themes: colours only come from the theme palettes (add a key to both `LightTheme.xaml` and `DarkTheme.xaml`) and are referenced with `DynamicResource`; no hard-coded colours elsewhere. Check new UI with screenshots in both themes.
 - All user-facing text is English (translations are a later idea). Dates inside text go through `Services/DateText` ("31 December 2026"); inputs, numbers and table date columns follow the Windows regional format.
 - `MainViewModel` takes an injected clock (`Func<DateOnly>`); never read `DateTime.Today` in the App outside that default.
+- Every user change that saves goes through `MainViewModel.Apply`, which snapshots the data and rolls back on a failed save. Each user action clears the messages first; `ErrorMessage` is for refusals, validation and save failures, `InfoMessage` for successful outcomes with notes.
+- Layout limits: the default window fits a 1366×768 screen (716 DIP high) and the vacation list shows at least 5 rows at the default size; the sidebar scrolls as one area.
 - For manual runs and screenshots, start the app with `--data <path>` to use a scratch data file (and preferences next to it) instead of the user's real `%APPDATA%` data.
 - Data lives in `%APPDATA%\VacationCalculator\vacation-data.json`. Changes to the models must stay backward compatible with existing files (new properties need sensible defaults); never write code paths that could overwrite the user's file with empty data.
