@@ -3,7 +3,7 @@
   {"id": "1b", "feature": "Layout and light/dark themes", "size": "M", "points": 2, "status": "Done", "progress": 1, "runsLow": 0, "runsHigh": 0, "commit": "029aa3c"},
   {"id": "2", "feature": "Danish Holiday Act rules", "size": "L", "points": 3, "status": "Done", "progress": 1, "runsLow": 0, "runsHigh": 0, "commit": "3acf8d6"},
   {"id": "2b", "feature": "Calculated transfer and payout", "size": "M", "points": 2, "status": "Done", "progress": 1, "runsLow": 0, "runsHigh": 0, "commit": "db0319a"},
-  {"id": "2c", "feature": "Remove the transfer switch", "size": "S", "points": 1, "status": "In progress", "progress": 0, "runsLow": 3, "runsHigh": 4, "commit": ""},
+  {"id": "2c", "feature": "Remove the transfer switch", "size": "S", "points": 1, "status": "In progress", "progress": 0.5, "runsLow": 2, "runsHigh": 3, "commit": ""},
   {"id": "3","feature": "Feriefri days", "size": "M", "points": 2, "status": "Done", "progress": 1, "runsLow": 0, "runsHigh": 0, "commit": "57a742f"},
   {"id": "4", "feature": "Danish public holidays", "size": "S", "points": 1, "status": "Planned", "progress": 0, "runsLow": 4, "runsHigh": 5, "commit": ""},
   {"id": "5", "feature": "Full-year calendar", "size": "L", "points": 3, "status": "Planned", "progress": 0, "runsLow": 9, "runsHigh": 11, "commit": ""},
