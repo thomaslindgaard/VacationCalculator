@@ -27,6 +27,8 @@ The main session never writes or changes app code (`src/`, `tests/`) itself. It 
 | `tester` | sonnet | additional tests under `tests/` | Independent edge-case and regression tests; PASS/FAIL verdict. Never edits `src/`. |
 | `code-reviewer` | opus | nothing (read-only) | Reviews the full diff for bugs and data-loss risks. |
 
+If the Agent tool says one of these agents doesn't exist, the session started before the agent files were added or changed (Claude Code loads `.claude/agents/` at startup). Stop and ask the user to restart Claude Code; don't substitute a general-purpose agent.
+
 ### Steps for every change
 
 1. **Plan.** Restate the request, decide which agents are involved, and ask the user about anything genuinely ambiguous before starting.
