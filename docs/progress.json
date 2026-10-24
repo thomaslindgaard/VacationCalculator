@@ -6,6 +6,6 @@
   {"id": "2c", "feature": "Remove the transfer switch", "size": "S", "points": 1, "status": "Done", "progress": 1, "runsDone": 5, "runsLow": 0, "runsHigh": 0, "commit": "980f79c"},
   {"id": "3", "feature": "Feriefri days", "size": "M", "points": 2, "status": "Done", "progress": 1, "runsDone": 11, "runsLow": 0, "runsHigh": 0, "commit": "57a742f"},
   {"id": "4", "feature": "Danish public holidays", "size": "S", "points": 1, "status": "Done", "progress": 1, "runsDone": 8, "runsLow": 0, "runsHigh": 0, "commit": "6687e38"},
-  {"id": "5", "feature": "Full-year calendar", "size": "L", "points": 3, "status": "In progress", "progress": 0.6, "runsDone": 4, "runsLow": 3, "runsHigh": 5, "commit": ""},
+  {"id": "5", "feature": "Full-year calendar", "size": "L", "points": 3, "status": "Done", "progress": 1, "runsDone": 7, "runsLow": 0, "runsHigh": 0, "commit": "e638bf7"},
   {"id": "6", "feature": "Click and drag booking in the calendar", "size": "M", "points": 2, "status": "Planned", "progress": 0, "runsDone": 0, "runsLow": 6, "runsHigh": 8, "commit": ""}
 ]
