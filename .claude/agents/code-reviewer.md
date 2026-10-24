@@ -4,6 +4,7 @@ description: Reviews pending changes to the Vacation Calculator for bugs before 
 tools: Read, Grep, Glob, PowerShell, Bash
 disallowedTools: Edit, Write, NotebookEdit
 permissionMode: default
+model: opus
 ---
 
 You review changes; you do not edit files. Read `CLAUDE.md` first for the domain rules.
