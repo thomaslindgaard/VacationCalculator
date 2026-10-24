@@ -27,7 +27,7 @@ Register a single day as a half day (0.5) instead of a full day.
 
 ## 2. Vacation follows the Danish Holiday Act (ferieloven)
 
-**Status:** Needs decisions
+**Status:** Planned
 
 Replace the current model (a fixed allowance per calendar year plus manual carry-over) with the rules of ferieloven (samtidighedsferie, in force since 1 September 2020).
 
@@ -45,6 +45,7 @@ Rules the app implements:
 
 Settings:
 
+- **"Employed since"** (date, optional). Accrual starts on this date; a partial first month accrues in proportion to the days employed. Empty means employed since before the holiday years being tracked.
 - **"5th week can be transferred by agreement with manager"** (on/off, default off). Whether your employment allows transferring unused 5th-week days to the next holiday year.
   - **Off:** unused 5th-week days are paid out at the deadline. The banner says they will be paid out.
   - **On:** for each holiday year you can register how many 5th-week days were transferred (at most the days beyond 20 that are still unused). Transferred days are added to the next holiday year and expire with it. Until a transfer is registered, the banner says unused 5th-week days "can be transferred by agreement before 31 December, otherwise they are paid out".
@@ -55,12 +56,11 @@ What the app shows:
 - The status banner warns about the holiday year whose deadline is 31 December of the selected calendar year. It splits unused days into **days that will be lost** (within the first 20) and **days that will be paid out** (the 5th week, unless transferred).
 - Warns when bookings go beyond earned days (advance holiday) and when they exceed what can be earned by 31 August.
 
-Open questions:
+Decisions:
 
-1. **Employment start:** add an "Employed since" setting so accrual starts there? (Proposed: yes; empty = employed before the holiday years being tracked. A partial first month accrues in proportion to the days employed.)
-2. **Order of use:** when two holiday years are open (September to December), booked days use the oldest holiday year first. Agreed?
-3. **Holiday obstacle:** should the app support transferring days from the first 4 weeks because of a holiday obstacle, or leave that out? (Proposed: leave out for now.)
-4. **Existing settings:** the current per-calendar-year "Days per year" and "Carried over from last year" fields go away. Booked days are kept. Is it OK to drop those two settings from existing data? (Proposed: yes.)
+- **Order of use:** when two holiday years are open (September to December), booked days use the oldest holiday year first.
+- **Holiday obstacle:** transferring days from the first 4 weeks because of a holiday obstacle (illness, parental leave) is out of scope for now.
+- **Existing settings:** the per-calendar-year "Days per year" and "Carried over from last year" fields are removed. Existing data files still load; those two values are dropped, and all booked days are kept.
 
 The app is a planning aid, not legal advice. Collective agreements (overenskomster) can change some of these rules, e.g. by forbidding transfers or limiting them to 10 days.
 
