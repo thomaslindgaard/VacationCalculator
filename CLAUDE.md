@@ -37,6 +37,10 @@ If the Agent tool says one of these agents doesn't exist, the session started be
 4. **Review.** Send `code-reviewer` the request and a summary of what changed.
 5. **Fix loop.** If `tester` reports FAIL, `code-reviewer` reports a real problem, or a report is wrong or incomplete, send the specifics back to the owning implementation agent and repeat from step 3. Do not fix it in the main session.
 6. **Verify and ship.** Run `dotnet build VacationCalculator.sln` and `dotnet test` yourself, then commit and push (see Git). Tell the user what changed and what was verified.
+7. **Update the progress page** after a commit that finishes a backlog feature or moves one forward. The page is the Dashboard artifact https://claude.ai/artifact/Ap7ocvkS2ZMjKbNXwKN1nA; its data is `docs/progress.json`.
+   - Edit `docs/progress.json`: the feature's `status` (Planned / In progress / Done), `progress` (0–1), `runsLow`/`runsHigh` (estimated agent runs left; 0 when done) and `commit` (short hash of the feature commit). Add a row for any new backlog feature, with a size (S = 1, M = 2, L = 3 points).
+   - Upload it to the artifact as an asset, update the `datasets/features` document's `source.url` and `updated` (read the Dashboard type's instructions before writing), and delete the previous asset.
+   - Commit and push `docs/progress.json` on its own ("Update progress page").
 
 ### Writing a brief
 
