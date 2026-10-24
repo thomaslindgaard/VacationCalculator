@@ -25,7 +25,27 @@ Register a single day as a half day (0.5) instead of a full day.
 
 ---
 
-## 2. Vacation follows the Danish Holiday Act (ferieloven)
+## 1b. Layout and theming inspired by Claude Desktop, with light and dark themes
+
+**Status:** Planned (next, before feature 2)
+
+Restyle the app with Claude Desktop as the inspiration for layout and look, and support both a light and a dark theme. Inspiration only: no Anthropic or Claude names, logos or icons.
+
+Layout:
+
+- A **left sidebar** with the app name, year navigation, settings (allowance, carry-over) and public holidays. A theme switch sits at the bottom of the sidebar.
+- A **main content area** with the summary figures, the status banner and the vacation list. The full-year calendar (feature 5) will later become the main content here.
+- Generous whitespace, rounded corners, thin subtle borders instead of heavy boxes, and calm typography with clear size steps for headings, labels and numbers.
+
+Theming:
+
+- Warm neutral backgrounds (off-white/cream in light, warm charcoal in dark) instead of pure white/black, with a single warm terracotta accent colour for primary buttons, the selected state and key numbers.
+- Status colours (all planned, days to plan, days will be lost, over-booked, expired) have light and dark variants with enough contrast in both.
+- All colours are defined once as theme resources; the existing hard-coded colours in `MainWindow.xaml` move into them.
+- Every control is themed in both modes, including DataGrid, DatePicker (and its calendar popup), CheckBox, TextBox, ListBox, buttons, scrollbars and tooltips. The window title bar follows the theme.
+- **Theme choice: Light / Dark / System**, default System (follows the Windows app theme and updates if Windows switches while the app is running). The choice is remembered between sessions in a small preferences file next to the data file, separate from the vacation data.
+
+**Agents:** `wpf-ui`.
 
 **Status:** Planned
 
