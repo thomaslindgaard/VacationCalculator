@@ -14,9 +14,9 @@ Register a single day as a half day (0.5) instead of a full day.
 
 - A booked day counts as either 1 or 0.5 days against the balance.
 - Balances, used/booked/remaining figures and the status banner show half days (e.g. "12.5 days").
-- A booking that spans several days uses full days. Half days are set per day (in practice through the calendar, feature 3).
+- A booking that spans several days uses full days. Half days are set per day (in practice through the calendar, feature 4).
 
-**Data model change (prerequisite for features 2 to 4):** today an entry is a date range. Clicking single days in a calendar, mixing full and half days, and mixing vacation and Feriefri all work per day, so storage moves to one record per booked day: `Date`, `DayType` (Vacation / Feriefri), `Amount` (1 or 0.5) and an optional description. The "Add vacation" form still accepts a range and creates one record per working day in it.
+**Data model change (prerequisite for features 2 to 5):** today an entry is a date range. Clicking single days in a calendar, mixing full and half days, and mixing vacation and Feriefri all work per day, so storage moves to one record per booked day: `Date`, `DayType` (Vacation / Feriefri), `Amount` (1 or 0.5) and an optional description. The "Add vacation" form still accepts a range and creates one record per working day in it.
 
 - Existing data files with range entries must load and be converted on first save, without losing anything.
 - The vacation list groups consecutive days of the same type back into ranges for display.
@@ -25,7 +25,47 @@ Register a single day as a half day (0.5) instead of a full day.
 
 ---
 
-## 2. Feriefri days
+## 2. Vacation follows the Danish Holiday Act (ferieloven)
+
+**Status:** Needs decisions
+
+Replace the current model (a fixed allowance per calendar year plus manual carry-over) with the rules of ferieloven (samtidighedsferie, in force since 1 September 2020).
+
+Rules the app implements:
+
+- **Accrual:** 2.08 days per month of employment, 25 days for a full holiday year. To make a full year exactly 25, the app accrues 25/12 per month.
+- **Holiday year (ferieår):** 1 September to 31 August. Days are earned during the holiday year.
+- **When days can be used:** days earned in a month can be used from the first day of the following month.
+- **Deadline:** each holiday year's days must be used during its holiday-taking period (ferieafholdelsesperiode), from 1 September at the start of the holiday year until **31 December the following year** (16 months). Days earned 1 Sep 2025 to 31 Aug 2026 must be used by 31 Dec 2026.
+- **Two pots at once:** from September to December, two holiday years are open at the same time (the old one about to expire and the new one being earned).
+- **What happens to unused days at the deadline:**
+  - Days beyond 4 weeks (the 5th week, up to 5 days) are paid out automatically, unless they are transferred to the next holiday year by agreement made no later than 31 December.
+  - Unused days within the first 4 weeks (20 days) are lost, unless there was a holiday obstacle (feriehindring, e.g. illness or parental leave).
+- **Advance holiday (ferie på forskud):** by agreement, days can be taken before they are earned, but never more than can be earned by 31 August of that holiday year.
+
+What the app shows:
+
+- For each open holiday year: earned so far, used, booked ahead, remaining, and its deadline.
+- The status banner warns about the holiday year whose deadline is 31 December of the selected calendar year. It splits unused days into **days that will be lost** (within the first 20) and **days that will be paid out** (the 5th week, unless transferred).
+- Warns when bookings go beyond earned days (advance holiday) and when they exceed what can be earned by 31 August.
+
+Open questions:
+
+1. **Employment start:** add an "Employed since" setting so accrual starts there? (Proposed: yes; empty = employed before the holiday years being tracked. A partial first month accrues in proportion to the days employed.)
+2. **Order of use:** when two holiday years are open (September to December), booked days use the oldest holiday year first. Agreed?
+3. **Transfer:** should you be able to register an agreed transfer (overførsel) of 5th-week days to the next holiday year? (Proposed: yes, a per-holiday-year field limited to the days beyond 20.)
+4. **Holiday obstacle:** should the app support transferring days from the first 4 weeks because of a holiday obstacle, or leave that out? (Proposed: leave out for now.)
+5. **Existing settings:** the current per-calendar-year "Days per year" and "Carried over from last year" fields go away. Booked days are kept. Is it OK to drop those two settings from existing data? (Proposed: yes.)
+
+The app is a planning aid, not legal advice. Collective agreements (overenskomster) can change some of these rules, e.g. by forbidding transfers or limiting them to 10 days.
+
+When implemented, the "Domain rules" section of `CLAUDE.md` must be updated to match.
+
+**Agents:** `domain-logic` (holiday-year model, accrual, deadline and payout calculations, migration), then `wpf-ui` (settings, per-holiday-year summary, banner text).
+
+---
+
+## 3. Feriefri days
 
 **Status:** Needs decisions
 
@@ -33,25 +73,25 @@ A second type of day off with its own yearly allowance, separate from regular va
 
 Agreed so far:
 
-- Default allowance is 5 days per year, configurable per year (like the vacation allowance).
+- **Period:** the allowance follows the calendar year (1 January to 31 December).
+- Default allowance is 5 days per year, configurable per calendar year.
 - Has its own balance: total / used / booked / remaining.
 - Can be booked as full or half days.
 - Shown separately from vacation in the summary, the list and the calendar.
 
 Open questions:
 
-1. **Period:** does the Feriefri allowance follow the calendar year (1 January to 31 December) like vacation, or another period, e.g. 1 May to 30 April or 1 September to 31 August?
-2. **Expiry:** do unused Feriefri days expire at the end of the period, can they be carried over, or are they paid out? Should the app warn about them the same way it warns about vacation?
-3. **Carry-over:** should Feriefri have a "carried over from last year" field like vacation?
-4. **Pro-rating:** if employment starts or ends mid-year, is the allowance reduced (e.g. 5 × months/12), or always the full number?
-5. **Order of use:** does it matter which is used first? For example, should the app suggest using Feriefri before regular vacation?
-6. **Deadline warning:** when working out whether days will be lost, should vacation and Feriefri compete for the same free working days left in the year? (Proposed: yes, combined.)
+1. **Expiry:** do unused Feriefri days expire on 31 December, carry over, or get paid out? Should the app warn about them the same way it warns about vacation?
+2. **Carry-over:** should Feriefri have a "carried over from last year" field?
+3. **Pro-rating:** if employment starts or ends mid-year, is the allowance reduced (e.g. 5 × months/12), or always the full number?
+4. **Order of use:** does it matter which is used first? For example, should the app suggest using Feriefri before regular vacation?
+5. **Deadline warning:** when working out whether days will be lost, should vacation and Feriefri compete for the same free working days left in the year? (Proposed: yes, combined.)
 
 **Agents:** `domain-logic` (day type, allowance, balance rules), then `wpf-ui` (settings field, summary, list).
 
 ---
 
-## 3. Full-year calendar
+## 4. Full-year calendar
 
 **Status:** Planned (some details proposed below)
 
@@ -71,7 +111,7 @@ Proposed: the calendar becomes the main view, and the existing vacation list and
 
 ---
 
-## 4. Click to cycle day state
+## 5. Click to cycle day state
 
 **Status:** Needs decisions
 
@@ -95,5 +135,12 @@ Open questions:
 
 ## Later ideas (not agreed)
 
+- Main-holiday check (hovedferie): warn if fewer than 15 consecutive days (3 weeks) are booked between 1 May and 30 September.
 - Mark public holidays by right-clicking a day in the calendar instead of using the date picker.
-- Option to pre-fill a country's public holidays (e.g. Danish helligdage).
+- Option to pre-fill Danish public holidays (helligdage).
+
+## Sources
+
+- [Dansk Industri: Ferie](https://www.danskindustri.dk/vi-radgiver-dig/personale/ferie-og-fridage/ferie/)
+- [Azets: Ferieår](https://www.azets.com/da-dk/ressourcer/blog/feriear)
+- [Dataløn: Guide til ferie, principper og regler](https://www.dataloen.dk/siteassets/pdf/ferielov/guide-ferie-principper-og-regler.pdf)
