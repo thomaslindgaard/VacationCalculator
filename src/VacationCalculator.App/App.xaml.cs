@@ -27,7 +27,7 @@ public partial class App : Application
         var dataArg = Array.IndexOf(e.Args, "--data");
         if (dataArg >= 0)
         {
-            var resolved = dataArg + 1 < e.Args.Length ? ResolveDataPath(e.Args[dataArg + 1]) : null;
+            var resolved = dataArg + 1 < e.Args.Length ? DataPathResolver.Resolve(e.Args[dataArg + 1]) : null;
             if (resolved is null)
             {
                 MessageBox.Show(
@@ -65,22 +65,6 @@ public partial class App : Application
         var window = new MainWindow { DataContext = viewModel };
         _theme.Attach(window);
         window.Show();
-    }
-
-    private static string? ResolveDataPath(string value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return null;
-
-        try
-        {
-            var full = Path.GetFullPath(value);
-            return Directory.Exists(full) ? null : full;
-        }
-        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException or System.Security.SecurityException)
-        {
-            return null;
-        }
     }
 
     protected override void OnExit(ExitEventArgs e)
