@@ -316,7 +316,7 @@ public sealed class MainViewModel : ObservableObject
     {
         Entries.Clear();
         foreach (var period in Bookings.GroupPeriods(_data.Days, _settings.Year, _data.AllPublicHolidays()))
-            Entries.Add(new EntryRow(period, period.End < Today));
+            Entries.Add(new EntryRow(period, period.End <= Today));
 
         Holidays.Clear();
         foreach (var holiday in _settings.PublicHolidays.Order())

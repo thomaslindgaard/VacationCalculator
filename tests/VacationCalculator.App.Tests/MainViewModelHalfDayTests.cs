@@ -103,8 +103,8 @@ public class MainViewModelHalfDayTests : IDisposable
         vm.AddEntryCommand.Execute(null);
 
         var row = Assert.Single(vm.Entries);
-        // Balance counts today as used. Row IsPast (pre-existing rule: End < today) is only dimming; not asserted here.
         Assert.Equal(new DateOnly(2030, 7, 10), row.Period.End);
+        Assert.True(row.IsPast);
         Assert.Equal(0.5m, vm.Balance.UsedDays);
         Assert.Equal(0m, vm.Balance.PlannedDays);
     }
@@ -121,6 +121,70 @@ public class MainViewModelHalfDayTests : IDisposable
         var row = Assert.Single(vm.Entries);
         Assert.False(row.IsPast); // ends after today
         Assert.Equal(3m, vm.Balance.UsedDays);
+        Assert.Equal(2m, vm.Balance.PlannedDays);
+    }
+
+    // IsPast cases. Today = Wed 2030-07-10; yesterday Tue 07-09; tomorrow Thu 07-11.
+    [Fact]
+    public void IsPast_PeriodEndingYesterday_IsTrue()
+    {
+        var vm = NewVm();
+        vm.NewStart = Mon;
+        vm.NewEnd = Mon.AddDays(1); // Mon..Tue = 2 days, all before today
+        vm.AddEntryCommand.Execute(null);
+
+        Assert.True(Assert.Single(vm.Entries).IsPast);
+        Assert.Equal(2m, vm.Balance.UsedDays);
+    }
+
+    [Fact]
+    public void IsPast_FullDayBookedToday_IsTrue_AndCountedUsed()
+    {
+        var vm = NewVm();
+        vm.NewStart = Wed;
+        vm.AddEntryCommand.Execute(null);
+
+        Assert.True(Assert.Single(vm.Entries).IsPast);
+        Assert.Equal(1m, vm.Balance.UsedDays);
+        Assert.Equal(0m, vm.Balance.PlannedDays);
+    }
+
+    [Fact]
+    public void IsPast_PeriodEndingToday_StartedEarlier_IsTrue()
+    {
+        var vm = NewVm();
+        vm.NewStart = Mon;
+        vm.NewEnd = Wed; // Mon, Tue, Wed = 3 days, all used
+        vm.AddEntryCommand.Execute(null);
+
+        Assert.True(Assert.Single(vm.Entries).IsPast);
+        Assert.Equal(3m, vm.Balance.UsedDays);
+        Assert.Equal(0m, vm.Balance.PlannedDays);
+    }
+
+    [Fact]
+    public void IsPast_PeriodEndingTomorrow_StartedBeforeToday_IsFalse()
+    {
+        var vm = NewVm();
+        vm.NewStart = Mon;
+        vm.NewEnd = Thu; // Mon..Thu: 3 used, 1 planned
+        vm.AddEntryCommand.Execute(null);
+
+        Assert.False(Assert.Single(vm.Entries).IsPast);
+        Assert.Equal(3m, vm.Balance.UsedDays);
+        Assert.Equal(1m, vm.Balance.PlannedDays);
+    }
+
+    [Fact]
+    public void IsPast_FuturePeriod_IsFalse()
+    {
+        var vm = NewVm();
+        vm.NewStart = Thu;
+        vm.NewEnd = Thu.AddDays(1); // Thu, Fri
+        vm.AddEntryCommand.Execute(null);
+
+        Assert.False(Assert.Single(vm.Entries).IsPast);
+        Assert.Equal(0m, vm.Balance.UsedDays);
         Assert.Equal(2m, vm.Balance.PlannedDays);
     }
 
