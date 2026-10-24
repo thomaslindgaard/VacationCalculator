@@ -106,6 +106,12 @@ Settings (in the sidebar):
   - **"Unused days paid out instead of lost"**: **None** (default), **Some** (a number of days) or **All**. This only applies to unused days beyond the 5th week (see below); it reflects the employee's contract.
   - A holiday year without its own values uses the previous holiday year's values; if there are none, the defaults (5 days, none paid out).
 
+**Opening balance:** transfers are only calculated from a starting point the user sets, never assumed for earlier years:
+
+- **"First holiday year tracked"** and **"Days transferred into it"** (the opening balance, default 0), in the Employment settings. The default first year is the oldest holiday year open when the data is first saved (e.g. 2025/26 on 24 Oct 2026); it is stored then, so it doesn't move as time passes. The user can change it.
+- The first tracked holiday year's transferred-in days are the opening balance. Each later year's transferred-in days are calculated from the year before.
+- Holiday years before the first tracked year transfer nothing and get no transfer calculation; bookings in them still count as used vacation for those years.
+
 Days transferred into a holiday year are used first within that year (they are the oldest days). They must be used in that holiday year: they can never be transferred again (vacation days are never transferred more than one year; days from 2025 can never reach 2027), and if unused at its deadline they are lost.
 
 Calculation at each holiday year's deadline (31 December of the following year), from the days still unused after all bookings (used and booked ahead):
