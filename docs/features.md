@@ -231,6 +231,8 @@ Booking a range in the calendar:
 
 ## Later ideas (not agreed)
 
+- **Translations:** make the interface translatable (at least English and Danish), including dates in text. Until then all text, including dates in sentences and headings (e.g. "31 December 2026"), is English; number fields and date pickers follow the Windows regional format.
+
 - Main-holiday check (hovedferie): warn if fewer than 15 consecutive days (3 weeks) are booked between 1 May and 30 September.
 
 ## Sources
