@@ -26,7 +26,7 @@ public sealed record HolidayYearRow(
             b.HolidayYear.ToString(), $"{b.EarnedSoFar:0.##} of {b.EarnableDays:0.##}", b.TransferredIn, b.TransferredToNext, b.UsedDays,
             b.BookedAheadDays, b.RemainingDays, Math.Sign(b.RemainingDays), b.Deadline, note, b.ExceedsEarnableBy > 0,
             b.TransferredInIsProjected,
-            $"Projected transfer from {b.HolidayYear.Previous} on {b.HolidayYear.Previous.Deadline:D}. " +
+            $"Projected transfer from {b.HolidayYear.Previous} on {DateText.Long(b.HolidayYear.Previous.Deadline)}. " +
             $"Until then these days still count as remaining in {b.HolidayYear.Previous}.");
     }
 }
@@ -234,7 +234,7 @@ public sealed class MainViewModel : ObservableObject
     private DeadlineSettings DeadlineSettings => Status.HolidayYear.Settings;
 
     /// <summary>Heading of the per-holiday-year settings in the sidebar.</summary>
-    public string DeadlineSettingsTitle => $"When {DeadlineYear} expires ({DeadlineYear.Deadline:D})";
+    public string DeadlineSettingsTitle => $"When {DeadlineYear} expires ({DateText.Long(DeadlineYear.Deadline)})";
 
     public decimal TransferLimitDays
     {
@@ -332,7 +332,7 @@ public sealed class MainViewModel : ObservableObject
     }
 
     public string HolidayYearTitle =>
-        $"Holiday year {Status.HolidayYear.HolidayYear} · use by 31 December {Status.Year}";
+        $"Holiday year {Status.HolidayYear.HolidayYear} · use by {DateText.Long(new DateOnly(Status.Year, 12, 31))}";
 
     public string EarnableNote => $"of {Status.HolidayYear.EarnableDays:0.##} earnable";
 
@@ -344,7 +344,7 @@ public sealed class MainViewModel : ObservableObject
         get
         {
             var s = Status;
-            var deadline = $"31 December {s.Year}";
+            var deadline = DateText.Long(new DateOnly(s.Year, 12, 31));
             var unbooked = s.UnbookedDays;
             // The free-day count starts today in the current year, and covers the whole year for a future one.
             var window = s.Year > Today.Year
@@ -532,7 +532,7 @@ public sealed class MainViewModel : ObservableObject
         if (!Bookings.IsRangeWithinLimit(start, end))
         {
             ErrorMessage = $"A booking can cover at most one year. The latest end date for a booking starting " +
-                $"{startDate:d} is {Bookings.LatestAllowedEnd(start).ToDateTime(TimeOnly.MinValue):d}.";
+                $"{DateText.Long(start)} is {DateText.Long(Bookings.LatestAllowedEnd(start))}.";
             return;
         }
         if (CountWorkingDays(start, end) == 0)

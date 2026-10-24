@@ -89,6 +89,7 @@ Vacation follows the Danish Holiday Act (ferieloven, samtidighedsferie); full sp
 - Use `DateOnly` for dates in Core; convert at the view-model boundary (`DatePicker` uses `DateTime?`).
 - No MVVM or UI frameworks/NuGet packages without asking; keep code-behind empty.
 - UI must work in both light and dark themes: colours only come from the theme palettes (add a key to both `LightTheme.xaml` and `DarkTheme.xaml`) and are referenced with `DynamicResource`; no hard-coded colours elsewhere. Check new UI with screenshots in both themes.
+- All user-facing text is English (translations are a later idea). Dates inside text go through `Services/DateText` ("31 December 2026"); inputs, numbers and table date columns follow the Windows regional format.
 - `MainViewModel` takes an injected clock (`Func<DateOnly>`); never read `DateTime.Today` in the App outside that default.
 - For manual runs and screenshots, start the app with `--data <path>` to use a scratch data file (and preferences next to it) instead of the user's real `%APPDATA%` data.
 - Data lives in `%APPDATA%\VacationCalculator\vacation-data.json`. Changes to the models must stay backward compatible with existing files (new properties need sensible defaults); never write code paths that could overwrite the user's file with empty data.

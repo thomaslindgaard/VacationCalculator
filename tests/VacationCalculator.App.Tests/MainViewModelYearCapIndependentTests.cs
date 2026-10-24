@@ -41,7 +41,7 @@ public class MainViewModelYearCapIndependentTests : IDisposable
 
         vm.AddEntryCommand.Execute(null);
 
-        Assert.Equal("A booking can cover at most one year. The latest end date for a booking starting 03/15/2026 is 03/14/2027.",
+        Assert.Equal("A booking can cover at most one year. The latest end date for a booking starting 15 March 2026 is 14 March 2027.",
             vm.ErrorMessage);
         Assert.Equal(before, File.Exists(FilePath) ? File.ReadAllText(FilePath) : null);
         Assert.Empty(vm.Entries);
@@ -54,7 +54,7 @@ public class MainViewModelYearCapIndependentTests : IDisposable
         var vm = NewVm();
         Set(vm, new DateTime(2028, 2, 29), new DateTime(2029, 3, 1));
         vm.AddEntryCommand.Execute(null);
-        Assert.Contains("starting 02/29/2028 is 02/28/2029.", vm.ErrorMessage);
+        Assert.Contains("starting 29 February 2028 is 28 February 2029.", vm.ErrorMessage);
     });
 
     [Fact]

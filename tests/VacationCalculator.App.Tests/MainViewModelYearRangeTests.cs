@@ -66,7 +66,8 @@ public class MainViewModelYearRangeTests : IDisposable
             Assert.Equal(new HolidayYear(year - 1).ToString(), vm.HolidayYearRows[0].Name);
             Assert.Equal(new HolidayYear(year).ToString(), vm.HolidayYearRows[1].Name);
             Assert.Equal(new HolidayYear(year - 1), vm.Status.HolidayYear.HolidayYear);
-            Assert.Contains($"31 December {year}", vm.HolidayYearTitle);
+            // "yyyy" zero-pads the absurd edge years: 31 December 0002.
+            Assert.Contains($"31 December {year:D4}", vm.HolidayYearTitle);
             // Deadline settings can be changed in these years too.
             vm.TransferLimitDays = 3m;
             vm.PayoutAll = true;

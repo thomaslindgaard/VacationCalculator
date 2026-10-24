@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="clr-namespace:VacationCalculator.App.ViewModels"
+        xmlns:svc="clr-namespace:VacationCalculator.App.Services"
         xmlns:core="clr-namespace:VacationCalculator.Core;assembly=VacationCalculator.Core"
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance vm:MainViewModel}"
@@ -16,6 +17,7 @@
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+        <svc:DateTextConverter x:Key="DateText" />
     </Window.Resources>
 
     <Grid>
@@ -143,7 +145,7 @@
                                             Padding="6,0" MinWidth="0" MinHeight="0" ToolTip="Remove"
                                             Command="{Binding DataContext.RemoveHolidayCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                             CommandParameter="{Binding}" />
-                                    <TextBlock Text="{Binding StringFormat=D}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{Binding Converter={StaticResource DateText}, ConverterParameter=Weekday}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                 </DockPanel>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
