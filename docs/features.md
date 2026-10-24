@@ -70,9 +70,7 @@ Rules the app implements:
 Settings:
 
 - **"Employed since"** (date, optional). Accrual starts on this date; a partial first month accrues in proportion to the days employed. Empty means employed since before the holiday years being tracked.
-- **"5th week can be transferred by agreement with manager"** (on/off, default off). Whether your employment allows transferring unused 5th-week days to the next holiday year.
-  - **Off:** unused 5th-week days are paid out at the deadline. The banner says they will be paid out.
-  - **On:** for each holiday year you can register how many 5th-week days were transferred (at most the days beyond 20 that are still unused). Transferred days are added to the next holiday year and expire with it. Until a transfer is registered, the banner says unused 5th-week days "can be transferred by agreement before 31 December, otherwise they are paid out".
+- **Transfer and payout of unused days:** replaced by feature 2b (calculated, not registered).
 
 What the app shows:
 
@@ -82,7 +80,7 @@ What the app shows:
 
 Decisions:
 
-- **Order of use:** when two holiday years are open (September to December), booked days use the oldest holiday year first. This always applies, also after a 5th-week transfer has been registered: booking more days in September–December uses the older year's days first and reduces the transfer.
+- **Order of use:** when two holiday years are open (September to December), booked days use the oldest holiday year first. This always applies: booking more days in September–December uses the older year's days first, which reduces what is left to transfer from it.
 - **Holiday obstacle:** transferring days from the first 4 weeks because of a holiday obstacle (illness, parental leave) is out of scope for now.
 - **Existing settings:** the per-calendar-year "Days per year" and "Carried over from last year" fields are removed. No migration is needed.
 
@@ -91,6 +89,32 @@ The app is a planning aid, not legal advice. Collective agreements (overenskomst
 When implemented, the "Domain rules" section of `CLAUDE.md` must be updated to match.
 
 **Agents:** `domain-logic` (holiday-year model, accrual, deadline and payout calculations), then `wpf-ui` (settings, per-holiday-year summary, banner text).
+
+---
+
+## 2b. Calculated transfer and payout of unused days
+
+**Status:** Planned (next)
+
+Changes feature 2: 5th-week transfers are no longer registered per holiday year. The app only knows whether transfer is allowed and how many days can be transferred, and calculates what happens to each holiday year's unused days at its deadline: transferred, paid out or lost.
+
+Settings (employment-wide, in the sidebar):
+
+- **"Unused days can be transferred to the next holiday year"** (on/off, default off).
+- **"Days that can be transferred"** (number, default **5**, as in the Holiday Act). It can be set higher when the employee has a personal agreement in their contract. Shown only when transfer is on.
+- **"Unused days paid out instead of lost"**: **None** (default), **Some** (a number of days) or **All**.
+
+Calculation at each holiday year's deadline (31 December of the following year), from the days still unused after all bookings (used and booked ahead):
+
+1. **Transferred:** if transfer is on, up to the transfer limit, 5th-week days first (days beyond 20 of the year's own earnings, plus days transferred in), then other unused days if the limit is higher. Transferred days are added to the next holiday year's total and follow the same rules at its deadline.
+2. **Paid out:** of the days still unused after the transfer, up to the payout setting (none, some N, or all).
+3. **Lost:** the rest.
+
+The banner and the holiday-years card show the projected split for the holiday year whose deadline is in the selected calendar year (e.g. "If they are not booked, 5 days will be transferred to 2026/27 and 3 days will be lost"), and after the deadline what happened.
+
+Removed: the per-holiday-year "Days transferred to next holiday year" input and the stored `TransferredToNext` values (old values in the data file are ignored). The rule that unused 5th-week days are paid out by default is replaced by the payout setting (default none = lost); this deviates from the Holiday Act on purpose, as the user's employment terms decide.
+
+**Agents:** `domain-logic` (settings model, transfer/payout/lost calculation), then `wpf-ui` (sidebar settings, banner and card text).
 
 ---
 
