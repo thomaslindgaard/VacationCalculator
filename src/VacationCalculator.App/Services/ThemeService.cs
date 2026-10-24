@@ -30,6 +30,7 @@ public sealed class ThemeService : IDisposable
     private readonly List<Window> _windows = [];
     private ThemeMode _mode;
     private bool _disposed;
+    private bool _summaryExpanded;
 
     /// <param name="preferencesPath">Where to remember the choice; null keeps it in memory only.</param>
     /// <param name="systemPrefersDark">Whether Windows prefers dark apps; defaults to reading the registry.</param>
@@ -38,6 +39,7 @@ public sealed class ThemeService : IDisposable
         _preferencesPath = preferencesPath;
         _systemPrefersDark = systemPrefersDark ?? WindowsPrefersDark;
         _mode = preferencesPath is null ? ThemeMode.System : LoadMode(preferencesPath);
+        _summaryExpanded = preferencesPath is null || LoadSummaryExpanded(preferencesPath);
         SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
     }
 
@@ -66,6 +68,23 @@ public sealed class ThemeService : IDisposable
             SaveMode();
             Apply();
             Changed?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    /// <summary>
+    /// Whether the summary (stat cards and holiday-year tables) above the calendar is expanded. Remembered in the same
+    /// preferences file as the theme; expanded when the file has no such field or can't be read.
+    /// </summary>
+    public bool SummaryExpanded
+    {
+        get => _summaryExpanded;
+        set
+        {
+            if (value == _summaryExpanded)
+                return;
+
+            _summaryExpanded = value;
+            SaveMode();
         }
     }
 
@@ -163,6 +182,24 @@ public sealed class ThemeService : IDisposable
         return ThemeMode.System;
     }
 
+    private static bool LoadSummaryExpanded(string path)
+    {
+        try
+        {
+            if (!File.Exists(path))
+                return true;
+
+            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            if (document.RootElement.TryGetProperty("summaryExpanded", out var value)
+                && value.ValueKind is JsonValueKind.True or JsonValueKind.False)
+                return value.GetBoolean();
+        }
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+        }
+        return true;
+    }
+
     private void SaveMode()
     {
         if (_preferencesPath is null)
@@ -171,7 +208,7 @@ public sealed class ThemeService : IDisposable
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(_preferencesPath)!);
-            File.WriteAllText(_preferencesPath, JsonSerializer.Serialize(new { theme = _mode.ToString() }, new JsonSerializerOptions { WriteIndented = true }));
+            File.WriteAllText(_preferencesPath, JsonSerializer.Serialize(new { theme = _mode.ToString(), summaryExpanded = _summaryExpanded }, new JsonSerializerOptions { WriteIndented = true }));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

@@ -23,6 +23,10 @@
     <SolidColorBrush x:Key="FeriefriBrush" Color="#2A7A80" />
     <SolidColorBrush x:Key="FeriefriSoftBrush" Color="#DCEEEE" />
 
+    <!-- Calendar days: ordinary working day and public holiday fills (weekends have no fill) -->
+    <SolidColorBrush x:Key="CalDayBrush" Color="#EFEDE4" />
+    <SolidColorBrush x:Key="CalHolidayBrush" Color="#EFD9A0" />
+
     <!-- Status banner variants -->
     <SolidColorBrush x:Key="BannerInfoBackground" Color="#EAF0F5" />
     <SolidColorBrush x:Key="BannerInfoBorder" Color="#C5D5E3" />

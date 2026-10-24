@@ -136,6 +136,10 @@ public sealed class MainViewModel : ObservableObject
     private IReadOnlyList<HolidayYearRow> _holidayYearRows = [];
     private IReadOnlyList<FeriefriRow> _feriefriRows = [];
     private bool _bookFeriefri;
+    private CalendarYear _calendar;
+    private IReadOnlyList<MonthView> _calendarMonths = [];
+    private bool _isListTab;
+    private bool _summaryExpanded = true;
 
     private DateTime? _newStart;
     private DateTime? _newEnd;
@@ -158,10 +162,12 @@ public sealed class MainViewModel : ObservableObject
         _data = store.Load();
         _settings = GetOrCreateSettings(ClampYear(Today.Year));
         _status = BalanceCalculator.CalculateCalendarYear(_data, _settings.Year, Today);
+        _calendar = CalendarYear.Build(_data, _settings.Year, Today);
 
         PreviousYearCommand = new RelayCommand(_ => SelectedYear--, _ => SelectedYear > MinYear);
         NextYearCommand = new RelayCommand(_ => SelectedYear++, _ => SelectedYear < MaxYear);
         CurrentYearCommand = new RelayCommand(_ => SelectedYear = Today.Year);
+        ToggleSummaryCommand = new RelayCommand(_ => IsSummaryExpanded = !IsSummaryExpanded);
         AddEntryCommand = new RelayCommand(_ => AddEntry());
         DeleteEntryCommand = new RelayCommand(p => DeleteEntry((EntryRow)p!));
         AddHolidayCommand = new RelayCommand(_ => AddHoliday());
@@ -196,6 +202,25 @@ public sealed class MainViewModel : ObservableObject
         set { if (value) SetThemeMode(ThemeMode.Dark); }
     }
 
+    /// <summary>Whether the stat cards and holiday-year tables are shown; remembered between sessions (not in the vacation data).</summary>
+    public bool IsSummaryExpanded
+    {
+        get => _theme?.SummaryExpanded ?? _summaryExpanded;
+        set
+        {
+            if (value == IsSummaryExpanded)
+                return;
+
+            _summaryExpanded = value;
+            if (_theme is not null)
+                _theme.SummaryExpanded = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(SummaryToggleText));
+        }
+    }
+
+    public string SummaryToggleText => IsSummaryExpanded ? "Hide summary" : "Show summary";
+
     private void SetThemeMode(ThemeMode mode)
     {
         if (_theme is not null)
@@ -212,6 +237,7 @@ public sealed class MainViewModel : ObservableObject
     public RelayCommand PreviousYearCommand { get; }
     public RelayCommand NextYearCommand { get; }
     public RelayCommand CurrentYearCommand { get; }
+    public RelayCommand ToggleSummaryCommand { get; }
     public RelayCommand AddEntryCommand { get; }
     public RelayCommand DeleteEntryCommand { get; }
     public RelayCommand AddHolidayCommand { get; }
@@ -434,6 +460,50 @@ public sealed class MainViewModel : ObservableObject
             }
         }
     }
+    /// <summary>The selected year laid out by Core for the calendar tab; rebuilt on every refresh.</summary>
+    public CalendarYear Calendar
+    {
+        get => _calendar;
+        private set
+        {
+            if (!SetField(ref _calendar, value))
+                return;
+
+            // Keep the month and cell objects and update them in place: replacing them makes the UI rebuild ~550 elements.
+            if (_calendarMonths.Count == value.Months.Count)
+            {
+                for (var i = 0; i < _calendarMonths.Count; i++)
+                    _calendarMonths[i].Update(value.Months[i]);
+            }
+            else
+                CalendarMonths = value.Months.Select(m => new MonthView(m)).ToList();
+        }
+    }
+
+    /// <summary>The twelve month cards of <see cref="Calendar"/> for display; the same objects are updated on every refresh.</summary>
+    public IReadOnlyList<MonthView> CalendarMonths
+    {
+        get => _calendarMonths;
+        private set => SetField(ref _calendarMonths, value);
+    }
+
+    /// <summary>Whether the List tab is shown instead of the Calendar tab; the Calendar tab is always the start tab.</summary>
+    public bool IsListTab
+    {
+        get => _isListTab;
+        set
+        {
+            if (SetField(ref _isListTab, value))
+                OnPropertyChanged(nameof(IsCalendarTab));
+        }
+    }
+
+    public bool IsCalendarTab
+    {
+        get => !_isListTab;
+        set { if (value) IsListTab = false; }
+    }
+
     /// <summary>The holiday years open around the selected calendar year (the expiring one and the next).</summary>
     public IReadOnlyList<HolidayYearRow> HolidayYearRows
     {
@@ -930,6 +1000,7 @@ public sealed class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(HasConflictNote));
 
         Status = BalanceCalculator.CalculateCalendarYear(_data, _settings.Year, Today);
+        Calendar = CalendarYear.Build(_data, _settings.Year, Today);
         HolidayYearRows = BalanceCalculator.CalculateHolidayYears(_data, HolidayYear.InCalendarYear(_settings.Year), Today)
             .Select(HolidayYearRow.From).ToList();
         FeriefriRows = FeriefriCalculator.CalculateHolidayYears(_data, HolidayYear.InCalendarYear(_settings.Year), Today)

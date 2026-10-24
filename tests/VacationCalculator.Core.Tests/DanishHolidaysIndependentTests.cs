@@ -311,7 +311,7 @@ public class DanishHolidaysIndependentTests
         // Mon 2026-12-28 as an extra manual holiday: free days from Mon 12-21 are 21, 22, 23, 29, 30 = 5.
         var data = Data().WithHolidays("2026-12-28");
         Assert.Equal(5m, BalanceCalculator.CalculateCalendarYear(data, 2026, D("2026-12-21")).WorkingDaysLeft);
-        Assert.True(data.AllPublicHolidays().Contains(D("2026-12-28")));
+        Assert.Contains(D("2026-12-28"), data.AllPublicHolidays());
     }
 
     // ---- Feriefri around holidays ----

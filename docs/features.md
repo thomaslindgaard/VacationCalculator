@@ -208,7 +208,7 @@ Holidays, matching the previous web version:
 
 ## 5. Full-year calendar
 
-**Status:** In progress
+**Status:** Done
 
 Show the whole selected year as a calendar, and register days by clicking them.
 
@@ -221,6 +221,8 @@ Show the whole selected year as a calendar, and register days by clicking them.
 - Hovering a day shows a tooltip with the date, type and amount.
 
 Layout (user decision): the summary cards, holiday-years card and banner stay at the top of the main area; below them a tab switch **Calendar | List**. Calendar (the default tab) shows the 12 months (4 × 3), scrolling if needed; List holds the existing booking form and vacation list. The public-holiday list stays in the sidebar.
+
+**Collapsible summary** (user request): the stat cards and the holiday-years card (incl. Feriefri lines) can be collapsed with a toggle next to the heading ("Hide summary" / "Show summary"), so the calendar gets more room. The heading and the status banner stay visible. Expanded by default; the choice is remembered between sessions in the preferences file (next to the theme), not in the vacation data.
 
 Also shown in the calendar: bookings that fall on a public holiday (conflicts, see feature 4) are marked so they stand out. Clicking to book is feature 6; in this feature the calendar is display-only.
 

@@ -68,12 +68,13 @@ Every completed update to the app is committed and pushed to GitHub (`origin`, h
 
 - `src/VacationCalculator.Core` (net9.0), no UI dependencies:
   - `Models.cs` (`VacationData`, `BookedDay`, per-year settings and their inheritance, `DeadlineSettings.Split`), `HolidayYear.cs` (`HolidayYear`, `Accrual`)
-  - `BalanceCalculator` (vacation allocation, balances, calendar-year status), `FeriefriCalculator`, `DanishHolidays`
+  - `BalanceCalculator` (vacation allocation, balances, calendar-year status), `FeriefriCalculator`, `DanishHolidays`, `CalendarYear` (per-day state of a year for the calendar view, ISO weeks)
   - `Bookings` (booking, removing and grouping days; range cap), `DataStore` (JSON persistence, temp file then move)
 - `src/VacationCalculator.App` (net9.0-windows, WPF):
   - `MainWindow.xaml` (sidebar + main content), `ViewModels/` (hand-rolled MVVM: `ObservableObject`, `RelayCommand`, `MainViewModel` with `Apply` for every save)
+  - Main area: summary (collapsible) and banner on top, then Calendar | List tabs; `ViewModels/CalendarViews.cs` (month/day view objects, updated in place), `Controls/AdaptiveUniformGrid.cs`
   - `Themes/` (`LightTheme.xaml` / `DarkTheme.xaml` palettes with identical keys, `Controls.xaml` control styles), `Behaviors/` (attached behaviours, e.g. `CommitOnEnter`)
-  - `Services/`: `ThemeService` (Light/Dark/System, stored in `vacation-calculator-preferences.json` next to the data file), `DateText` (English dates in text), `DataPathResolver` (`--data` option)
+  - `Services/`: `ThemeService` (Light/Dark/System and the summary's collapsed state, stored in `vacation-calculator-preferences.json` next to the data file), `DateText` (English dates in text), `DataPathResolver` (`--data` option)
 - `tests/VacationCalculator.Core.Tests` and `tests/VacationCalculator.App.Tests` (xUnit). Files named `*Independent*` and most App tests are written by `tester`.
 
 ## Domain rules
