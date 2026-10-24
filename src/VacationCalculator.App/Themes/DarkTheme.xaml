@@ -1,0 +1,49 @@
+<!-- Dark palette. Same keys as the other theme file; ThemeService swaps the two at runtime. -->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <SolidColorBrush x:Key="PageBrush" Color="#262624" />
+    <SolidColorBrush x:Key="SidebarBrush" Color="#1E1D1B" />
+    <SolidColorBrush x:Key="CardBrush" Color="#2F2E2B" />
+    <SolidColorBrush x:Key="InputBrush" Color="#1E1D1B" />
+    <SolidColorBrush x:Key="ButtonBrush" Color="#363532" />
+    <SolidColorBrush x:Key="HoverBrush" Color="#403F3B" />
+    <SolidColorBrush x:Key="PressedBrush" Color="#4A4944" />
+    <SolidColorBrush x:Key="BorderBrush" Color="#3C3B37" />
+    <SolidColorBrush x:Key="BorderStrongBrush" Color="#55534D" />
+    <SolidColorBrush x:Key="TextBrush" Color="#ECEAE3" />
+    <SolidColorBrush x:Key="MutedBrush" Color="#A39F94" />
+    <SolidColorBrush x:Key="AccentBrush" Color="#D97757" />
+    <SolidColorBrush x:Key="AccentHoverBrush" Color="#E58A6C" />
+    <SolidColorBrush x:Key="AccentPressedBrush" Color="#C96A4B" />
+    <SolidColorBrush x:Key="AccentForegroundBrush" Color="#1F1B18" />
+    <SolidColorBrush x:Key="AccentSoftBrush" Color="#4A3329" />
+    <SolidColorBrush x:Key="ErrorBrush" Color="#F2A399" />
+
+    <!-- Status banner variants -->
+    <SolidColorBrush x:Key="BannerInfoBackground" Color="#28333D" />
+    <SolidColorBrush x:Key="BannerInfoBorder" Color="#41566A" />
+    <SolidColorBrush x:Key="BannerInfoForeground" Color="#BCD3E8" />
+    <SolidColorBrush x:Key="BannerSuccessBackground" Color="#26332A" />
+    <SolidColorBrush x:Key="BannerSuccessBorder" Color="#3D5A40" />
+    <SolidColorBrush x:Key="BannerSuccessForeground" Color="#BEE0B8" />
+    <SolidColorBrush x:Key="BannerDangerBackground" Color="#3D2A26" />
+    <SolidColorBrush x:Key="BannerDangerBorder" Color="#6E3B30" />
+    <SolidColorBrush x:Key="BannerDangerForeground" Color="#F2B8A8" />
+    <SolidColorBrush x:Key="BannerWarningBackground" Color="#3A3322" />
+    <SolidColorBrush x:Key="BannerWarningBorder" Color="#695728" />
+    <SolidColorBrush x:Key="BannerWarningForeground" Color="#EBD08F" />
+    <SolidColorBrush x:Key="BannerNeutralBackground" Color="#302F2C" />
+    <SolidColorBrush x:Key="BannerNeutralBorder" Color="#4A4842" />
+    <SolidColorBrush x:Key="BannerNeutralForeground" Color="#C9C5B9" />
+
+    <!-- Default WPF templates read these system brushes; overriding them themes anything not restyled explicitly. -->
+    <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#2F2E2B" />
+    <SolidColorBrush x:Key="{x:Static SystemColors.WindowTextBrushKey}" Color="#ECEAE3" />
+    <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#363532" />
+    <SolidColorBrush x:Key="{x:Static SystemColors.ControlTextBrushKey}" Color="#ECEAE3" />
+    <SolidColorBrush x:Key="{x:Static SystemColors.GrayTextBrushKey}" Color="#A39F94" />
+    <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#4A3329" />
+    <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#ECEAE3" />
+    <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#4A3329" />
+    <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="#ECEAE3" />
+</ResourceDictionary>

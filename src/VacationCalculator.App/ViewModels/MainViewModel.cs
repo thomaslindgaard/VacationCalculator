@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.IO;
+using VacationCalculator.App.Services;
 using VacationCalculator.Core;
 
 namespace VacationCalculator.App.ViewModels;
@@ -24,10 +25,14 @@ public sealed class MainViewModel : ObservableObject
     private string _errorMessage = "";
 
     private readonly Func<DateOnly> _today;
+    private readonly ThemeService? _theme;
 
-    public MainViewModel(DataStore store, Func<DateOnly>? today = null)
+    public MainViewModel(DataStore store, Func<DateOnly>? today = null, ThemeService? theme = null)
     {
         _store = store;
+        _theme = theme;
+        if (_theme is not null)
+            _theme.Changed += (_, _) => OnThemeChanged();
         _today = today ?? (() => DateOnly.FromDateTime(DateTime.Today));
         _data = store.Load();
         _settings = GetOrCreateSettings(Today.Year);
@@ -47,6 +52,38 @@ public sealed class MainViewModel : ObservableObject
     private DateOnly Today => _today();
 
     public string DataPath => _store.Path;
+
+    // Theme choice: three radio buttons bind to these; only a "true" write changes the mode.
+    public bool IsSystemTheme
+    {
+        get => _theme is null || _theme.Mode == ThemeMode.System;
+        set { if (value) SetThemeMode(ThemeMode.System); }
+    }
+
+    public bool IsLightTheme
+    {
+        get => _theme?.Mode == ThemeMode.Light;
+        set { if (value) SetThemeMode(ThemeMode.Light); }
+    }
+
+    public bool IsDarkTheme
+    {
+        get => _theme?.Mode == ThemeMode.Dark;
+        set { if (value) SetThemeMode(ThemeMode.Dark); }
+    }
+
+    private void SetThemeMode(ThemeMode mode)
+    {
+        if (_theme is not null)
+            _theme.Mode = mode;
+    }
+
+    private void OnThemeChanged()
+    {
+        OnPropertyChanged(nameof(IsSystemTheme));
+        OnPropertyChanged(nameof(IsLightTheme));
+        OnPropertyChanged(nameof(IsDarkTheme));
+    }
 
     public RelayCommand PreviousYearCommand { get; }
     public RelayCommand NextYearCommand { get; }
@@ -110,9 +147,15 @@ public sealed class MainViewModel : ObservableObject
         private set
         {
             if (SetField(ref _balance, value))
+            {
                 OnPropertyChanged(nameof(StatusMessage));
+                OnPropertyChanged(nameof(RemainingSign));
+            }
         }
     }
+
+    /// <summary>Sign (-1, 0, 1) of the not-yet-booked days; the "Not yet booked" figure is coloured by it.</summary>
+    public int RemainingSign => Math.Sign(Balance.RemainingDays);
 
     public string StatusMessage
     {

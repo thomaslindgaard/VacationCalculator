@@ -27,7 +27,7 @@ Register a single day as a half day (0.5) instead of a full day.
 
 ## 1b. Layout and theming inspired by Claude Desktop, with light and dark themes
 
-**Status:** Planned (next, before feature 2)
+**Status:** Done
 
 Restyle the app with Claude Desktop as the inspiration for layout and look, and support both a light and a dark theme. Inspiration only: no Anthropic or Claude names, logos or icons.
 

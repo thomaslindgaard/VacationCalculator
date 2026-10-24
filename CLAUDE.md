@@ -59,7 +59,7 @@ Every completed update to the app is committed and pushed to GitHub (`origin`, h
 ## Layout
 
 - `src/VacationCalculator.Core` (net9.0): models, `BalanceCalculator` (balance arithmetic), `Bookings` (booking and grouping operations), `DataStore` (JSON persistence). No UI dependencies.
-- `src/VacationCalculator.App` (net9.0-windows, WPF): `MainWindow.xaml`, `ViewModels/` (hand-rolled MVVM: `ObservableObject`, `RelayCommand`, `MainViewModel`). Shared styles live in `App.xaml`.
+- `src/VacationCalculator.App` (net9.0-windows, WPF): `MainWindow.xaml` (sidebar + main content), `ViewModels/` (hand-rolled MVVM: `ObservableObject`, `RelayCommand`, `MainViewModel`), `Themes/` (`LightTheme.xaml` / `DarkTheme.xaml` palettes with identical keys, `Controls.xaml` control styles), `Services/ThemeService.cs` (Light/Dark/System, stored in `vacation-calculator-preferences.json` next to the data file).
 - `tests/VacationCalculator.Core.Tests` (xUnit): tests for Core. `tester` may add `tests/VacationCalculator.App.Tests` for view-model tests.
 
 ## Domain rules
@@ -75,4 +75,7 @@ Every completed update to the app is committed and pushed to GitHub (`origin`, h
 - Put calculation logic in Core with tests, not in the view model. Core functions take `today` as a parameter so they're testable.
 - Use `DateOnly` for dates in Core; convert at the view-model boundary (`DatePicker` uses `DateTime?`).
 - No MVVM or UI frameworks/NuGet packages without asking; keep code-behind empty.
+- UI must work in both light and dark themes: colours only come from the theme palettes (add a key to both `LightTheme.xaml` and `DarkTheme.xaml`) and are referenced with `DynamicResource`; no hard-coded colours elsewhere. Check new UI with screenshots in both themes.
+- `MainViewModel` takes an injected clock (`Func<DateOnly>`); never read `DateTime.Today` in the App outside that default.
+- For manual runs and screenshots, start the app with `--data <path>` to use a scratch data file (and preferences next to it) instead of the user's real `%APPDATA%` data.
 - Data lives in `%APPDATA%\VacationCalculator\vacation-data.json`. Changes to the models must stay backward compatible with existing files (new properties need sensible defaults); never write code paths that could overwrite the user's file with empty data.

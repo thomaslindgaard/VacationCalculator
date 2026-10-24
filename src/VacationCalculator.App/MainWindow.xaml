@@ -8,169 +8,227 @@
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance vm:MainViewModel}"
         Title="Vacation Calculator"
-        Width="1040" Height="720" MinWidth="820" MinHeight="560"
+        Width="1120" Height="760" MinWidth="900" MinHeight="640"
         WindowStartupLocation="CenterScreen"
-        Background="{StaticResource PageBrush}"
+        Background="{DynamicResource PageBrush}"
+        Foreground="{DynamicResource TextBrush}"
         FontFamily="Segoe UI" FontSize="13">
 
-    <Grid Margin="20">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="288" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
 
-        <!-- Header: title and year navigation -->
-        <DockPanel Grid.Row="0" Margin="0,0,0,16">
-            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                <Button Content="◀" Command="{Binding PreviousYearCommand}" ToolTip="Previous year" />
-                <TextBlock Text="{Binding SelectedYear}" FontSize="20" FontWeight="SemiBold"
-                           Width="70" TextAlignment="Center" VerticalAlignment="Center" />
-                <Button Content="▶" Command="{Binding NextYearCommand}" ToolTip="Next year" />
-                <Button Content="This year" Command="{Binding CurrentYearCommand}" Margin="8,0,0,0" />
-            </StackPanel>
-            <TextBlock Text="Vacation Calculator" FontSize="22" FontWeight="SemiBold" VerticalAlignment="Center" />
-        </DockPanel>
+        <!-- Sidebar: app name, year, settings, public holidays and the theme switch -->
+        <Border Grid.Column="0" Background="{DynamicResource SidebarBrush}"
+                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,1,0">
+            <DockPanel Margin="20,22,20,18">
+                <TextBlock DockPanel.Dock="Top" Text="Vacation Calculator" FontFamily="{StaticResource HeadingFont}"
+                           FontSize="20" FontWeight="SemiBold" Margin="0,0,0,24" />
 
-        <!-- Allowance settings and summary -->
-        <Grid Grid.Row="1" Margin="0,0,0,12">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
+                <!-- Theme switch at the bottom -->
+                <StackPanel DockPanel.Dock="Bottom" Margin="0,14,0,0">
+                    <TextBlock Text="Theme" Style="{StaticResource FieldLabel}" />
+                    <UniformGrid Rows="1">
+                        <RadioButton GroupName="Theme" Content="Light" Style="{StaticResource SegmentButton}"
+                                     IsChecked="{Binding IsLightTheme}" />
+                        <RadioButton GroupName="Theme" Content="Dark" Style="{StaticResource SegmentButton}"
+                                     IsChecked="{Binding IsDarkTheme}" />
+                        <RadioButton GroupName="Theme" Content="System" Style="{StaticResource SegmentButton}"
+                                     IsChecked="{Binding IsSystemTheme}" />
+                    </UniformGrid>
+                </StackPanel>
 
-            <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,12,0">
-                <StackPanel Width="170">
+                <!-- Year navigation -->
+                <StackPanel DockPanel.Dock="Top" Margin="0,0,0,22">
+                    <TextBlock Text="Year" Style="{StaticResource FieldLabel}" />
+                    <DockPanel>
+                        <Button DockPanel.Dock="Left" Content="◀" Command="{Binding PreviousYearCommand}" ToolTip="Previous year" />
+                        <Button DockPanel.Dock="Right" Content="▶" Command="{Binding NextYearCommand}" ToolTip="Next year" />
+                        <TextBlock Text="{Binding SelectedYear}" FontFamily="{StaticResource HeadingFont}" FontSize="22"
+                                   FontWeight="SemiBold" TextAlignment="Center" VerticalAlignment="Center" />
+                    </DockPanel>
+                    <Button Content="This year" Command="{Binding CurrentYearCommand}" Margin="0,8,0,0" />
+                </StackPanel>
+
+                <!-- Allowance settings -->
+                <StackPanel DockPanel.Dock="Top" Margin="0,0,0,22">
                     <TextBlock Text="Allowance" Style="{StaticResource SectionTitle}" />
                     <TextBlock Text="Days per year" Style="{StaticResource FieldLabel}" />
-                    <TextBox Text="{Binding AllowanceDays, UpdateSourceTrigger=PropertyChanged, Delay=400}" Margin="0,0,0,10" />
+                    <TextBox Text="{Binding AllowanceDays, UpdateSourceTrigger=PropertyChanged, Delay=400}" Margin="0,0,0,12" />
                     <TextBlock Text="Carried over from last year" Style="{StaticResource FieldLabel}" />
                     <TextBox Text="{Binding CarryOverDays, UpdateSourceTrigger=PropertyChanged, Delay=400}" />
                 </StackPanel>
-            </Border>
 
-            <UniformGrid Grid.Column="1" Rows="1">
-                <Border Style="{StaticResource Card}" Margin="0,0,8,0">
-                    <StackPanel>
-                        <TextBlock Text="Total available" Style="{StaticResource StatLabel}" />
-                        <TextBlock Text="{Binding Balance.TotalDays, StringFormat={}{0:0.##}}" Style="{StaticResource StatValue}" />
-                    </StackPanel>
-                </Border>
-                <Border Style="{StaticResource Card}" Margin="0,0,8,0">
-                    <StackPanel>
-                        <TextBlock Text="Used" Style="{StaticResource StatLabel}" />
-                        <TextBlock Text="{Binding Balance.UsedDays, StringFormat={}{0:0.##}}" Style="{StaticResource StatValue}" />
-                    </StackPanel>
-                </Border>
-                <Border Style="{StaticResource Card}" Margin="0,0,8,0">
-                    <StackPanel>
-                        <TextBlock Text="Booked ahead" Style="{StaticResource StatLabel}" />
-                        <TextBlock Text="{Binding Balance.PlannedDays, StringFormat={}{0:0.##}}" Style="{StaticResource StatValue}" />
-                    </StackPanel>
-                </Border>
-                <Border Style="{StaticResource Card}" Margin="0,0,8,0">
-                    <StackPanel>
-                        <TextBlock Text="Not yet booked" Style="{StaticResource StatLabel}" />
-                        <TextBlock Text="{Binding Balance.RemainingDays, StringFormat={}{0:0.##}}"
-                                   Style="{StaticResource StatValue}" Foreground="{StaticResource AccentBrush}" />
-                    </StackPanel>
-                </Border>
-                <Border Style="{StaticResource Card}">
-                    <StackPanel>
-                        <TextBlock Text="Free working days left" Style="{StaticResource StatLabel}" />
-                        <TextBlock Text="{Binding Balance.WorkingDaysLeft, StringFormat={}{0:0.##}}" Style="{StaticResource StatValue}" />
-                    </StackPanel>
-                </Border>
-            </UniformGrid>
-        </Grid>
-
-        <!-- Status banner: colour follows how urgent the situation is -->
-        <Border Grid.Row="2" CornerRadius="6" Padding="14,10" Margin="0,0,0,12" BorderThickness="1">
-            <Border.Style>
-                <Style TargetType="Border">
-                    <Setter Property="Background" Value="#EFF6FF" />
-                    <Setter Property="BorderBrush" Value="#BFDBFE" />
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding Balance.Status}" Value="{x:Static core:BalanceStatus.AllPlanned}">
-                            <Setter Property="Background" Value="#ECFDF5" />
-                            <Setter Property="BorderBrush" Value="#A7F3D0" />
-                        </DataTrigger>
-                        <DataTrigger Binding="{Binding Balance.Status}" Value="{x:Static core:BalanceStatus.DaysWillBeLost}">
-                            <Setter Property="Background" Value="#FEF2F2" />
-                            <Setter Property="BorderBrush" Value="#FECACA" />
-                        </DataTrigger>
-                        <DataTrigger Binding="{Binding Balance.Status}" Value="{x:Static core:BalanceStatus.OverBooked}">
-                            <Setter Property="Background" Value="#FFFBEB" />
-                            <Setter Property="BorderBrush" Value="#FDE68A" />
-                        </DataTrigger>
-                        <DataTrigger Binding="{Binding Balance.Status}" Value="{x:Static core:BalanceStatus.Expired}">
-                            <Setter Property="Background" Value="#F3F4F6" />
-                            <Setter Property="BorderBrush" Value="#D1D5DB" />
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </Border.Style>
-            <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" FontSize="14" />
+                <!-- Public holidays fill the remaining height -->
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="Public holidays" Style="{StaticResource SectionTitle}" />
+                    <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" Style="{StaticResource FieldLabel}" Margin="0,0,0,10"
+                               Text="Weekends and these dates don't count as vacation days." />
+                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                        <Button DockPanel.Dock="Right" Content="Add" Command="{Binding AddHolidayCommand}" Margin="8,0,0,0" />
+                        <DatePicker SelectedDate="{Binding NewHoliday}" />
+                    </DockPanel>
+                    <ListBox ItemsSource="{Binding Holidays}" HorizontalContentAlignment="Stretch">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right" Content="✕" Style="{StaticResource IconButton}"
+                                            Padding="6,0" MinWidth="0" MinHeight="0" ToolTip="Remove"
+                                            Command="{Binding DataContext.RemoveHolidayCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                            CommandParameter="{Binding}" />
+                                    <TextBlock Text="{Binding StringFormat=D}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                </DockPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </DockPanel>
         </Border>
 
-        <!-- Vacation entries and public holidays -->
-        <Grid Grid.Row="3">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="260" />
-            </Grid.ColumnDefinitions>
+        <!-- Main content: summary, status and the vacation list. The full-year calendar will replace or extend this area. -->
+        <Grid Grid.Column="1" Margin="32,26,32,16">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
 
-            <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,12,0">
+            <TextBlock Grid.Row="0" Text="{Binding SelectedYear, StringFormat=Vacation in {0}}"
+                       FontFamily="{StaticResource HeadingFont}" FontSize="26" FontWeight="SemiBold" Margin="0,0,0,18" />
+
+            <!-- Summary figures -->
+            <UniformGrid Grid.Row="1" Rows="1" Margin="0,0,0,16">
+                <Border Style="{StaticResource Card}" Margin="0,0,10,0">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Bottom" Text="{Binding Balance.TotalDays, StringFormat={}{0:0.##}}" Style="{StaticResource StatValue}" />
+                        <TextBlock Text="Total available" Style="{StaticResource StatLabel}" />
+                    </DockPanel>
+                </Border>
+                <Border Style="{StaticResource Card}" Margin="0,0,10,0">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Bottom" Text="{Binding Balance.UsedDays, StringFormat={}{0:0.##}}" Style="{StaticResource StatValue}" />
+                        <TextBlock Text="Used" Style="{StaticResource StatLabel}" />
+                    </DockPanel>
+                </Border>
+                <Border Style="{StaticResource Card}" Margin="0,0,10,0">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Bottom" Text="{Binding Balance.PlannedDays, StringFormat={}{0:0.##}}" Style="{StaticResource StatValue}" />
+                        <TextBlock Text="Booked ahead" Style="{StaticResource StatLabel}" />
+                    </DockPanel>
+                </Border>
+                <Border Style="{StaticResource Card}" Margin="0,0,10,0">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Bottom" Text="{Binding Balance.RemainingDays, StringFormat={}{0:0.##}}">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource StatValue}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding RemainingSign}" Value="1">
+                                            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding RemainingSign}" Value="-1">
+                                            <Setter Property="Foreground" Value="{DynamicResource ErrorBrush}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <TextBlock Text="Not yet booked" Style="{StaticResource StatLabel}" />
+                    </DockPanel>
+                </Border>
+                <Border Style="{StaticResource Card}">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Bottom" Text="{Binding Balance.WorkingDaysLeft, StringFormat={}{0:0.##}}" Style="{StaticResource StatValue}" />
+                        <TextBlock Text="Free working days left" Style="{StaticResource StatLabel}" />
+                    </DockPanel>
+                </Border>
+            </UniformGrid>
+
+            <!-- Status banner: colour follows how urgent the situation is -->
+            <Border Grid.Row="2" CornerRadius="10" Padding="18,13" Margin="0,0,0,16" BorderThickness="1">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Background" Value="{DynamicResource BannerInfoBackground}" />
+                        <Setter Property="BorderBrush" Value="{DynamicResource BannerInfoBorder}" />
+                        <Setter Property="TextElement.Foreground" Value="{DynamicResource BannerInfoForeground}" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Balance.Status}" Value="{x:Static core:BalanceStatus.AllPlanned}">
+                                <Setter Property="Background" Value="{DynamicResource BannerSuccessBackground}" />
+                                <Setter Property="BorderBrush" Value="{DynamicResource BannerSuccessBorder}" />
+                                <Setter Property="TextElement.Foreground" Value="{DynamicResource BannerSuccessForeground}" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding Balance.Status}" Value="{x:Static core:BalanceStatus.DaysWillBeLost}">
+                                <Setter Property="Background" Value="{DynamicResource BannerDangerBackground}" />
+                                <Setter Property="BorderBrush" Value="{DynamicResource BannerDangerBorder}" />
+                                <Setter Property="TextElement.Foreground" Value="{DynamicResource BannerDangerForeground}" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding Balance.Status}" Value="{x:Static core:BalanceStatus.OverBooked}">
+                                <Setter Property="Background" Value="{DynamicResource BannerWarningBackground}" />
+                                <Setter Property="BorderBrush" Value="{DynamicResource BannerWarningBorder}" />
+                                <Setter Property="TextElement.Foreground" Value="{DynamicResource BannerWarningForeground}" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding Balance.Status}" Value="{x:Static core:BalanceStatus.Expired}">
+                                <Setter Property="Background" Value="{DynamicResource BannerNeutralBackground}" />
+                                <Setter Property="BorderBrush" Value="{DynamicResource BannerNeutralBorder}" />
+                                <Setter Property="TextElement.Foreground" Value="{DynamicResource BannerNeutralForeground}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" FontSize="14" />
+            </Border>
+
+            <!-- Vacation entries -->
+            <Border Grid.Row="3" Style="{StaticResource Card}">
                 <DockPanel>
                     <TextBlock DockPanel.Dock="Top" Text="Vacation" Style="{StaticResource SectionTitle}" />
 
-                    <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,10">
-                        <StackPanel Margin="0,0,10,0">
+                    <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,14">
+                        <StackPanel Margin="0,0,12,0">
                             <TextBlock Text="From" Style="{StaticResource FieldLabel}" />
-                            <DatePicker SelectedDate="{Binding NewStart}" Width="130" />
+                            <DatePicker SelectedDate="{Binding NewStart}" Width="140" />
                         </StackPanel>
-                        <StackPanel Margin="0,0,10,0">
+                        <StackPanel Margin="0,0,12,0">
                             <TextBlock Text="To" Style="{StaticResource FieldLabel}" />
-                            <DatePicker SelectedDate="{Binding NewEnd}" Width="130" />
+                            <DatePicker SelectedDate="{Binding NewEnd}" Width="140" />
                         </StackPanel>
-                        <StackPanel Margin="0,0,10,0">
+                        <StackPanel Margin="0,0,12,0">
                             <TextBlock Text="Description" Style="{StaticResource FieldLabel}" />
-                            <TextBox Text="{Binding NewDescription, UpdateSourceTrigger=PropertyChanged}" Width="180" Height="25" />
+                            <TextBox Text="{Binding NewDescription, UpdateSourceTrigger=PropertyChanged}" Width="190" />
                         </StackPanel>
                         <CheckBox Content="Half day" IsChecked="{Binding IsHalfDay}" IsEnabled="{Binding CanBookHalfDay}"
-                                  VerticalAlignment="Bottom" Margin="0,0,10,4" />
+                                  VerticalAlignment="Bottom" Margin="0,0,14,6" />
                         <StackPanel VerticalAlignment="Bottom" Orientation="Horizontal">
-                            <Button Content="Add vacation" Command="{Binding AddEntryCommand}" IsDefault="True" Height="25" />
-                            <TextBlock Text="{Binding NewEntryPreview}" Foreground="{StaticResource MutedBrush}"
-                                       VerticalAlignment="Center" Margin="10,0,0,0" />
+                            <Button Content="Add vacation" Command="{Binding AddEntryCommand}" IsDefault="True"
+                                    Style="{StaticResource PrimaryButton}" />
+                            <TextBlock Text="{Binding NewEntryPreview}" Foreground="{DynamicResource MutedBrush}"
+                                       VerticalAlignment="Center" Margin="12,0,0,0" />
                         </StackPanel>
                     </WrapPanel>
 
                     <DataGrid ItemsSource="{Binding Entries}" AutoGenerateColumns="False" IsReadOnly="True"
-                              HeadersVisibility="Column" GridLinesVisibility="Horizontal"
-                              HorizontalGridLinesBrush="{StaticResource BorderBrush}"
-                              BorderBrush="{StaticResource BorderBrush}" Background="White"
-                              RowHeight="30" CanUserResizeRows="False" SelectionMode="Single">
+                              RowHeight="38" CanUserResizeRows="False" SelectionMode="Single">
                         <DataGrid.RowStyle>
-                            <Style TargetType="DataGridRow">
+                            <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding IsPast}" Value="True">
-                                        <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+                                        <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
                         </DataGrid.RowStyle>
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="From" Binding="{Binding Period.Start, StringFormat=d}" Width="100" />
-                            <DataGridTextColumn Header="To" Binding="{Binding Period.End, StringFormat=d}" Width="100" />
-                            <DataGridTextColumn Header="Days" Binding="{Binding Period.Amount, StringFormat={}{0:0.##}}" Width="100" />
+                            <DataGridTextColumn Header="From" Binding="{Binding Period.Start, StringFormat=d}" Width="110" />
+                            <DataGridTextColumn Header="To" Binding="{Binding Period.End, StringFormat=d}" Width="110" />
+                            <DataGridTextColumn Header="Days" Binding="{Binding Period.Amount, StringFormat={}{0:0.##}}" Width="80" />
                             <DataGridTextColumn Header="Description" Binding="{Binding Period.Description}" Width="*" />
-                            <DataGridTemplateColumn Width="80">
+                            <DataGridTemplateColumn Width="90">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
-                                        <Button Content="Delete" Padding="8,1" Margin="2"
+                                        <Button Content="Delete" Padding="10,2" MinHeight="0" Margin="0,4"
                                                 Command="{Binding DataContext.DeleteEntryCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                                 CommandParameter="{Binding}" />
                                     </DataTemplate>
@@ -181,37 +239,13 @@
                 </DockPanel>
             </Border>
 
-            <Border Grid.Column="1" Style="{StaticResource Card}">
-                <DockPanel>
-                    <TextBlock DockPanel.Dock="Top" Text="Public holidays" Style="{StaticResource SectionTitle}" />
-                    <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" Style="{StaticResource FieldLabel}" Margin="0,0,0,10"
-                               Text="Weekends and these dates don't count as vacation days." />
-                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
-                        <Button DockPanel.Dock="Right" Content="Add" Command="{Binding AddHolidayCommand}" Margin="8,0,0,0" />
-                        <DatePicker SelectedDate="{Binding NewHoliday}" />
-                    </DockPanel>
-                    <ListBox ItemsSource="{Binding Holidays}" BorderBrush="{StaticResource BorderBrush}"
-                             HorizontalContentAlignment="Stretch">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <DockPanel>
-                                    <Button DockPanel.Dock="Right" Content="✕" Padding="6,0" MinWidth="0" ToolTip="Remove"
-                                            Command="{Binding DataContext.RemoveHolidayCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                            CommandParameter="{Binding}" />
-                                    <TextBlock Text="{Binding StringFormat=D}" VerticalAlignment="Center" />
-                                </DockPanel>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-                </DockPanel>
-            </Border>
+            <!-- Footer: validation messages and data location -->
+            <DockPanel Grid.Row="4" Margin="0,12,0,0">
+                <TextBlock DockPanel.Dock="Right" Foreground="{DynamicResource MutedBrush}" FontSize="11"
+                           Text="{Binding DataPath, StringFormat=Saved to {0}}" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" MaxWidth="420" />
+                <TextBlock Text="{Binding ErrorMessage}" Foreground="{DynamicResource ErrorBrush}" VerticalAlignment="Center" />
+            </DockPanel>
         </Grid>
-
-        <!-- Footer: validation messages and data location -->
-        <DockPanel Grid.Row="4" Margin="0,10,0,0">
-            <TextBlock DockPanel.Dock="Right" Foreground="{StaticResource MutedBrush}" FontSize="11"
-                       Text="{Binding DataPath, StringFormat=Saved to {0}}" VerticalAlignment="Center" />
-            <TextBlock Text="{Binding ErrorMessage}" Foreground="#B91C1C" VerticalAlignment="Center" />
-        </DockPanel>
     </Grid>
 </Window>
