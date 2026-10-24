@@ -12,6 +12,42 @@ public sealed record BookedPeriod(
     decimal Amount,
     IReadOnlyList<DateOnly> Dates);
 
+/// <summary>The holiday year whose Feriefri allowance stopped a booking, for the message to the user.</summary>
+/// <param name="PaidOutAtFirstYearEnd">
+/// Of the allowance, the days paid out at the year's first 31 December (projected from the bookings), which can't be
+/// booked after that day. Usually 0; non-zero only with an allowance above 5.
+/// </param>
+public sealed record FeriefriLimit(FeriefriAllowance Allowance, decimal PaidOutAtFirstYearEnd)
+{
+    public HolidayYear HolidayYear => Allowance.HolidayYear;
+    public decimal AllowanceDays => Allowance.Days;
+}
+
+/// <summary>Result of <see cref="Bookings.BookFeriefri"/>.</summary>
+/// <param name="Days">The new list of booked days, sorted by date. Equal to the input when nothing was booked.</param>
+/// <param name="RequestedDays">Working days in the range times the requested amount.</param>
+/// <param name="BookedDays">Feriefri actually booked.</param>
+/// <param name="HalfDayDates">Days requested as full days and booked as half days because only 0.5 fitted.</param>
+/// <param name="LeftOutDates">Days not booked at all; their existing records are unchanged.</param>
+/// <param name="Limit">The first holiday year whose allowance ran out; null when everything fitted.</param>
+public sealed record FeriefriBookingResult(
+    List<BookedDay> Days,
+    decimal RequestedDays,
+    decimal BookedDays,
+    IReadOnlyList<DateOnly> HalfDayDates,
+    IReadOnlyList<DateOnly> LeftOutDates,
+    FeriefriLimit? Limit)
+{
+    /// <summary>Requested minus booked (a full day booked as a half day leaves 0.5 out).</summary>
+    public decimal LeftOutDays => RequestedDays - BookedDays;
+
+    /// <summary>Whether nothing could be booked although working days were requested.</summary>
+    public bool IsRefused => RequestedDays > 0 && BookedDays == 0;
+
+    /// <summary>Whether everything requested was booked.</summary>
+    public bool IsComplete => LeftOutDays == 0;
+}
+
 /// <summary>
 /// Pure booking operations on a list of <see cref="BookedDay"/> records. Each returns a new list
 /// sorted by date with at most one record per date; the input is not modified.
@@ -102,6 +138,91 @@ public static class Bookings
     public static List<BookedDay> BookHalfDay(
         IEnumerable<BookedDay> days, DateOnly date, DayType type, string description, ISet<DateOnly> holidays) =>
         BookDay(days, date, type, BookedDay.HalfDay, description, holidays);
+
+    /// <summary>
+    /// Books Feriefri on the working days of the inclusive range (either order) without exceeding any holiday year's
+    /// Feriefri allowance, and returns the new list of <paramref name="data"/>'s days (which is not modified).
+    /// Days are booked in date order with <paramref name="amount"/> (1 or 0.5) each. A day that doesn't fit with
+    /// <paramref name="amount"/> 1 becomes a half day if 0.5 fits; otherwise it is left out and its existing record (if any)
+    /// is kept. Whether a day fits is checked against the whole allocation (<see cref="FeriefriCalculator.Allocate"/>):
+    /// oldest-first, all other bookings, and days paid out at a first 31 December no longer being available after it.
+    /// An existing record on the day (vacation or Feriefri) is freed first; a booked Feriefri day replaces it.
+    /// Bookings that already exceed an allowance (e.g. after lowering it) don't block days in other holiday years.
+    /// Weekends and public holidays are skipped and don't count as requested.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="amount"/> is not 1 or 0.5.</exception>
+    /// <exception cref="ArgumentException">The range is longer than <see cref="MaxRangeYears"/> year.</exception>
+    public static FeriefriBookingResult BookFeriefri(
+        VacationData data, DateOnly start, DateOnly end, decimal amount, string description)
+    {
+        if (amount is not (BookedDay.FullDay or BookedDay.HalfDay))
+            throw new ArgumentOutOfRangeException(nameof(amount), amount, "Amount must be 1 or 0.5.");
+        if (start > end)
+            (start, end) = (end, start);
+        if (!IsRangeWithinLimit(start, end))
+            throw new ArgumentException(
+                $"A booked range can cover at most {MaxRangeYears} year: {start:yyyy-MM-dd} .. {end:yyyy-MM-dd} is longer. " +
+                $"The latest allowed end for this start is {LatestAllowedEnd(start):yyyy-MM-dd}.",
+                nameof(end));
+
+        var holidays = data.AllPublicHolidays();
+        var allowances = new Dictionary<HolidayYear, decimal>();
+        var byDate = ToDictionary(data.Days ?? []);
+        var tries = amount == BookedDay.FullDay ? new[] { BookedDay.FullDay, BookedDay.HalfDay } : [BookedDay.HalfDay];
+
+        decimal requested = 0, booked = 0;
+        var halfDays = new List<DateOnly>();
+        var leftOut = new List<DateOnly>();
+        HolidayYear? limitYear = null;
+
+        for (var n = start.DayNumber; n <= end.DayNumber; n++)
+        {
+            var d = DateOnly.FromDayNumber(n);
+            if (!BalanceCalculator.IsWorkingDay(d, holidays))
+                continue;
+            requested += amount;
+
+            byDate.TryGetValue(d, out var existing);
+            byDate.Remove(d);
+            var baseline = FeriefriCalculator.Overflow(data, byDate.Values, holidays, allowances);
+
+            decimal fitted = 0;
+            foreach (var a in tries)
+            {
+                byDate[d] = new BookedDay { Date = d, Type = DayType.Feriefri, Amount = a, Description = description ?? "" };
+                var over = FeriefriCalculator.Overflow(data, byDate.Values, holidays, allowances);
+                var grown = over.Where(o => o.Value > baseline.GetValueOrDefault(o.Key)).Select(o => o.Key).ToList();
+                if (grown.Count == 0)
+                {
+                    fitted = a;
+                    break;
+                }
+                limitYear ??= new HolidayYear(grown.Min(y => y.StartYear));
+            }
+
+            if (fitted == 0)
+            {
+                byDate.Remove(d);
+                if (existing is not null)
+                    byDate[d] = existing;
+                leftOut.Add(d);
+                continue;
+            }
+            booked += fitted;
+            if (fitted < amount)
+                halfDays.Add(d);
+        }
+
+        var days = Sorted(byDate);
+        FeriefriLimit? limit = null;
+        if (limitYear is { } ly)
+        {
+            limit = new FeriefriLimit(
+                data.GetFeriefriAllowance(ly),
+                FeriefriCalculator.PaidOutAtFirstYearEnd(data, days, holidays, allowances, ly));
+        }
+        return new FeriefriBookingResult(days, requested, booked, halfDays, leftOut, limit);
+    }
 
     /// <summary>Removes the records on the given dates. Dates without a record are ignored.</summary>
     public static List<BookedDay> RemoveDays(IEnumerable<BookedDay> days, IEnumerable<DateOnly> dates)

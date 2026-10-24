@@ -62,6 +62,12 @@ public sealed class HolidayYearSettings
 
     /// <summary>The N in "some N days paid out"; only used when <see cref="PayoutMode"/> is <see cref="Core.PayoutMode.Some"/>.</summary>
     public decimal? PayoutDays { get; set; }
+
+    /// <summary>
+    /// Feriefri days this holiday year provides, available in full from 1 September. Null = inherited
+    /// (see <see cref="VacationData.GetFeriefriAllowance"/>). Missing in older files, which then load as null.
+    /// </summary>
+    public decimal? FeriefriAllowanceDays { get; set; }
 }
 
 public sealed class VacationData
@@ -243,6 +249,63 @@ public sealed class VacationData
             settings.PayoutDays = null;
         }
     }
+
+    /// <summary>Feriefri days per holiday year when no year sets its own value.</summary>
+    public const decimal DefaultFeriefriAllowanceDays = 5m;
+
+    /// <summary>Largest Feriefri allowance a holiday year can have.</summary>
+    public const decimal MaxFeriefriAllowanceDays = 20m;
+
+    /// <summary>
+    /// The Feriefri allowance of <paramref name="year"/>: its own value if set, otherwise the nearest earlier holiday
+    /// year's, otherwise <see cref="DefaultFeriefriAllowanceDays"/>. Stored values outside 0..<see cref="MaxFeriefriAllowanceDays"/>
+    /// (hand-edited files) read clamped into that range. Reading never adds entries.
+    /// </summary>
+    public FeriefriAllowance GetFeriefriAllowance(HolidayYear year)
+    {
+        // First entry per start year wins, as in FindHolidayYear.
+        var entry = (HolidayYears ?? [])
+            .Where(h => h is not null && h.StartYear <= year.StartYear)
+            .GroupBy(h => h.StartYear)
+            .Select(g => g.First())
+            .Where(h => h.FeriefriAllowanceDays is not null)
+            .OrderByDescending(h => h.StartYear)
+            .FirstOrDefault();
+
+        return new FeriefriAllowance(
+            year,
+            Math.Clamp(entry?.FeriefriAllowanceDays ?? DefaultFeriefriAllowanceDays, 0, MaxFeriefriAllowanceDays),
+            entry is null ? null : new HolidayYear(entry.StartYear));
+    }
+
+    /// <summary>
+    /// Stores <paramref name="days"/>, clamped to 0..<see cref="MaxFeriefriAllowanceDays"/>, as the Feriefri allowance of
+    /// <paramref name="year"/> only. Earlier years are unaffected; later years without their own value inherit it.
+    /// Existing bookings are kept even if they now exceed the allowance.
+    /// </summary>
+    public void SetFeriefriAllowance(HolidayYear year, decimal days) =>
+        GetOrAddHolidayYear(year.StartYear).FeriefriAllowanceDays = Math.Clamp(days, 0, MaxFeriefriAllowanceDays);
+
+    /// <summary>Removes <paramref name="year"/>'s own Feriefri allowance, so it inherits again. Does nothing if none is stored.</summary>
+    public void ClearFeriefriAllowance(HolidayYear year)
+    {
+        if (FindHolidayYear(year.StartYear) is { } settings)
+            settings.FeriefriAllowanceDays = null;
+    }
+}
+
+/// <summary>The Feriefri allowance that applies to <see cref="HolidayYear"/> (see <see cref="VacationData.GetFeriefriAllowance"/>).</summary>
+/// <param name="From">The holiday year the value is stored on; null = the default.</param>
+public sealed record FeriefriAllowance(HolidayYear HolidayYear, decimal Days, HolidayYear? From)
+{
+    /// <summary>Whether the value is stored on this holiday year itself.</summary>
+    public bool IsOwn => From == HolidayYear;
+
+    /// <summary>Whether the value is inherited from an earlier holiday year.</summary>
+    public bool IsInherited => From is not null && From != HolidayYear;
+
+    /// <summary>Whether no year up to this one sets a value, so <see cref="VacationData.DefaultFeriefriAllowanceDays"/> applies.</summary>
+    public bool IsDefault => From is null;
 }
 
 /// <summary>How the unused days of a holiday year are split at its deadline.</summary>

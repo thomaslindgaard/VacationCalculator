@@ -361,6 +361,48 @@ public class DataStoreTests : IDisposable
     }
 
     [Fact]
+    public void SaveThenLoad_RoundTripsFeriefriAllowance()
+    {
+        var path = Path.Combine(_dir, "data.json");
+        var store = new DataStore(path);
+        var data = new VacationData();
+        data.SetFeriefriAllowance(new HolidayYear(2025), 7.5m);
+        data.SetTransferLimit(new HolidayYear(2026), 8m);
+
+        store.Save(data);
+        var json = File.ReadAllText(path);
+        var loaded = store.Load();
+
+        Assert.Contains("\"FeriefriAllowanceDays\": 7.5", json);
+        Assert.Equal(7.5m, loaded.FindHolidayYear(2025)!.FeriefriAllowanceDays);
+        Assert.Null(loaded.FindHolidayYear(2026)!.FeriefriAllowanceDays);
+        var inherited = loaded.GetFeriefriAllowance(new HolidayYear(2026));
+        Assert.Equal(7.5m, inherited.Days);
+        Assert.True(inherited.IsInherited);
+    }
+
+    [Fact]
+    public void Load_FileWithoutFeriefriAllowance_UsesTheDefault5_AndKeepsFeriefriDays()
+    {
+        // Format before feature 3: Feriefri days stored, no allowance per holiday year
+        var data = StoreWith("""
+            {
+              "Days": [ { "Date": "2026-01-05", "Type": "Feriefri", "Amount": 1, "Description": "keep" } ],
+              "TransferAllowed": true,
+              "HolidayYears": [ { "StartYear": 2025, "TransferLimitDays": 8, "PayoutMode": "None", "PayoutDays": null } ],
+              "FirstTrackedHolidayYear": 2025,
+              "OpeningBalanceDays": 0
+            }
+            """).Load();
+
+        Assert.Null(data.FindHolidayYear(2025)!.FeriefriAllowanceDays);
+        Assert.True(data.GetFeriefriAllowance(new HolidayYear(2025)).IsDefault);
+        // Mon 2026-01-05 used: 4 of 5 left
+        Assert.Equal(4m, FeriefriCalculator.CalculateHolidayYear(data, new HolidayYear(2025), new(2026, 3, 2)).RemainingDays);
+        Assert.Equal(8m, data.GetDeadlineSettings(new HolidayYear(2025)).TransferLimitDays);
+    }
+
+    [Fact]
     public void Load_NegativeOpeningBalance_ReadsAs0()
     {
         var data = StoreWith("""{ "FirstTrackedHolidayYear": 2025, "OpeningBalanceDays": -2 }""").Load();

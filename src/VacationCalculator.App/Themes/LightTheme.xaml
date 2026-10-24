@@ -19,6 +19,10 @@
     <SolidColorBrush x:Key="AccentSoftBrush" Color="#F4E4DB" />
     <SolidColorBrush x:Key="ErrorBrush" Color="#B3261E" />
 
+    <!-- Feriefri days: teal, distinct from the vacation accent -->
+    <SolidColorBrush x:Key="FeriefriBrush" Color="#2A7A80" />
+    <SolidColorBrush x:Key="FeriefriSoftBrush" Color="#DCEEEE" />
+
     <!-- Status banner variants -->
     <SolidColorBrush x:Key="BannerInfoBackground" Color="#EAF0F5" />
     <SolidColorBrush x:Key="BannerInfoBorder" Color="#C5D5E3" />

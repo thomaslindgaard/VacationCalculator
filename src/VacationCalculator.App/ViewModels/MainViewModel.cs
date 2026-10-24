@@ -8,7 +8,79 @@ using VacationCalculator.Core;
 namespace VacationCalculator.App.ViewModels;
 
 /// <summary>A booked period as shown for the selected year.</summary>
-public sealed record EntryRow(BookedPeriod Period, bool IsPast);
+public sealed record EntryRow(BookedPeriod Period, bool IsPast)
+{
+    public bool IsFeriefri => Period.Type == DayType.Feriefri;
+}
+
+/// <summary>One line of the Feriefri card.</summary>
+public sealed class FeriefriRow
+{
+    private readonly Action<decimal> _setAllowance;
+
+    /// <param name="started">Whether the holiday year has started (today is on or after 1 September of its start year).</param>
+    /// <param name="setAllowance">Stores a new allowance for this row's holiday year (saves; may refuse).</param>
+    /// <param name="clearAllowance">Removes this row's own allowance.</param>
+    public FeriefriRow(FeriefriBalance b, bool started, Action<decimal> setAllowance, Action clearAllowance)
+    {
+        _setAllowance = setAllowance;
+        var a = b.Allowance;
+        Name = b.HolidayYear.ToString();
+        AllowanceDaysValue = b.AllowanceDays;
+        AllowanceIsOwn = a.IsOwn;
+        AllowanceSource = a.IsOwn ? "own" : a.From is { } from ? $"from {from}" : "default";
+        AllowanceTooltip = a.IsOwn ? "Set for this holiday year" : a.From is { } f ? $"Inherited from {f}" : "Default allowance";
+        Used = b.UsedDays;
+        BookedAhead = b.BookedAheadDays;
+        Remaining = b.RemainingDays;
+        RemainingSign = Math.Sign(b.RemainingDays);
+        ResetAllowanceCommand = new RelayCommand(_ => clearAllowance());
+
+        // Year-end payout/lost notes only appear once the holiday year has started; before that they are just noise.
+        var notes = new List<string>();
+        if (b.ExceedsAllowanceBy > 0)
+            notes.Add($"{b.ExceedsAllowanceBy:0.##} more than the allowance");
+        if (started)
+        {
+            if (b.PaidOutAtFirstYearEnd > 0)
+                notes.Add($"{b.PaidOutAtFirstYearEnd:0.##} {Verb(b.PaidOutAtFirstYearEnd, b.FirstYearEndPassed)} paid out in January {b.HolidayYear.StartYear + 1}");
+            if (b.PaidOutAtDeadline > 0)
+                notes.Add($"{b.PaidOutAtDeadline:0.##} {Verb(b.PaidOutAtDeadline, b.DeadlinePassed)} paid out in January {b.HolidayYear.StartYear + 2}");
+            if (b.LostAtDeadline > 0)
+                notes.Add($"{b.LostAtDeadline:0.##} {Verb(b.LostAtDeadline, b.DeadlinePassed)} lost");
+        }
+        Note = string.Join("; ", notes);
+        NoteIsError = b.ExceedsAllowanceBy > 0;
+    }
+
+    public string Name { get; }
+    private decimal AllowanceDaysValue { get; }
+
+    /// <summary>The allowance of this row's holiday year; writing it saves it for that year.</summary>
+    public decimal AllowanceDays
+    {
+        get => AllowanceDaysValue;
+        set
+        {
+            if (AllowanceIsOwn && value == AllowanceDaysValue)
+                return;
+            _setAllowance(value);
+        }
+    }
+
+    public bool AllowanceIsOwn { get; }
+    public string AllowanceSource { get; }
+    public string AllowanceTooltip { get; }
+    public RelayCommand ResetAllowanceCommand { get; }
+    public decimal Used { get; }
+    public decimal BookedAhead { get; }
+    public decimal Remaining { get; }
+    public int RemainingSign { get; }
+    public string Note { get; }
+    public bool NoteIsError { get; }
+
+    internal static string Verb(decimal days, bool past) => past ? (days == 1 ? "was" : "were") : "will be";
+}
 
 /// <summary>One line of the holiday-years card.</summary>
 public sealed record HolidayYearRow(
@@ -40,6 +112,8 @@ public sealed class MainViewModel : ObservableObject
     private YearSettings _settings;
     private CalendarYearStatus _status;
     private IReadOnlyList<HolidayYearRow> _holidayYearRows = [];
+    private IReadOnlyList<FeriefriRow> _feriefriRows = [];
+    private bool _bookFeriefri;
 
     private DateTime? _newStart;
     private DateTime? _newEnd;
@@ -47,6 +121,7 @@ public sealed class MainViewModel : ObservableObject
     private bool _isHalfDay;
     private DateTime? _newHoliday;
     private string _errorMessage = "";
+    private string _infoMessage = "";
 
     private readonly Func<DateOnly> _today;
     private readonly ThemeService? _theme;
@@ -143,6 +218,7 @@ public sealed class MainViewModel : ObservableObject
 
             _settings = GetOrCreateSettings(value);
             ErrorMessage = "";
+            InfoMessage = "";
             OnPropertyChanged();
             PreviousYearCommand.RaiseCanExecuteChanged();
             NextYearCommand.RaiseCanExecuteChanged();
@@ -325,6 +401,46 @@ public sealed class MainViewModel : ObservableObject
         private set => SetField(ref _holidayYearRows, value);
     }
 
+    /// <summary>Feriefri balances of the same holiday years as <see cref="HolidayYearRows"/>.</summary>
+    public IReadOnlyList<FeriefriRow> FeriefriRows
+    {
+        get => _feriefriRows;
+        private set => SetField(ref _feriefriRows, value);
+    }
+
+    /// <summary>Extra banner line about Feriefri days that are paid out or lost at 31 December; empty when none.</summary>
+    public string FeriefriBanner
+    {
+        get
+        {
+            var e = FeriefriCalculator.CalculateYearEnd(_data, _settings.Year, Today);
+            if (e.ExpiringDays <= 0)
+                return "";
+
+            var deadline = DateText.Long(e.Date);
+            var paid = e.PaidOutDays;
+            var lost = e.LostDays;
+            var sentences = new List<string>();
+            if (e.IsProjected)
+            {
+                if (paid > 0)
+                    sentences.Add($"Feriefri: {Days(paid)} must be used by {deadline}, otherwise {(paid == 1 ? "it is" : "they are")} paid out in January.");
+                if (lost > 0)
+                    sentences.Add($"{(paid > 0 ? "" : "Feriefri: ")}{Days(lost)} from {e.Previous} will be lost if not used by {(paid > 0 ? "then" : deadline)}.");
+            }
+            else
+            {
+                if (paid > 0)
+                    sentences.Add($"Feriefri: {Days(paid)} {FeriefriRow.Verb(paid, true)} paid out in January {e.Year + 1}.");
+                if (lost > 0)
+                    sentences.Add($"{(paid > 0 ? "" : "Feriefri: ")}{Days(lost)} from {e.Previous} {FeriefriRow.Verb(lost, true)} lost.");
+            }
+            return string.Join(" ", sentences);
+        }
+    }
+
+    public bool HasFeriefriBanner => FeriefriBanner.Length > 0;
+
     public string HolidayYearTitle =>
         $"Holiday year {Status.HolidayYear.HolidayYear} · use by {DateText.Long(new DateOnly(Status.Year, 12, 31))}";
 
@@ -470,6 +586,28 @@ public sealed class MainViewModel : ObservableObject
             IsHalfDay = false;
     }
 
+    /// <summary>Whether the booking form books Feriefri days instead of vacation.</summary>
+    public bool BookFeriefri
+    {
+        get => _bookFeriefri;
+        set
+        {
+            if (!SetField(ref _bookFeriefri, value))
+                return;
+
+            OnPropertyChanged(nameof(BookVacation));
+            OnPropertyChanged(nameof(AddButtonText));
+        }
+    }
+
+    public bool BookVacation
+    {
+        get => !_bookFeriefri;
+        set { if (value) BookFeriefri = false; }
+    }
+
+    public string AddButtonText => _bookFeriefri ? "Add Feriefri" : "Add vacation";
+
     public string NewDescription
     {
         get => _newDescription;
@@ -508,8 +646,17 @@ public sealed class MainViewModel : ObservableObject
         private set => SetField(ref _errorMessage, value);
     }
 
+    /// <summary>Neutral note about something that was saved (partial booking, half-day conversion); empty when none.</summary>
+    public string InfoMessage
+    {
+        get => _infoMessage;
+        private set => SetField(ref _infoMessage, value);
+    }
+
     private void AddEntry()
     {
+        ErrorMessage = "";
+        InfoMessage = "";
         if (NewStart is not { } startDate || NewEnd is not { } endDate)
         {
             ErrorMessage = "Pick a start and end date.";
@@ -537,6 +684,12 @@ public sealed class MainViewModel : ObservableObject
 
         var description = NewDescription.Trim();
         var halfDay = IsHalfDay && start == end;
+        if (BookFeriefri)
+        {
+            AddFeriefri(start, end, description, halfDay);
+            return;
+        }
+
         // On a failed save the form stays filled so the booking can be retried.
         if (!Apply(() =>
             {
@@ -553,6 +706,61 @@ public sealed class MainViewModel : ObservableObject
         NewDescription = "";
     }
 
+    private void AddFeriefri(DateOnly start, DateOnly end, string description, bool halfDay)
+    {
+        // BookFeriefri doesn't change _data; a refused booking saves nothing, a partial one saves what fitted.
+        var result = Bookings.BookFeriefri(_data, start, end, halfDay ? BookedDay.HalfDay : BookedDay.FullDay, description);
+        if (result.IsRefused)
+        {
+            ErrorMessage = RefusedMessage(result.Limit);
+            return;
+        }
+
+        if (!Apply(() => _data.Days = result.Days))
+            return;
+
+        IsHalfDay = false;
+        NewStart = null;
+        NewEnd = null;
+        NewDescription = "";
+
+        var messages = new List<string>();
+        if (!result.IsComplete)
+        {
+            var head = $"{FeriefriDays(result.BookedDays)} booked; {Days(result.LeftOutDays)} left out";
+            if (result.Limit is { PaidOutAtFirstYearEnd: > 0 } reserved)
+            {
+                var paid = reserved.PaidOutAtFirstYearEnd;
+                var usable = reserved.AllowanceDays - paid;
+                var yearEnd = DateText.Long(new DateOnly(reserved.HolidayYear.StartYear, 12, 31));
+                messages.Add($"{head}: from January only {usable:0.##} of the {reserved.AllowanceDays:0.##} Feriefri days for " +
+                    $"{reserved.HolidayYear} can be used, because {paid:0.##} {(paid == 1 ? "is" : "are")} paid out in January " +
+                    $"{reserved.HolidayYear.StartYear + 1} unless used by {yearEnd}.");
+            }
+            else
+            {
+                var year = result.Limit is { } limit ? $" for {limit.HolidayYear}" : "";
+                messages.Add($"{head} because the Feriefri days{year} are used up.");
+            }
+        }
+        foreach (var date in result.HalfDayDates)
+            messages.Add($"{DateText.Long(date)} booked as a half day.");
+        InfoMessage = string.Join(" ", messages);
+    }
+
+    private static string RefusedMessage(FeriefriLimit? limit)
+    {
+        if (limit is null)
+            return "No Feriefri days could be booked.";
+
+        var paidOut = limit.PaidOutAtFirstYearEnd > 0
+            ? $" ({limit.PaidOutAtFirstYearEnd:0.##} are paid out in January {limit.HolidayYear.StartYear + 1})"
+            : "";
+        return $"All {limit.AllowanceDays:0.##} Feriefri days for {limit.HolidayYear} are used{paidOut}.";
+    }
+
+    private static string FeriefriDays(decimal days) => days == 1 ? "1 Feriefri day" : $"{days:0.##} Feriefri days";
+
     private void DeleteEntry(EntryRow row)
     {
         Apply(() => _data.Days = Bookings.RemoveDays(_data.Days, row.Period.Dates));
@@ -560,6 +768,8 @@ public sealed class MainViewModel : ObservableObject
 
     private void AddHoliday()
     {
+        ErrorMessage = "";
+        InfoMessage = "";
         if (NewHoliday is not { } value)
         {
             ErrorMessage = "Pick a date for the holiday.";
@@ -580,7 +790,7 @@ public sealed class MainViewModel : ObservableObject
 
         NewHoliday = null;
         if (date.Year != SelectedYear)
-            ErrorMessage = $"Added to {date.Year}'s holidays.";
+            InfoMessage = $"Added to {date.Year}'s holidays.";
     }
 
     private void RemoveHoliday(DateOnly date)
@@ -613,6 +823,7 @@ public sealed class MainViewModel : ObservableObject
     {
         var snapshot = JsonSerializer.Serialize(_data, SnapshotOptions);
         ErrorMessage = "";
+        InfoMessage = "";
         try
         {
             mutate();
@@ -645,6 +856,13 @@ public sealed class MainViewModel : ObservableObject
         Status = BalanceCalculator.CalculateCalendarYear(_data, _settings.Year, Today);
         HolidayYearRows = BalanceCalculator.CalculateHolidayYears(_data, HolidayYear.InCalendarYear(_settings.Year), Today)
             .Select(HolidayYearRow.From).ToList();
+        FeriefriRows = FeriefriCalculator.CalculateHolidayYears(_data, HolidayYear.InCalendarYear(_settings.Year), Today)
+            .Select(b => new FeriefriRow(
+                b, Today >= new DateOnly(b.HolidayYear.StartYear, 9, 1),
+                days => Apply(() => _data.SetFeriefriAllowance(b.HolidayYear, days)),
+                () => Apply(() => _data.ClearFeriefriAllowance(b.HolidayYear)))).ToList();
+        OnPropertyChanged(nameof(FeriefriBanner));
+        OnPropertyChanged(nameof(HasFeriefriBanner));
         OnPropertyChanged(nameof(EmployedSince));
         OnPropertyChanged(nameof(TransferAllowed));
         OnPropertyChanged(nameof(FirstTrackedChoices));

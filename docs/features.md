@@ -141,7 +141,7 @@ Remove the employment-wide "Unused days can be transferred" switch (`VacationDat
 
 ## 3. Feriefri days
 
-**Status:** Planned
+**Status:** Done
 
 A second type of day off (feriefridage) with its own allowance, separate from regular vacation. The rules match the previous web version of the app (`vacationcalculator.html`).
 
