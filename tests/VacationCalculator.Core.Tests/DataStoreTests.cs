@@ -44,7 +44,10 @@ public class DataStoreTests : IDisposable
                 Day("2026-07-06", "Summer"),                              // Mon
                 Day("2026-07-07", "Dentist", 0.5m, DayType.Feriefri),     // Tue
             ],
-            Years = [new() { Year = 2026, AllowanceDays = 25, CarryOverDays = 2.5m, PublicHolidays = [new(2026, 12, 25)] }],
+            Years = [new() { Year = 2026, PublicHolidays = [new(2026, 12, 25)] }],
+            EmployedSince = new(2025, 11, 16),
+            FifthWeekTransferAllowed = true,
+            HolidayYears = [new() { StartYear = 2025, TransferredToNext = 2.5m }],
         };
 
         store.Save(original);
@@ -52,9 +55,58 @@ public class DataStoreTests : IDisposable
 
         Assert.Equal(original.Days, loaded.Days);
         var year = Assert.Single(loaded.Years);
-        Assert.Equal(25m, year.AllowanceDays);
-        Assert.Equal(2.5m, year.CarryOverDays);
+        Assert.Equal(2026, year.Year);
         Assert.Equal([new DateOnly(2026, 12, 25)], year.PublicHolidays);
+        Assert.Equal(new DateOnly(2025, 11, 16), loaded.EmployedSince);
+        Assert.True(loaded.FifthWeekTransferAllowed);
+        var holidayYear = Assert.Single(loaded.HolidayYears);
+        Assert.Equal(2025, holidayYear.StartYear);
+        Assert.Equal(2.5m, holidayYear.TransferredToNext);
+    }
+
+    [Fact]
+    public void SaveThenLoad_RoundTripsEmptyEmployedSince()
+    {
+        var store = new DataStore(Path.Combine(_dir, "data.json"));
+        store.Save(new VacationData());
+
+        var loaded = store.Load();
+
+        Assert.Null(loaded.EmployedSince);
+        Assert.False(loaded.FifthWeekTransferAllowed);
+        Assert.Empty(loaded.HolidayYears);
+    }
+
+    [Fact]
+    public void Load_FileFromBeforeTheHolidayAct_KeepsDaysAndHolidaysAndIgnoresOldAllowance()
+    {
+        // Format before feature 2: AllowanceDays/CarryOverDays per year, no holiday-year settings
+        var store = StoreWith("""
+            {
+              "Days": [ { "Date": "2026-07-06", "Type": "Vacation", "Amount": 1, "Description": "Summer" } ],
+              "Years": [ { "Year": 2026, "AllowanceDays": 25, "CarryOverDays": 2.5, "PublicHolidays": [ "2026-12-25" ] } ]
+            }
+            """);
+
+        var data = store.Load();
+
+        Assert.Equal([Day("2026-07-06", "Summer")], data.Days);
+        var year = Assert.Single(data.Years);
+        Assert.Equal([new DateOnly(2026, 12, 25)], year.PublicHolidays);
+        Assert.Null(data.EmployedSince);
+        Assert.False(data.FifthWeekTransferAllowed);
+        Assert.Empty(data.HolidayYears);
+    }
+
+    [Fact]
+    public void Load_NullHolidayYearsIsTolerated()
+    {
+        var data = StoreWith("""{ "HolidayYears": null, "FifthWeekTransferAllowed": true }""").Load();
+
+        Assert.Null(data.FindHolidayYear(2025));
+        Assert.Equal(25m, BalanceCalculator.CalculateHolidayYear(data, new HolidayYear(2025), new(2026, 10, 24)).UnbookedDays);
+        data.GetOrAddHolidayYear(2025).TransferredToNext = 1;
+        Assert.Equal(1m, data.FindHolidayYear(2025)!.TransferredToNext);
     }
 
     [Fact]
@@ -98,5 +150,7 @@ public class DataStoreTests : IDisposable
 
         Assert.Empty(data.Days);
         Assert.Empty(data.Years);
+        Assert.Empty(data.HolidayYears);
+        Assert.Null(data.EmployedSince);
     }
 }

@@ -1,6 +1,6 @@
 # Vacation Calculator
 
-WPF desktop app (.NET 9, C#) that tracks vacation days per calendar year and warns when unused days must be taken before 31 December. It builds `VacationCalculator.exe`; in user-facing text the name is always written "Vacation Calculator".
+WPF desktop app (.NET 9, C#) that tracks vacation days under the Danish Holiday Act and warns when unused days must be taken before their 31 December deadline. It builds `VacationCalculator.exe`; in user-facing text the name is always written "Vacation Calculator".
 
 ## Commands
 
@@ -68,11 +68,17 @@ Every completed update to the app is committed and pushed to GitHub (`origin`, h
 
 ## Domain rules
 
-- Allowance is per calendar year: `AllowanceDays + CarryOverDays`. Unused days expire on 31 December.
+Vacation follows the Danish Holiday Act (ferieloven, samtidighedsferie); full spec in `docs/features.md` section 2. The app is a planning aid, not legal advice.
+
+- **Holiday year** (`HolidayYear`, by start year): 1 Sep – 31 Aug. Its days must be used by **31 December of the following year**. Sep–Dec two holiday years are open; Jan–Aug one.
+- **Accrual** (`Accrual`): 25/12 days per month of employment, a full year exactly 25, rounded once to 2 decimals. Days earned in a month are usable from the 1st of the next month. `VacationData.EmployedSince` starts accrual; a partial first month is pro-rated by days.
+- **Allocation**: booked Vacation days go to the oldest open holiday year first, splitting a day when only 0.5 is left; over-booking goes to the newest open year. Booking beyond earned days (advance holiday) is never blocked, only shown.
+- **At the deadline**: unused days within the first 20 are lost; unused 5th-week days (own earnings beyond 20, plus transferred-in days) are paid out. With `FifthWeekTransferAllowed`, a holiday year's `TransferredToNext` (capped to its unused 5th-week days) moves them to the next holiday year.
+- The calendar-year status (`BalanceCalculator.CalculateCalendarYear`) is about the holiday year whose deadline is 31 December of that calendar year.
 - Only working days count: weekdays that are not in that year's `PublicHolidays`. Public holidays are entered by the user; no country's calendar is built in.
 - Bookings are stored per day (`BookedDay`: date, `DayType` Vacation/Feriefri, `Amount` 1 or 0.5, description), at most one record per date. Ranges are only an input/display concept: `Bookings.BookRange` creates one record per working day, and `Bookings.GroupPeriods` groups days back into periods for display.
 - Balances count only `Vacation` days on working days, as decimals. Free working days left are counted from today (inclusive) through 31 December; a booked day of either type is not free, a half-booked day is half free.
-- "Used" = vacation dates on or before today; "planned" = after today.
+- "Used" = vacation dates on or before today; "booked ahead" = after today.
 
 ## Conventions
 

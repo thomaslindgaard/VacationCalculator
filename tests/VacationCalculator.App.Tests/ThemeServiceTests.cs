@@ -1,4 +1,4 @@
-﻿using VacationCalculator.App.Services;
+using VacationCalculator.App.Services;
 using VacationCalculator.App.ViewModels;
 using VacationCalculator.Core;
 
@@ -224,66 +224,81 @@ public class ThemeServiceTests : IDisposable
         Assert.True(t.IsDark);
     }
 
-    private MainViewModel Vm(decimal allowance)
+    // Today = Wed 2030-07-10, selected year 2030 -> holiday year 2029 (1 Sep 2029 .. 31 Aug 2030, deadline 31 Dec 2030).
+    // EmployedSince 2030-09-01 is after the holiday year, so it earns 0; 2030-03-01 gives Mar..Aug = 6 months = 12.5;
+    // no date means a full year = 25.
+    private MainViewModel Vm(decimal earnable)
     {
         var vm = new MainViewModel(new DataStore(Data), () => new DateOnly(2030, 7, 10));
-        vm.CarryOverDays = 0;
-        vm.AllowanceDays = allowance;
+        SetEarnable(vm, earnable);
         return vm;
     }
 
+    private static void SetEarnable(MainViewModel vm, decimal earnable) =>
+        vm.EmployedSince = earnable switch
+        {
+            0 => new DateTime(2030, 9, 1),
+            12.5m => new DateTime(2030, 3, 1),
+            25 => null,
+            _ => throw new ArgumentOutOfRangeException(nameof(earnable)),
+        };
+
     [Theory]
     [InlineData(25, 1)]
-    [InlineData(0.5, 1)]
+    [InlineData(12.5, 1)]
     [InlineData(0, 0)]
-    public void RemainingSign_NoEntries(decimal allowance, int sign)
+    public void UnbookedSign_NoEntries(decimal earnable, int sign)
     {
-        Assert.Equal(sign, Vm(allowance).RemainingSign);
+        Assert.Equal(sign, Vm(earnable).UnbookedSign);
     }
 
     [Fact]
-    public void RemainingSign_Negative_WhenOverbooked_AndRaisesPropertyChanged()
+    public void UnbookedSign_Negative_WhenOverbooked_AndRaisesPropertyChanged()
     {
-        // Allowance 0; Mon 2030-07-08 is a working day (see half-day tests), so 1 day booked -> remaining -1.
+        // Earnable 0; Mon 2030-07-08 is a working day (see half-day tests), so 1 day booked -> unbooked -1.
         var vm = Vm(0);
-        Assert.Equal(0, vm.RemainingSign);
+        Assert.Equal(0, vm.UnbookedSign);
         var raised = new List<string?>();
         vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
         vm.NewStart = new DateTime(2030, 7, 8);
         vm.NewEnd = new DateTime(2030, 7, 8);
         vm.AddEntryCommand.Execute(null);
-        Assert.Equal(-1, vm.RemainingSign);
-        Assert.Contains("RemainingSign", raised);
+        Assert.Equal(-1, vm.UnbookedSign);
+        Assert.Contains("UnbookedSign", raised);
     }
 
     [Fact]
-    public void RemainingSign_HalfDayOverbooked_IsNegative_AndFractionalPositive()
+    public void UnbookedSign_HalfDayOverbooked_IsNegative_AndFractionalPositive()
     {
         var vm = Vm(0);
         vm.NewStart = new DateTime(2030, 7, 8);
         vm.NewEnd = new DateTime(2030, 7, 8);
         vm.IsHalfDay = true;
         vm.AddEntryCommand.Execute(null);
-        Assert.Equal(-0.5m, vm.Balance.RemainingDays);
-        Assert.Equal(-1, vm.RemainingSign);
+        Assert.Equal(-0.5m, vm.Status.UnbookedDays);
+        Assert.Equal(-1, vm.UnbookedSign);
 
-        vm.AllowanceDays = 1; // 1 - 0.5 = 0.5
-        Assert.Equal(0.5m, vm.Balance.RemainingDays);
-        Assert.Equal(1, vm.RemainingSign);
+        SetEarnable(vm, 12.5m); // 12.5 - 0.5 = 12
+        Assert.Equal(12m, vm.Status.UnbookedDays);
+        Assert.Equal(1, vm.UnbookedSign);
 
-        vm.AllowanceDays = 0.5m; // 0.5 - 0.5 = 0
-        Assert.Equal(0, vm.RemainingSign);
+        // 12 more working days Mon 07-15 .. Tue 07-30 (5 + 5 + 2) use the rest: 12.5 - 12.5 = 0.
+        vm.NewStart = new DateTime(2030, 7, 15);
+        vm.NewEnd = new DateTime(2030, 7, 30);
+        vm.AddEntryCommand.Execute(null);
+        Assert.Equal(0m, vm.Status.UnbookedDays);
+        Assert.Equal(0, vm.UnbookedSign);
     }
 
     [Fact]
-    public void RemainingSign_RaisedWhenAllowanceChanges()
+    public void UnbookedSign_RaisedWhenEmployedSinceChanges()
     {
-        var vm = Vm(10);
+        var vm = Vm(12.5m);
         var raised = new List<string?>();
         vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
-        vm.AllowanceDays = 0;
-        Assert.Contains("RemainingSign", raised);
-        Assert.Equal(0, vm.RemainingSign);
+        SetEarnable(vm, 0);
+        Assert.Contains("UnbookedSign", raised);
+        Assert.Equal(0, vm.UnbookedSign);
     }
 
     [Fact]
@@ -293,7 +308,7 @@ public class ThemeServiceTests : IDisposable
         // validation; the first edit then must not throw an unhandled exception.
         var bad = Path.Combine(_dir, "a|b?.json");
         var vm = new MainViewModel(new DataStore(bad), () => new DateOnly(2030, 7, 10));
-        var ex = Record.Exception(() => vm.AllowanceDays = 12);
+        var ex = Record.Exception(() => vm.FifthWeekTransferAllowed = true);
         Assert.Null(ex);
         Assert.Empty(Directory.GetFiles(_dir));
     }

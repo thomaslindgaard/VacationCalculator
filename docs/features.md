@@ -47,7 +47,11 @@ Theming:
 
 **Agents:** `wpf-ui`.
 
-**Status:** Planned
+---
+
+## 2. Vacation follows the Danish Holiday Act (ferieloven)
+
+**Status:** Done
 
 Replace the current model (a fixed allowance per calendar year plus manual carry-over) with the rules of ferieloven (samtidighedsferie, in force since 1 September 2020).
 
@@ -78,7 +82,7 @@ What the app shows:
 
 Decisions:
 
-- **Order of use:** when two holiday years are open (September to December), booked days use the oldest holiday year first.
+- **Order of use:** when two holiday years are open (September to December), booked days use the oldest holiday year first. This always applies, also after a 5th-week transfer has been registered: booking more days in September–December uses the older year's days first and reduces the transfer.
 - **Holiday obstacle:** transferring days from the first 4 weeks because of a holiday obstacle (illness, parental leave) is out of scope for now.
 - **Existing settings:** the per-calendar-year "Days per year" and "Carried over from last year" fields are removed. No migration is needed.
 

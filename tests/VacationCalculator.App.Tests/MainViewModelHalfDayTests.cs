@@ -71,9 +71,9 @@ public class MainViewModelHalfDayTests : IDisposable
         var row = Assert.Single(vm.Entries);
         Assert.Equal(0.5m, row.Period.Amount);
         Assert.False(row.IsPast);
-        Assert.Equal(0.5m, vm.Balance.PlannedDays);
-        Assert.Equal(0m, vm.Balance.UsedDays);
-        Assert.Equal(24.5m, vm.Balance.RemainingDays);
+        Assert.Equal(0.5m, vm.Status.HolidayYear.BookedAheadDays);
+        Assert.Equal(0m, vm.Status.HolidayYear.UsedDays);
+        Assert.Equal(24.5m, vm.Status.UnbookedDays);
         Assert.False(vm.IsHalfDay);
         Assert.Null(vm.NewStart);
     }
@@ -89,8 +89,8 @@ public class MainViewModelHalfDayTests : IDisposable
 
         var row = Assert.Single(vm.Entries);
         Assert.True(row.IsPast);
-        Assert.Equal(0.5m, vm.Balance.UsedDays);
-        Assert.Equal(0m, vm.Balance.PlannedDays);
+        Assert.Equal(0.5m, vm.Status.HolidayYear.UsedDays);
+        Assert.Equal(0m, vm.Status.HolidayYear.BookedAheadDays);
     }
 
     [Fact]
@@ -105,8 +105,8 @@ public class MainViewModelHalfDayTests : IDisposable
         var row = Assert.Single(vm.Entries);
         Assert.Equal(new DateOnly(2030, 7, 10), row.Period.End);
         Assert.True(row.IsPast);
-        Assert.Equal(0.5m, vm.Balance.UsedDays);
-        Assert.Equal(0m, vm.Balance.PlannedDays);
+        Assert.Equal(0.5m, vm.Status.HolidayYear.UsedDays);
+        Assert.Equal(0m, vm.Status.HolidayYear.BookedAheadDays);
     }
 
     [Fact]
@@ -120,8 +120,8 @@ public class MainViewModelHalfDayTests : IDisposable
 
         var row = Assert.Single(vm.Entries);
         Assert.False(row.IsPast); // ends after today
-        Assert.Equal(3m, vm.Balance.UsedDays);
-        Assert.Equal(2m, vm.Balance.PlannedDays);
+        Assert.Equal(3m, vm.Status.HolidayYear.UsedDays);
+        Assert.Equal(2m, vm.Status.HolidayYear.BookedAheadDays);
     }
 
     // IsPast cases. Today = Wed 2030-07-10; yesterday Tue 07-09; tomorrow Thu 07-11.
@@ -134,7 +134,7 @@ public class MainViewModelHalfDayTests : IDisposable
         vm.AddEntryCommand.Execute(null);
 
         Assert.True(Assert.Single(vm.Entries).IsPast);
-        Assert.Equal(2m, vm.Balance.UsedDays);
+        Assert.Equal(2m, vm.Status.HolidayYear.UsedDays);
     }
 
     [Fact]
@@ -145,8 +145,8 @@ public class MainViewModelHalfDayTests : IDisposable
         vm.AddEntryCommand.Execute(null);
 
         Assert.True(Assert.Single(vm.Entries).IsPast);
-        Assert.Equal(1m, vm.Balance.UsedDays);
-        Assert.Equal(0m, vm.Balance.PlannedDays);
+        Assert.Equal(1m, vm.Status.HolidayYear.UsedDays);
+        Assert.Equal(0m, vm.Status.HolidayYear.BookedAheadDays);
     }
 
     [Fact]
@@ -158,8 +158,8 @@ public class MainViewModelHalfDayTests : IDisposable
         vm.AddEntryCommand.Execute(null);
 
         Assert.True(Assert.Single(vm.Entries).IsPast);
-        Assert.Equal(3m, vm.Balance.UsedDays);
-        Assert.Equal(0m, vm.Balance.PlannedDays);
+        Assert.Equal(3m, vm.Status.HolidayYear.UsedDays);
+        Assert.Equal(0m, vm.Status.HolidayYear.BookedAheadDays);
     }
 
     [Fact]
@@ -171,8 +171,8 @@ public class MainViewModelHalfDayTests : IDisposable
         vm.AddEntryCommand.Execute(null);
 
         Assert.False(Assert.Single(vm.Entries).IsPast);
-        Assert.Equal(3m, vm.Balance.UsedDays);
-        Assert.Equal(1m, vm.Balance.PlannedDays);
+        Assert.Equal(3m, vm.Status.HolidayYear.UsedDays);
+        Assert.Equal(1m, vm.Status.HolidayYear.BookedAheadDays);
     }
 
     [Fact]
@@ -184,8 +184,8 @@ public class MainViewModelHalfDayTests : IDisposable
         vm.AddEntryCommand.Execute(null);
 
         Assert.False(Assert.Single(vm.Entries).IsPast);
-        Assert.Equal(0m, vm.Balance.UsedDays);
-        Assert.Equal(2m, vm.Balance.PlannedDays);
+        Assert.Equal(0m, vm.Status.HolidayYear.UsedDays);
+        Assert.Equal(2m, vm.Status.HolidayYear.BookedAheadDays);
     }
 
     [Fact]
@@ -197,7 +197,7 @@ public class MainViewModelHalfDayTests : IDisposable
         vm.AddEntryCommand.Execute(null);
 
         Assert.Equal(5m, Assert.Single(vm.Entries).Period.Amount);
-        Assert.Equal(5m, vm.Balance.PlannedDays);
+        Assert.Equal(5m, vm.Status.HolidayYear.BookedAheadDays);
     }
 
     [Fact]
@@ -226,7 +226,7 @@ public class MainViewModelHalfDayTests : IDisposable
         vm.DeleteEntryCommand.Execute(row);
 
         Assert.Empty(vm.Entries);
-        Assert.Equal(0m, vm.Balance.PlannedDays);
+        Assert.Equal(0m, vm.Status.HolidayYear.BookedAheadDays);
     }
 
     [Fact]

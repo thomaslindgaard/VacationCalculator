@@ -1,408 +1,454 @@
 using VacationCalculator.Core;
+using static VacationCalculator.Core.Tests.TestData;
 
 namespace VacationCalculator.Core.Tests;
 
 public class BalanceCalculatorTests
 {
     private static readonly HashSet<DateOnly> NoHolidays = [];
+    private static readonly HolidayYear Hy2025 = new(2025); // 1 Sep 2025 .. 31 Aug 2026, deadline 31 Dec 2026
+    private static readonly HolidayYear Hy2026 = new(2026); // 1 Sep 2026 .. 31 Aug 2027, deadline 31 Dec 2027
 
-    private static DateOnly D(string date) => DateOnly.Parse(date);
+    private static HolidayYearBalance Balance(VacationData data, HolidayYear year, string today) =>
+        BalanceCalculator.CalculateHolidayYear(data, year, D(today));
 
-    /// <summary>Full vacation days on every weekday of the inclusive range.</summary>
-    private static List<BookedDay> Range(string start, string end, DayType type = DayType.Vacation) =>
-        Bookings.BookRange([], D(start), D(end), type, "", NoHolidays);
+    private static List<(DateOnly, int, decimal)> AllocationsFrom(VacationData data, string from) =>
+        BalanceCalculator.Allocate(data)
+            .Where(a => a.Date >= D(from))
+            .Select(a => (a.Date, a.HolidayYear.StartYear, a.Amount))
+            .ToList();
 
-    private static BookedDay Day(string date, decimal amount = 1, DayType type = DayType.Vacation) =>
-        new() { Date = D(date), Amount = amount, Type = type };
-
-    private static YearSettings Settings(decimal allowance, decimal carryOver = 0, params string[] holidays) =>
-        Settings(2026, allowance, carryOver, holidays);
-
-    private static YearSettings Settings(int year, decimal allowance, decimal carryOver = 0, params string[] holidays) =>
-        new()
-        {
-            Year = year,
-            AllowanceDays = allowance,
-            CarryOverDays = carryOver,
-            PublicHolidays = holidays.Select(DateOnly.Parse).ToList(),
-        };
+    // ---- Working days ----
 
     [Fact]
     public void CountWorkingDays_SkipsWeekends()
     {
         // Mon 2026-10-19 .. Sun 2026-10-25
-        var days = BalanceCalculator.CountWorkingDays(new(2026, 10, 19), new(2026, 10, 25), NoHolidays);
-        Assert.Equal(5, days);
+        Assert.Equal(5, BalanceCalculator.CountWorkingDays(D("2026-10-19"), D("2026-10-25"), NoHolidays));
     }
 
     [Fact]
     public void CountWorkingDays_SkipsHolidays()
     {
-        var holidays = new HashSet<DateOnly> { new(2026, 12, 24), new(2026, 12, 25) };
+        var holidays = new HashSet<DateOnly> { D("2026-12-24"), D("2026-12-25") };
         // Mon 2026-12-21 .. Fri 2026-12-25
-        var days = BalanceCalculator.CountWorkingDays(new(2026, 12, 21), new(2026, 12, 25), holidays);
-        Assert.Equal(3, days);
+        Assert.Equal(3, BalanceCalculator.CountWorkingDays(D("2026-12-21"), D("2026-12-25"), holidays));
     }
 
+    // ---- Allocation ----
+
     [Fact]
-    public void Calculate_SplitsUsedAndPlannedAroundToday()
+    public void Allocate_31AugustGoesToTheOnlyOpenYearEvenWhenFull_1SeptemberSpillsToTheNewYear()
     {
-        // Mon 2026-07-06 .. Fri 2026-07-17 = 10 days, past; Mon 2026-12-21 .. Wed 2026-12-23 = 3 days, future
-        var days = Range("2026-07-06", "2026-07-17").Concat(Range("2026-12-21", "2026-12-23"));
+        // Holiday year 2025 full (25 days in Jan/Feb 2026); Mon 2026-08-31, Tue 2026-09-01
+        var data = Data(Fill(25).Append(Day("2026-08-31")).Append(Day("2026-09-01")));
 
-        var balance = BalanceCalculator.Calculate(Settings(25), days, today: new(2026, 10, 24)); // Sat
-
-        Assert.Equal(10, balance.UsedDays);
-        Assert.Equal(3, balance.PlannedDays);
-        Assert.Equal(12, balance.RemainingDays);
-        Assert.Equal(BalanceStatus.DaysToPlan, balance.Status);
+        Assert.Equal([(D("2026-08-31"), 2025, 1m), (D("2026-09-01"), 2026, 1m)], AllocationsFrom(data, "2026-08-31"));
     }
 
     [Fact]
-    public void Calculate_DayOnTodayCountsAsUsed()
+    public void Allocate_SeptemberToDecember_FillsTheOldYearFirstThenTheNewOne()
+    {
+        // 23 days used in holiday year 2025, so 2 are left. Then Mon 2026-10-19 .. Fri 2026-10-23.
+        var data = Data(Fill(23).Concat(Range("2026-10-19", "2026-10-23")));
+
+        Assert.Equal(
+            [
+                (D("2026-10-19"), 2025, 1m), (D("2026-10-20"), 2025, 1m),
+                (D("2026-10-21"), 2026, 1m), (D("2026-10-22"), 2026, 1m), (D("2026-10-23"), 2026, 1m),
+            ],
+            AllocationsFrom(data, "2026-09-01"));
+    }
+
+    [Fact]
+    public void Allocate_HalfDaysAllocateHalf()
+    {
+        // 23.5 used in 2025 (half on Thu 2026-02-05), 1.5 left.
+        // Mon 2026-10-19 full -> 2025 (0.5 left), Tue 10-20 half -> 2025 (0 left), Wed 10-21 full -> 2026
+        var days = Fill(23.5m).Concat([Day("2026-10-19"), Day("2026-10-20", 0.5m), Day("2026-10-21")]);
+
+        Assert.Equal(
+            [(D("2026-10-19"), 2025, 1m), (D("2026-10-20"), 2025, 0.5m), (D("2026-10-21"), 2026, 1m)],
+            AllocationsFrom(Data(days), "2026-09-01"));
+    }
+
+    [Fact]
+    public void Allocate_FullDayWithHalfLeftInOldYear_IsSplit()
+    {
+        // 24.5 used in 2025 (half on Fri 2026-02-06); Mon 2026-10-19 full
+        var data = Data(Fill(24.5m).Append(Day("2026-10-19")));
+
+        Assert.Equal([(D("2026-10-19"), 2025, 0.5m), (D("2026-10-19"), 2026, 0.5m)], AllocationsFrom(data, "2026-09-01"));
+        Assert.Equal(0.5m, Balance(data, Hy2026, "2026-10-24").UsedDays);
+        Assert.Equal(0m, Balance(data, Hy2025, "2026-10-24").UnbookedDays);
+    }
+
+    [Fact]
+    public void Allocate_JanuaryAfterTheDeadline_GoesToTheNewYearEvenIfTheOldHasDaysLeft()
+    {
+        // Mon 2027-01-04; holiday year 2025 expired on Thu 2026-12-31
+        var data = Data([Day("2027-01-04")]);
+
+        Assert.Equal([(D("2027-01-04"), 2026, 1m)], AllocationsFrom(data, "2026-01-01"));
+        Assert.Equal(25m, Balance(data, Hy2025, "2027-01-15").UnbookedDays);
+    }
+
+    [Fact]
+    public void Allocate_31DecemberStillGoesToTheExpiringYear()
+    {
+        // Thu 2026-12-31 is holiday year 2025's last day; Fri 2027-01-01 is not
+        var data = Data([Day("2026-12-31"), Day("2027-01-01")]);
+
+        Assert.Equal([(D("2026-12-31"), 2025, 1m), (D("2027-01-01"), 2026, 1m)], AllocationsFrom(data, "2026-01-01"));
+    }
+
+    [Fact]
+    public void Allocate_SkipsFeriefriWeekendsAndHolidays()
+    {
+        var data = Data(
+        [
+            Day("2026-10-19", type: DayType.Feriefri), // Mon
+            Day("2026-10-24"),                         // Sat
+            Day("2026-12-24"),                         // Thu, holiday
+            Day("2026-12-23"),                         // Wed, counts
+        ]).WithHolidays("2026-12-24");
+
+        Assert.Equal([(D("2026-12-23"), 2025, 1m)], AllocationsFrom(data, "2026-01-01"));
+    }
+
+    [Fact]
+    public void Allocate_CountsDuplicateRecordsForADateOnce()
+    {
+        var data = Data([Day("2026-08-03"), Day("2026-08-03", 0.5m)]); // Mon; first record wins
+
+        Assert.Equal([(D("2026-08-03"), 2025, 1m)], AllocationsFrom(data, "2026-01-01"));
+    }
+
+    [Fact]
+    public void Allocate_EmployedAfterTheOldYear_AutumnDaysGoToTheNewYear()
+    {
+        // Employed from Tue 2026-09-01, so holiday year 2025 earns nothing. Mon 2026-10-19.
+        var data = Data([Day("2026-10-19")], employedSince: D("2026-09-01"));
+
+        Assert.Equal([(D("2026-10-19"), 2026, 1m)], AllocationsFrom(data, "2026-01-01"));
+    }
+
+    [Fact]
+    public void Allocate_RangeAcrossNewYear_SplitsByHolidayYear()
+    {
+        // Mon 2026-12-28 .. Fri 2027-01-08, no holidays: Mon 28 .. Thu 31 Dec (4) to 2025,
+        // Fri 1 Jan + Mon 4 .. Fri 8 Jan (6) to 2026
+        var data = Data(Range("2026-12-28", "2027-01-08"));
+
+        var balance2025 = Balance(data, Hy2025, "2026-10-24");
+        var balance2026 = Balance(data, Hy2026, "2026-10-24");
+
+        Assert.Equal(4m, balance2025.BookedAheadDays);
+        Assert.Equal(6m, balance2026.BookedAheadDays);
+    }
+
+    // ---- Holiday-year balance ----
+
+    [Fact]
+    public void Balance_SplitsUsedAndBookedAheadAroundToday()
+    {
+        // Mon 2026-07-06 .. Fri 2026-07-17 = 10 past; Mon 2026-12-21 .. Wed 2026-12-23 = 3 ahead. Today Sat 2026-10-24.
+        var data = Data(Range("2026-07-06", "2026-07-17").Concat(Range("2026-12-21", "2026-12-23")));
+
+        var b = Balance(data, Hy2025, "2026-10-24");
+
+        Assert.Equal(25m, b.EarnedSoFar);
+        Assert.Equal(25m, b.EarnableDays);
+        Assert.Equal(10m, b.UsedDays);
+        Assert.Equal(3m, b.BookedAheadDays);
+        Assert.Equal(12m, b.RemainingDays);
+        Assert.Equal(12m, b.UnbookedDays);
+        Assert.Equal(D("2026-12-31"), b.Deadline);
+        Assert.True(b.IsOpenOn(D("2026-10-24")));
+        Assert.False(b.IsOpenOn(D("2027-01-01")));
+    }
+
+    [Fact]
+    public void Balance_DayOnTodayCountsAsUsed()
     {
         // Mon 2026-10-19 .. Wed 2026-10-21, today Tue 2026-10-20
-        var balance = BalanceCalculator.Calculate(Settings(25), Range("2026-10-19", "2026-10-21"), today: new(2026, 10, 20));
+        var b = Balance(Data(Range("2026-10-19", "2026-10-21")), Hy2025, "2026-10-20");
 
-        Assert.Equal(2, balance.UsedDays);
-        Assert.Equal(1, balance.PlannedDays);
+        Assert.Equal(2m, b.UsedDays);
+        Assert.Equal(1m, b.BookedAheadDays);
     }
 
     [Fact]
-    public void Calculate_IncludesCarryOver()
+    public void Balance_AdvanceHoliday_RemainingGoesNegative()
     {
-        var balance = BalanceCalculator.Calculate(Settings(25, carryOver: 5), [], today: new(2026, 1, 1));
-        Assert.Equal(30, balance.TotalDays);
-        Assert.Equal(30, balance.RemainingDays);
+        // Employed from Tue 2026-09-01. Today Sat 2026-10-24: only September usable (2.08).
+        // Mon 2026-10-19 .. Fri 2026-10-23 taken = 5.
+        var data = Data(Range("2026-10-19", "2026-10-23"), employedSince: D("2026-09-01"));
+
+        var b = Balance(data, Hy2026, "2026-10-24");
+
+        Assert.Equal(M("2.08"), b.EarnedSoFar);
+        Assert.Equal(5m, b.UsedDays);
+        Assert.Equal(M("-2.92"), b.RemainingDays);
+        Assert.Equal(M("2.92"), b.ExceedsEarnedSoFarBy);
+        Assert.Equal(20m, b.UnbookedDays);
+        Assert.Equal(0m, b.ExceedsEarnableBy);
     }
 
     [Fact]
-    public void Calculate_HalfDaysCountAsHalfInUsedPlannedAndRemaining()
+    public void Balance_BookingsBeyondWhatCanBeEarnedBy31August()
     {
-        var days = new[]
-        {
-            Day("2026-07-06", 0.5m), // Mon, past
-            Day("2026-12-21", 0.5m), // Mon, future
-            Day("2026-12-22"),       // Tue, future
-        };
+        // Mon 2027-01-04 .. Mon 2027-02-08 = 20 + 5 + 1 = 26 days for holiday year 2026. Today Sat 2026-10-24.
+        var data = Data(Range("2027-01-04", "2027-02-08"));
 
-        var balance = BalanceCalculator.Calculate(Settings(25, carryOver: 0.5m), days, today: new(2026, 10, 24));
+        var b = Balance(data, Hy2026, "2026-10-24");
 
-        Assert.Equal(0.5m, balance.UsedDays);
-        Assert.Equal(1.5m, balance.PlannedDays);
-        Assert.Equal(23.5m, balance.RemainingDays);
+        Assert.Equal(26m, b.BookedAheadDays);
+        Assert.Equal(-1m, b.UnbookedDays);
+        Assert.Equal(1m, b.ExceedsEarnableBy);
+        Assert.Equal(M("-23.92"), b.RemainingDays); // 2.08 earned so far - 26
+        Assert.Equal(0m, b.PaidOutDays);
+        Assert.Equal(0m, b.LostDays);
     }
 
     [Fact]
-    public void Calculate_IgnoresFeriefriDaysInUsedAndPlanned()
+    public void Balance_FutureHolidayYearHasEarnedNothingYet()
     {
-        var days = new[]
-        {
-            Day("2026-07-06", type: DayType.Feriefri), // Mon, past
-            Day("2026-12-21", type: DayType.Feriefri), // Mon, future
-            Day("2026-12-22"),                         // Tue, future vacation
-        };
+        var b = Balance(Data(), new HolidayYear(2027), "2026-10-24");
 
-        var balance = BalanceCalculator.Calculate(Settings(25), days, today: new(2026, 10, 24));
+        Assert.Equal(0m, b.EarnedSoFar);
+        Assert.Equal(25m, b.EarnableDays);
+        Assert.Equal(25m, b.UnbookedDays);
+    }
 
-        Assert.Equal(0, balance.UsedDays);
-        Assert.Equal(1, balance.PlannedDays);
+    // ---- Paid out vs lost at the deadline ----
+
+    [Fact]
+    public void Deadline_25Earned15Used_5PaidOut5Lost()
+    {
+        // 15 used Mon 2026-01-05 .. Fri 2026-01-23; today Fri 2027-01-15, after the deadline
+        var b = Balance(Data(Fill(15)), Hy2025, "2027-01-15");
+
+        Assert.Equal(10m, b.UnbookedDays);
+        Assert.Equal(5m, b.FifthWeekDays);
+        Assert.Equal(5m, b.UnusedFifthWeekDays);
+        Assert.Equal(5m, b.PaidOutDays);
+        Assert.Equal(5m, b.LostDays);
     }
 
     [Fact]
-    public void Calculate_IgnoresRecordsOnWeekendsAndHolidays()
+    public void Deadline_UsedDaysComeFromTheFirst20_SoTheRestIsPaidOut()
     {
-        var days = new[]
-        {
-            Day("2026-07-11"), // Sat
-            Day("2026-12-24"), // Thu, holiday
-            Day("2026-12-23"), // Wed, counts
-        };
+        // 22 used: the 3 unused are 5th-week days
+        var b = Balance(Data(Fill(22)), Hy2025, "2027-01-15");
 
-        var balance = BalanceCalculator.Calculate(Settings(25, 0, "2026-12-24"), days, today: new(2026, 10, 24));
-
-        Assert.Equal(0, balance.UsedDays);
-        Assert.Equal(1, balance.PlannedDays);
+        Assert.Equal(3m, b.PaidOutDays);
+        Assert.Equal(0m, b.LostDays);
     }
 
     [Fact]
-    public void Calculate_OnlyCountsDaysInsideTheYear()
+    public void Deadline_ProjectsFromPlannedDaysToo()
     {
-        // Mon 2026-12-28 .. Fri 2027-01-08: 4 working days in 2026, 6 in 2027
-        var days = Range("2026-12-28", "2027-01-08");
+        // Today Sat 2026-10-24: 15 used, Mon 2026-12-14 .. Fri 2026-12-18 = 5 planned -> 5 unused, all 5th week
+        var b = Balance(Data(Fill(15).Concat(Range("2026-12-14", "2026-12-18"))), Hy2025, "2026-10-24");
 
-        var b2026 = BalanceCalculator.Calculate(Settings(2026, 25), days, today: new(2026, 10, 24));
-        var b2027 = BalanceCalculator.Calculate(Settings(2027, 25), days, today: new(2026, 10, 24));
-
-        Assert.Equal(4, b2026.PlannedDays);
-        Assert.Equal(6, b2027.PlannedDays);
+        Assert.Equal(5m, b.PaidOutDays);
+        Assert.Equal(0m, b.LostDays);
     }
 
     [Fact]
-    public void Calculate_CountsDuplicateRecordsForADateOnce()
+    public void Deadline_HalfDaysSplitCorrectly()
     {
-        var days = new[] { Day("2026-08-03"), Day("2026-08-03") }; // Mon
+        // 19.5 used: 5.5 unused = 5 paid out + 0.5 lost
+        var b = Balance(Data(Fill(19.5m)), Hy2025, "2027-01-15");
 
-        var balance = BalanceCalculator.Calculate(Settings(25), days, today: new(2026, 10, 24));
-
-        Assert.Equal(1, balance.UsedDays);
+        Assert.Equal(5m, b.PaidOutDays);
+        Assert.Equal(0.5m, b.LostDays);
     }
 
     [Fact]
-    public void Calculate_FlagsDaysThatCannotFitBeforeYearEnd()
+    public void Deadline_PartialYearOf20OrLess_HasNoFifthWeek_AllLost()
     {
-        // From Fri 2026-12-18 (today, included), working days left: 18,21,22,23,24,25,28,29,30,31 = 10
-        var balance = BalanceCalculator.Calculate(Settings(25), [], today: new(2026, 12, 18));
+        // Employed from Thu 2026-01-01: Jan .. Aug = 8 months = 16.6667
+        var b = Balance(Data(employedSince: D("2026-01-01")), Hy2025, "2027-01-15");
 
-        Assert.Equal(10, balance.WorkingDaysLeft);
-        Assert.Equal(BalanceStatus.DaysWillBeLost, balance.Status);
-        Assert.Equal(15, balance.DaysAtRisk);
+        Assert.Equal(M("16.67"), b.EarnableDays);
+        Assert.Equal(0m, b.FifthWeekDays);
+        Assert.Equal(0m, b.PaidOutDays);
+        Assert.Equal(M("16.67"), b.LostDays);
     }
 
     [Fact]
-    public void Calculate_DaysAtRiskCanBeHalf()
+    public void Deadline_PartialYearAbove20_OnlyTheExcessIsPaidOut()
     {
-        // From Fri 2026-12-18 (today, included): 10 free working days left, 10.5 remaining
-        var balance = BalanceCalculator.Calculate(Settings(10.5m), [], today: new(2026, 12, 18));
+        // Employed from Wed 2025-10-01: 11 months = 22.92, 5th week 2.92
+        var b = Balance(Data(employedSince: D("2025-10-01")), Hy2025, "2027-01-15");
 
-        Assert.Equal(BalanceStatus.DaysWillBeLost, balance.Status);
-        Assert.Equal(0.5m, balance.DaysAtRisk);
+        Assert.Equal(M("2.92"), b.PaidOutDays);
+        Assert.Equal(20m, b.LostDays);
     }
 
     [Fact]
-    public void Calculate_WorkingDaysLeftExcludesHolidaysAndBookedDays()
+    public void Deadline_EverythingUsed_NothingPaidOrLost()
     {
-        var settings = Settings(25, 0, "2026-12-24", "2026-12-25", "2026-12-31");
+        var b = Balance(Data(Fill(25)), Hy2025, "2027-01-15");
 
-        // Mon 2026-12-21 .. Wed 2026-12-23 booked
-        var balance = BalanceCalculator.Calculate(settings, Range("2026-12-21", "2026-12-23"), today: new(2026, 12, 18)); // Fri
-
-        // 21,22,23 booked; 24,25,31 holidays; leaves Fri 18 (today), Mon 28, Tue 29, Wed 30
-        Assert.Equal(4, balance.WorkingDaysLeft);
+        Assert.Equal(0m, b.UnbookedDays);
+        Assert.Equal(0m, b.PaidOutDays);
+        Assert.Equal(0m, b.LostDays);
     }
 
     [Fact]
-    public void Calculate_HalfBookedDayLeavesHalfAFreeWorkingDay()
+    public void Deadline_OverBooked_NothingPaidOrLost()
     {
-        var settings = Settings(25, 0, "2026-12-24", "2026-12-25", "2026-12-31");
-        var days = new[]
-        {
-            Day("2026-12-21", 0.5m), // Mon, half
-            Day("2026-12-22"),       // Tue, full
-        };
+        var b = Balance(Data(Fill(26)), Hy2025, "2027-01-15");
 
-        var balance = BalanceCalculator.Calculate(settings, days, today: new(2026, 12, 18)); // Fri
-
-        // 18 (today) = 1, 21 = 0.5, 22 = 0, 23 = 1, 28/29/30 = 3
-        Assert.Equal(5.5m, balance.WorkingDaysLeft);
+        Assert.Equal(-1m, b.UnbookedDays);
+        Assert.Equal(0m, b.UnusedFifthWeekDays);
+        Assert.Equal(0m, b.PaidOutDays);
+        Assert.Equal(0m, b.LostDays);
     }
 
-    [Fact]
-    public void Calculate_FeriefriDayIsNotAFreeWorkingDay()
-    {
-        var days = new[]
-        {
-            Day("2026-12-28", type: DayType.Feriefri),       // Mon, full
-            Day("2026-12-29", 0.5m, type: DayType.Feriefri), // Tue, half
-        };
-
-        var balance = BalanceCalculator.Calculate(Settings(25), days, today: new(2026, 12, 25)); // Fri
-
-        // Free: Fri 25 (today, no holidays set) = 1, 28 = 0, 29 = 0.5, Wed 30 = 1, Thu 31 = 1
-        Assert.Equal(3.5m, balance.WorkingDaysLeft);
-        Assert.Equal(0, balance.PlannedDays);
-    }
+    // ---- Transfer of the 5th week ----
 
     [Fact]
-    public void Calculate_ReportsOverBooking()
+    public void Transfer_SettingOff_StoredTransferIsIgnored()
     {
-        var balance = BalanceCalculator.Calculate(Settings(5), Range("2026-07-06", "2026-07-17"), today: new(2026, 10, 24));
+        var data = Data(Fill(15), transferAllowed: false, transfers: (2025, 5m));
 
-        Assert.Equal(-5, balance.RemainingDays);
-        Assert.Equal(BalanceStatus.OverBooked, balance.Status);
-        Assert.Equal(0, balance.DaysAtRisk);
-    }
+        var b2025 = Balance(data, Hy2025, "2027-01-15");
+        var b2026 = Balance(data, Hy2026, "2027-01-15");
 
-    [Fact]
-    public void Calculate_ReportsOverBookingByHalfADay()
-    {
-        // Mon 2026-07-06 .. Fri 2026-07-10 full, plus half on Mon 2026-07-13
-        var days = Range("2026-07-06", "2026-07-10").Append(Day("2026-07-13", 0.5m));
-
-        var balance = BalanceCalculator.Calculate(Settings(5), days, today: new(2026, 10, 24));
-
-        Assert.Equal(-0.5m, balance.RemainingDays);
-        Assert.Equal(BalanceStatus.OverBooked, balance.Status);
-    }
-
-    [Fact]
-    public void Calculate_ReportsAllPlanned()
-    {
-        // Mon 2026-07-06 .. Fri 2026-07-10
-        var balance = BalanceCalculator.Calculate(Settings(5), Range("2026-07-06", "2026-07-10"), today: new(2026, 10, 24));
-
-        Assert.Equal(BalanceStatus.AllPlanned, balance.Status);
-    }
-
-    [Fact]
-    public void Calculate_ReportsAllPlannedWithHalfDays()
-    {
-        // Mon 2026-07-06 .. Thu 2026-07-09 full, Fri 2026-07-10 half = 4.5
-        var days = Range("2026-07-06", "2026-07-09").Append(Day("2026-07-10", 0.5m));
-
-        var balance = BalanceCalculator.Calculate(Settings(4.5m), days, today: new(2026, 10, 24));
-
-        Assert.Equal(0, balance.RemainingDays);
-        Assert.Equal(BalanceStatus.AllPlanned, balance.Status);
-    }
-
-    [Fact]
-    public void Calculate_ZeroAllowanceWithoutBookingsIsAllPlanned()
-    {
-        var balance = BalanceCalculator.Calculate(Settings(0), [], today: new(2026, 10, 24));
-
-        Assert.Equal(0, balance.RemainingDays);
-        Assert.Equal(BalanceStatus.AllPlanned, balance.Status);
-    }
-
-    [Fact]
-    public void Calculate_PastYearWithUnusedDaysIsExpired()
-    {
-        var balance = BalanceCalculator.Calculate(Settings(25), [], today: new(2027, 2, 1));
-
-        Assert.Equal(BalanceStatus.Expired, balance.Status);
-        Assert.Equal(0, balance.WorkingDaysLeft);
-    }
-
-    [Fact]
-    public void Calculate_OnLastDayOfYearTodayIsStillFree()
-    {
-        // Thu 2026-12-31 is today and unbooked: one free working day, so one remaining day still fits
-        var balance = BalanceCalculator.Calculate(Settings(1), [], today: new(2026, 12, 31));
-
-        Assert.Equal(1, balance.WorkingDaysLeft);
-        Assert.Equal(0, balance.DaysAtRisk);
-        Assert.Equal(BalanceStatus.DaysToPlan, balance.Status);
-    }
-
-    [Fact]
-    public void Calculate_OnLastDayOfYearMoreThanOneRemainingWillBeLost()
-    {
-        // Thu 2026-12-31 is today and unbooked: 1 free, 1.5 remaining
-        var balance = BalanceCalculator.Calculate(Settings(1.5m), [], today: new(2026, 12, 31));
-
-        Assert.Equal(1, balance.WorkingDaysLeft);
-        Assert.Equal(0.5m, balance.DaysAtRisk);
-        Assert.Equal(BalanceStatus.DaysWillBeLost, balance.Status);
-    }
-
-    [Fact]
-    public void Calculate_OnLastDayOfYearAsHolidayNothingIsFree()
-    {
-        // Thu 2026-12-31 is today but a public holiday
-        var balance = BalanceCalculator.Calculate(Settings(1, 0, "2026-12-31"), [], today: new(2026, 12, 31));
-
-        Assert.Equal(0, balance.WorkingDaysLeft);
-        Assert.Equal(BalanceStatus.DaysWillBeLost, balance.Status);
-    }
-
-    [Fact]
-    public void Calculate_TodayUnbookedWorkingDayIsCounted()
-    {
-        // Today Tue 2026-12-29: Tue 29, Wed 30, Thu 31 = 3
-        var balance = BalanceCalculator.Calculate(Settings(25), [], today: new(2026, 12, 29));
-
-        Assert.Equal(3, balance.WorkingDaysLeft);
-    }
-
-    [Fact]
-    public void Calculate_TodayHalfBookedCountsHalf()
-    {
-        // Today Tue 2026-12-29 half booked (used): 0.5 + Wed 30 + Thu 31 = 2.5
-        var balance = BalanceCalculator.Calculate(Settings(25), [Day("2026-12-29", 0.5m)], today: new(2026, 12, 29));
-
-        Assert.Equal(2.5m, balance.WorkingDaysLeft);
-        Assert.Equal(0.5m, balance.UsedDays);
-        Assert.Equal(0, balance.PlannedDays);
+        Assert.Equal(0m, b2025.MaxTransferToNext);
+        Assert.Equal(0m, b2025.TransferredToNext);
+        Assert.Equal(5m, b2025.UnusedFifthWeekDays);
+        Assert.Equal(5m, b2025.PaidOutDays);
+        Assert.Equal(5m, b2025.LostDays);
+        Assert.Equal(0m, b2026.TransferredIn);
+        Assert.Equal(25m, b2026.TotalDays);
     }
 
     [Theory]
-    [InlineData(DayType.Vacation)]
-    [InlineData(DayType.Feriefri)]
-    public void Calculate_TodayFullyBookedIsNotFree(DayType type)
+    [InlineData("3", "3", "2")]
+    [InlineData("5", "5", "0")]
+    [InlineData("8", "5", "0")]  // capped at the 5 unused 5th-week days
+    [InlineData("-2", "0", "5")] // negative ignored
+    [InlineData("0", "0", "5")]
+    public void Transfer_SettingOn_IsClampedToUnusedFifthWeek(string stored, string effective, string paidOut)
     {
-        // Today Tue 2026-12-29 fully booked: only Wed 30 + Thu 31 = 2
-        var balance = BalanceCalculator.Calculate(Settings(25), [Day("2026-12-29", type: type)], today: new(2026, 12, 29));
+        // 15 used -> 10 unused, 5 of them 5th week
+        var data = Data(Fill(15), transferAllowed: true, transfers: (2025, M(stored)));
 
-        Assert.Equal(2, balance.WorkingDaysLeft);
+        var b2025 = Balance(data, Hy2025, "2026-11-02");
+        var b2026 = Balance(data, Hy2026, "2026-11-02");
+
+        Assert.Equal(5m, b2025.MaxTransferToNext);
+        Assert.Equal(M(effective), b2025.TransferredToNext);
+        Assert.Equal(M(paidOut), b2025.PaidOutDays);
+        Assert.Equal(5m, b2025.LostDays);
+        Assert.Equal(10m - M(effective), b2025.UnbookedDays);
+        Assert.Equal(M(effective), b2026.TransferredIn);
+        Assert.Equal(25m + M(effective), b2026.TotalDays);
     }
 
     [Fact]
-    public void Calculate_TodayOnWeekendIsNotCounted()
+    public void Transfer_MaximumIsLimitedByUnusedDays()
     {
-        // Today Sat 2026-12-26: Mon 28, Tue 29, Wed 30, Thu 31 = 4
-        var balance = BalanceCalculator.Calculate(Settings(25), [], today: new(2026, 12, 26));
+        // 22 used -> only 3 unused
+        var b = Balance(Data(Fill(22), transferAllowed: true, transfers: (2025, 5m)), Hy2025, "2026-11-02");
 
-        Assert.Equal(4, balance.WorkingDaysLeft);
+        Assert.Equal(3m, b.MaxTransferToNext);
+        Assert.Equal(3m, b.TransferredToNext);
+        Assert.Equal(0m, b.PaidOutDays);
+        Assert.Equal(0m, b.UnbookedDays);
     }
 
     [Fact]
-    public void Calculate_TodayOnHolidayIsNotCounted()
+    public void Transfer_MaximumIsZeroWhenEverythingIsUsedOrNoFifthWeek()
     {
-        // Today Thu 2026-12-24, a holiday as is Fri 25: Mon 28, Tue 29, Wed 30, Thu 31 = 4
-        var balance = BalanceCalculator.Calculate(Settings(25, 0, "2026-12-24", "2026-12-25"), [], today: new(2026, 12, 24));
+        var allUsed = Balance(Data(Fill(25), transferAllowed: true), Hy2025, "2026-11-02");
+        var partial = Balance(Data(employedSince: D("2026-01-01"), transferAllowed: true), Hy2025, "2026-11-02");
 
-        Assert.Equal(4, balance.WorkingDaysLeft);
+        Assert.Equal(0m, allUsed.MaxTransferToNext);
+        Assert.Equal(0m, partial.MaxTransferToNext);
     }
 
     [Fact]
-    public void Calculate_TodayOnFirstDayOfFollowingYearLeavesNothing()
+    public void Transfer_BookingMoreLaterShrinksTheEffectiveTransfer()
     {
-        // Fri 2027-01-01 is the day after the 2026 year ends
-        var balance = BalanceCalculator.Calculate(Settings(25), [], today: new(2027, 1, 1));
+        // 5 transferred, but then 23 days are booked in total: only 2 unused remain
+        var b = Balance(Data(Fill(23), transferAllowed: true, transfers: (2025, 5m)), Hy2025, "2026-11-02");
 
-        Assert.Equal(0, balance.WorkingDaysLeft);
-        Assert.Equal(BalanceStatus.Expired, balance.Status);
+        Assert.Equal(2m, b.TransferredToNext);
+        Assert.Equal(0m, b.UnbookedDays);
     }
 
     [Fact]
-    public void Calculate_TodayOnLastDayOfPreviousYearCountsWholeYear()
+    public void TransferredIn_IsPaidOutAtTheNextDeadline_NotLost()
     {
-        // Wed 2025-12-31 is the day before the 2026 year starts; 2026 has 261 weekdays
-        var balance = BalanceCalculator.Calculate(Settings(25), [], today: new(2025, 12, 31));
+        // 5 transferred from 2025 to 2026; nothing booked in 2026. Today Sat 2028-01-15.
+        var data = Data(Fill(15), transferAllowed: true, transfers: (2025, 5m));
 
-        Assert.Equal(261, balance.WorkingDaysLeft);
+        var b = Balance(data, Hy2026, "2028-01-15");
+
+        Assert.Equal(30m, b.TotalDays);
+        Assert.Equal(10m, b.FifthWeekDays);
+        Assert.Equal(10m, b.PaidOutDays);
+        Assert.Equal(20m, b.LostDays);
     }
 
     [Fact]
-    public void Calculate_TodayOnFirstDayOfYearIncludesIt()
+    public void TransferredIn_WithMostDaysUsed_RemainderIsPaidOut()
     {
-        // 2027: Fri 2027-01-01 is a weekday, 261 weekdays in total. Today 2027-01-01 counts it.
-        var unbooked = BalanceCalculator.Calculate(Settings(2027, 25), [], today: new(2027, 1, 1));
-        var holiday = BalanceCalculator.Calculate(Settings(2027, 25, 0, "2027-01-01"), [], today: new(2027, 1, 1));
+        // 2026 total 30; 22 used Mon 2027-01-04 .. Tue 2027-02-02 -> 8 unused, all within the 10 5th-week days
+        var data = Data(Fill(15).Concat(Range("2027-01-04", "2027-02-02")), transferAllowed: true, transfers: (2025, 5m));
 
-        Assert.Equal(261, unbooked.WorkingDaysLeft);
-        Assert.Equal(260, holiday.WorkingDaysLeft);
+        var b = Balance(data, Hy2026, "2028-01-15");
+
+        Assert.Equal(22m, b.UsedDays);
+        Assert.Equal(8m, b.PaidOutDays);
+        Assert.Equal(0m, b.LostDays);
     }
 
     [Fact]
-    public void Calculate_FutureYearCountsAllWorkingDaysAsLeft()
+    public void TransferredIn_RaisesTheOldYearsCapacityInTheOverlap()
     {
-        var balance = BalanceCalculator.Calculate(Settings(25), [], today: new(2025, 6, 1));
+        // 2026 total 30 (5 transferred in). 28 used Mon 2027-01-04 .. Wed 2027-02-10.
+        // Mon 2027-09-06 .. Fri 2027-09-10: 6th and 7th to 2026, 8th to 10th to 2027.
+        var days = Fill(15).Concat(Range("2027-01-04", "2027-02-10")).Concat(Range("2027-09-06", "2027-09-10"));
+        var data = Data(days, transferAllowed: true, transfers: (2025, 5m));
 
-        Assert.Equal(261, balance.WorkingDaysLeft); // 2026 has 261 weekdays
-        Assert.Equal(BalanceStatus.DaysToPlan, balance.Status);
+        Assert.Equal(
+            [
+                (D("2027-09-06"), 2026, 1m), (D("2027-09-07"), 2026, 1m),
+                (D("2027-09-08"), 2027, 1m), (D("2027-09-09"), 2027, 1m), (D("2027-09-10"), 2027, 1m),
+            ],
+            AllocationsFrom(data, "2027-09-01"));
     }
 
     [Fact]
-    public void Calculate_LeapYearCountsFebruary29()
+    public void TransferredIn_CanBeTransferredAgain()
     {
-        // 2028 is a leap year: Sat 2028-01-01 .. Sun 2028-12-31, 260 weekdays. Tue 2028-02-29 half booked.
-        var days = new[] { Day("2028-02-29", 0.5m) };
+        // 2025 -> 2026: 5. 2026 unused: 30, 5th week 10. 2026 -> 2027: 10 stored.
+        var data = Data(Fill(15), transferAllowed: true, transfers: [(2025, 5m), (2026, 10m)]);
 
-        var balance = BalanceCalculator.Calculate(Settings(2028, 25), days, today: new(2027, 12, 31));
+        var b2026 = Balance(data, Hy2026, "2027-11-01");
+        var b2027 = Balance(data, new HolidayYear(2027), "2027-11-01");
 
-        Assert.Equal(0.5m, balance.PlannedDays);
-        Assert.Equal(259.5m, balance.WorkingDaysLeft);
+        Assert.Equal(10m, b2026.MaxTransferToNext);
+        Assert.Equal(10m, b2026.TransferredToNext);
+        Assert.Equal(0m, b2026.PaidOutDays);
+        Assert.Equal(20m, b2026.LostDays);
+        Assert.Equal(10m, b2027.TransferredIn);
+        Assert.Equal(35m, b2027.TotalDays);
+    }
+
+    [Fact]
+    public void CalculateHolidayYears_ReturnsTheGivenYearsInOrder()
+    {
+        var balances = BalanceCalculator.CalculateHolidayYears(Data(Fill(3)), HolidayYear.InCalendarYear(2026), D("2026-10-24"));
+
+        Assert.Equal([Hy2025, Hy2026], balances.Select(b => b.HolidayYear));
+        Assert.Equal(3m, balances[0].UsedDays);
     }
 }
