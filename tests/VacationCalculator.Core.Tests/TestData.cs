@@ -38,18 +38,41 @@ internal static class TestData
         return result;
     }
 
+    /// <summary>
+    /// <see cref="BalanceCalculator.Allocate"/> with today Sat 2026-10-24. Today only picks the default first tracked
+    /// holiday year, so it doesn't matter with transfer off and no opening balance.
+    /// </summary>
+    public static IReadOnlyList<AllocatedDay> AllocateOn2026_10_24(VacationData data) =>
+        BalanceCalculator.Allocate(data, D("2026-10-24"));
+
     public static VacationData Data(
         IEnumerable<BookedDay>? days = null,
         DateOnly? employedSince = null,
         bool transferAllowed = false,
-        params (int StartYear, decimal Days)[] transfers) =>
+        int? firstTracked = null,
+        decimal openingBalance = 0) =>
         new()
         {
             Days = (days ?? []).ToList(),
             EmployedSince = employedSince,
-            FifthWeekTransferAllowed = transferAllowed,
-            HolidayYears = transfers.Select(t => new HolidayYearSettings { StartYear = t.StartYear, TransferredToNext = t.Days }).ToList(),
+            TransferAllowed = transferAllowed,
+            FirstTrackedHolidayYear = firstTracked,
+            OpeningBalanceDays = openingBalance,
         };
+
+    /// <summary>Sets the transfer limit of the holiday year starting in <paramref name="startYear"/>.</summary>
+    public static VacationData WithLimit(this VacationData data, int startYear, decimal days)
+    {
+        data.SetTransferLimit(new HolidayYear(startYear), days);
+        return data;
+    }
+
+    /// <summary>Sets the payout setting of the holiday year starting in <paramref name="startYear"/>.</summary>
+    public static VacationData WithPayout(this VacationData data, int startYear, PayoutMode mode, decimal days = 0)
+    {
+        data.SetPayout(new HolidayYear(startYear), mode, days);
+        return data;
+    }
 
     public static VacationData WithHolidays(this VacationData data, params string[] holidays)
     {

@@ -42,9 +42,14 @@ public abstract class HolidayYearVmTestBase : IDisposable
     /// half day). 20 = ..Fri 01-30, 24 = ..Thu 02-05, 25 = ..Fri 02-06, 26 = ..Mon 02-09.
     /// </summary>
     protected static VacationData Seed(
-        decimal days, bool transferAllowed = false, decimal transferred = 0, DateOnly? employedSince = null)
+        decimal days, bool transferAllowed = false, DateOnly? employedSince = null, int? firstTracked = 2025)
     {
-        var data = new VacationData { EmployedSince = employedSince, FifthWeekTransferAllowed = transferAllowed };
+        // firstTracked 2025 = what the app stores on the first save in 2026 (oldest holiday year open then, 2025/26).
+        // Pass firstTracked: null for a file from before the setting existed.
+        var data = new VacationData
+        {
+            EmployedSince = employedSince, TransferAllowed = transferAllowed, FirstTrackedHolidayYear = firstTracked,
+        };
         var d = new DateOnly(2026, 1, 5);
         for (var left = days; left > 0; d = d.AddDays(1))
         {
@@ -54,8 +59,6 @@ public abstract class HolidayYearVmTestBase : IDisposable
             data.Days.Add(new BookedDay { Date = d, Amount = amount });
             left -= amount;
         }
-        if (transferred != 0)
-            data.HolidayYears.Add(new HolidayYearSettings { StartYear = 2025, TransferredToNext = transferred });
         return data;
     }
 
@@ -254,7 +257,7 @@ public class MainViewModelStatusMessageTests : HolidayYearVmTestBase
         var vm = NewVm(Dec18, Seed(25));
 
         Assert.Equal(BalanceStatus.AllPlanned, vm.Status.Status);
-        Assert.Contains("Nothing will expire", vm.StatusMessage);
+        Assert.Equal("Nothing will be paid out or lost.", vm.StatusMessage);
         Assert.False(vm.HasStatusDetail);
         Assert.Equal(0, vm.UnbookedSign);
     }
@@ -262,12 +265,64 @@ public class MainViewModelStatusMessageTests : HolidayYearVmTestBase
     [Fact]
     public void AllPlanned_WhenUnbookedDaysAreAllTransferred()
     {
-        // 20 used + 5 transferred = nothing left to plan.
-        var vm = NewVm(Dec18, Seed(20, transferAllowed: true, transferred: 5));
+        // 2b: transfer on, nothing registered. 20 used, 5 unbooked 5th-week days, default limit 5 -> all 5 transferred
+        // to 2026/27, nothing paid out or lost.
+        var vm = NewVm(Dec18, Seed(20, transferAllowed: true));
 
         Assert.Equal(BalanceStatus.AllPlanned, vm.Status.Status);
-        Assert.Contains("transferred", vm.StatusMessage);
+        Assert.Equal("Nothing will be paid out or lost.", vm.StatusMessage);
+        Assert.Equal("5 days will be transferred to 2026/27.", vm.StatusDetail);
+    }
+
+    [Fact]
+    public void AllPlanned_OneTransferredDay_Singular()
+    {
+        // 24 used, 1 unused 5th-week day, transferred.
+        var vm = NewVm(Dec18, Seed(24, transferAllowed: true));
+
+        Assert.Equal(BalanceStatus.AllPlanned, vm.Status.Status);
+        Assert.Equal("1 day will be transferred to 2026/27.", vm.StatusDetail);
+    }
+
+    [Fact]
+    public void AllPlanned_AfterTheDeadline_UsesPastTense()
+    {
+        // Mon 2027-01-04, viewing 2026: 20 used, the 5 unused were transferred.
+        var vm = NewVm(new DateOnly(2027, 1, 4), Seed(20, transferAllowed: true));
+        vm.SelectedYear = 2026;
+
+        Assert.Equal(BalanceStatus.AllPlanned, vm.Status.Status);
+        Assert.Equal("Nothing was paid out or lost.", vm.StatusMessage);
+        Assert.Equal("5 days were transferred to 2026/27.", vm.StatusDetail);
+    }
+
+    [Fact]
+    public void AllPlanned_AfterTheDeadline_OneTransferredDay_SaysWas()
+    {
+        var vm = NewVm(new DateOnly(2027, 1, 4), Seed(24, transferAllowed: true));
+        vm.SelectedYear = 2026;
+
+        Assert.Equal("1 day was transferred to 2026/27.", vm.StatusDetail);
+    }
+
+    [Fact]
+    public void AllPlanned_AfterTheDeadline_NothingUnused_NoDetail()
+    {
+        var vm = NewVm(new DateOnly(2027, 1, 4), Seed(25, transferAllowed: true));
+        vm.SelectedYear = 2026;
+
+        Assert.Equal("Nothing was paid out or lost.", vm.StatusMessage);
         Assert.False(vm.HasStatusDetail);
+    }
+
+    [Fact]
+    public void AllPlanned_NotAllPlanned_WhenTheUnbookedRestIsPaidOutNotTransferred()
+    {
+        // Transfer off, 20 used: the 5 unused are paid out, so the banner must not claim "nothing paid out".
+        var vm = NewVm(Dec18, Seed(20));
+
+        Assert.NotEqual(BalanceStatus.AllPlanned, vm.Status.Status);
+        Assert.DoesNotContain("Nothing will be paid out", vm.StatusMessage);
     }
 
     // ---- OverBooked ----
@@ -291,7 +346,19 @@ public class MainViewModelStatusMessageTests : HolidayYearVmTestBase
 
         Assert.Equal(BalanceStatus.OverBooked, vm.Status.Status);
         Assert.Equal(-1, vm.UnbookedSign);
-        Assert.False(vm.HasStatusDetail); // no 5th-week sentence: nothing is unused
+        Assert.False(vm.HasStatusDetail); // nothing is unused
+    }
+
+    [Fact]
+    public void OverBooked_WithTransferOn_NothingIsTransferred()
+    {
+        // 26 booked of 25: over-booked, so nothing can be transferred to 2026/27.
+        var vm = NewVm(Dec18, Seed(26, transferAllowed: true));
+
+        Assert.Equal(BalanceStatus.OverBooked, vm.Status.Status);
+        Assert.False(vm.HasStatusDetail);
+        Assert.Equal(0m, vm.HolidayYearRows[0].TransferredOut);
+        Assert.Equal(0m, vm.HolidayYearRows[1].TransferredIn);
     }
 
     // ---- Expired ----
@@ -300,7 +367,7 @@ public class MainViewModelStatusMessageTests : HolidayYearVmTestBase
     public void Expired_PaidOutAndLost()
     {
         // Mon 2027-01-04, selected 2026: holiday year 2025/26 earned 25, 15 used -> 10 unused.
-        // The unused days are 5th-week first: 5 paid out, 5 lost (the example from the requirement).
+        // Transfer off: 5th-week 5 always paid out, the other 5 lost (payout default None).
         var vm = NewVm(new DateOnly(2027, 1, 4), Seed(15));
         vm.SelectedYear = 2026; // initial year is 2027 (today is in January 2027)
 
@@ -314,9 +381,8 @@ public class MainViewModelStatusMessageTests : HolidayYearVmTestBase
     [Fact]
     public void Expired_OnlyPaidOut_Singular()
     {
-        // 24 used -> 1 unused 5th-week day.
         var vm = NewVm(new DateOnly(2027, 1, 4), Seed(24));
-        vm.SelectedYear = 2026; // initial year is 2027 (today is in January 2027)
+        vm.SelectedYear = 2026;
 
         Assert.Equal("Holiday year 2025/26 expired on 31 December 2026: 1 day was paid out.", vm.StatusMessage);
     }
@@ -325,7 +391,7 @@ public class MainViewModelStatusMessageTests : HolidayYearVmTestBase
     public void Expired_HalfDay_UsesPlural()
     {
         var vm = NewVm(new DateOnly(2027, 1, 4), Seed(24.5m));
-        vm.SelectedYear = 2026; // initial year is 2027 (today is in January 2027)
+        vm.SelectedYear = 2026;
 
         Assert.Equal("Holiday year 2025/26 expired on 31 December 2026: 0.5 days were paid out.", vm.StatusMessage);
     }
@@ -335,7 +401,7 @@ public class MainViewModelStatusMessageTests : HolidayYearVmTestBase
     {
         // Employed since 2026-03-01: 12.5 earned, none used -> all 12.5 lost, nothing paid out.
         var vm = NewVm(new DateOnly(2027, 1, 4), Seed(0, employedSince: new DateOnly(2026, 3, 1)));
-        vm.SelectedYear = 2026; // initial year is 2027 (today is in January 2027)
+        vm.SelectedYear = 2026;
 
         Assert.Equal("Holiday year 2025/26 expired on 31 December 2026: 12.5 days were lost.", vm.StatusMessage);
     }
@@ -345,7 +411,7 @@ public class MainViewModelStatusMessageTests : HolidayYearVmTestBase
     {
         // 19 used of 25 -> 6 unused: 5 paid out, 1 lost.
         var vm = NewVm(new DateOnly(2027, 1, 4), Seed(19));
-        vm.SelectedYear = 2026; // initial year is 2027 (today is in January 2027)
+        vm.SelectedYear = 2026;
 
         Assert.Equal(
             "Holiday year 2025/26 expired on 31 December 2026: 5 days were paid out and 1 day was lost.",
@@ -353,78 +419,226 @@ public class MainViewModelStatusMessageTests : HolidayYearVmTestBase
     }
 
     [Fact]
+    public void Expired_TransferOn_StatesTransferredPaidOutAndLost_InThatOrder()
+    {
+        // 5 used, 20 unused: 5th-week 5 transferred (limit 5), payout Some 4 -> 4 of the 15 other days paid out, 11 lost.
+        var data = Seed(5, transferAllowed: true);
+        data.SetPayout(new HolidayYear(2025), PayoutMode.Some, 4);
+        var vm = NewVm(new DateOnly(2027, 1, 4), data);
+        vm.SelectedYear = 2026;
+
+        Assert.Equal(BalanceStatus.Expired, vm.Status.Status);
+        Assert.Equal(
+            "Holiday year 2025/26 expired on 31 December 2026: 5 days were transferred to 2026/27, 4 days were paid out and 11 days were lost.",
+            vm.StatusMessage);
+    }
+
+    [Fact]
+    public void Expired_OneTransferredDay_SaysWas()
+    {
+        // Limit 1: of 5 unused 5th-week days 1 is transferred, 4 paid out.
+        var data = Seed(20, transferAllowed: true);
+        data.SetTransferLimit(new HolidayYear(2025), 1);
+        var vm = NewVm(new DateOnly(2027, 1, 4), data);
+        vm.SelectedYear = 2026;
+
+        Assert.Equal(
+            "Holiday year 2025/26 expired on 31 December 2026: 1 day was transferred to 2026/27 and 4 days were paid out.",
+            vm.StatusMessage);
+    }
+
+    [Fact]
+    public void Expired_TransferredInDaysUnused_AreStatedAsLost()
+    {
+        // Holiday year 2026/27 (deadline 2027-12-31), viewed 2028-01-03. 20 used in 2025/26 -> 5 transferred in.
+        // Nothing booked in 2026/27: 5 transferred-in lost; own 25: 5 transferred on, 20 lost -> 25 lost.
+        var vm = NewVm(new DateOnly(2028, 1, 3), Seed(20, transferAllowed: true));
+        vm.SelectedYear = 2027;
+
+        Assert.Equal(BalanceStatus.Expired, vm.Status.Status);
+        Assert.Equal(
+            "Holiday year 2026/27 expired on 31 December 2027: 5 days were transferred to 2027/28 and 25 days were lost.",
+            vm.StatusMessage);
+    }
+
+    [Fact]
     public void NotExpired_OnTheDeadlineItself()
     {
-        // Thu 2026-12-31 is still within the holiday-taking period, so it is not Expired.
         var vm = NewVm(Dec31, Seed(15));
 
         Assert.NotEqual(BalanceStatus.Expired, vm.Status.Status);
     }
 
-    // ---- 5th-week sentences ----
+    // ---- Projected split with transfer / payout ----
 
     [Fact]
     public void FifthWeek_SettingOff_UnusedDays_SaysPaidOut()
     {
         var vm = NewVm(Dec18, Seed(20));
 
-        var lines = Lines(vm.StatusDetail);
-        Assert.Contains("If they are not booked, 5 days will be paid out.", lines);
-        Assert.DoesNotContain("5th-week", vm.StatusDetail);
-        Assert.DoesNotContain("transferred", vm.StatusDetail);
+        Assert.Equal(new[] { "If they are not booked, 5 days will be paid out." }, Lines(vm.StatusDetail));
     }
 
     [Fact]
-    public void FifthWeek_SettingOff_NoUnusedFifthWeek_NoSentence()
+    public void FifthWeek_SettingOff_NoUnusedFifthWeek_NoPaidOutSentence()
     {
-        // Earned 12.5 (employed since 2026-03-01): there is no 5th week at all, so no 5th-week sentence.
         var vm = NewVm(Dec18, Seed(5, employedSince: new DateOnly(2026, 3, 1)));
 
-        Assert.DoesNotContain("5th-week", vm.StatusDetail);
+        Assert.DoesNotContain("paid out", vm.StatusDetail);
     }
 
     [Fact]
-    public void FifthWeek_SettingOn_NothingTransferred_SaysCanBeTransferred()
+    public void DaysToPlan_TransferOn_TransferredAndLost()
     {
-        var vm = NewVm(Dec18, Seed(20, transferAllowed: true));
+        // 15 used -> 10 unbooked == 10 free: DaysToPlan. Unused: 5 first-20 + 5 5th week. Transfer 5 (5th week), lose 5.
+        var vm = NewVm(Dec18, Seed(15, transferAllowed: true));
 
-        Assert.Contains(
-            "The unused 5th-week days (5 days) can be transferred by agreement before 31 December, otherwise they are paid out.",
+        Assert.Equal(BalanceStatus.DaysToPlan, vm.Status.Status);
+        Assert.Equal(
+            new[] { "If they are not booked, 5 days will be transferred to 2026/27 and 5 days will be lost." },
             Lines(vm.StatusDetail));
     }
 
     [Fact]
-    public void FifthWeek_SettingOn_PartlyTransferred_NoTransferSentence_AndPaidOutIsReduced()
+    public void DaysToPlan_TransferOn_AllThreeParts()
     {
-        // 20 used, 3 of the 5 unused 5th-week days transferred -> 2 unbooked; only 2 are paid out.
-        var vm = NewVm(Dec18, Seed(20, transferAllowed: true, transferred: 3));
+        // 15 used, limit 7, payout Some 1: unused 10 = 5 first-20 + 5 5th week. Transfer 7 (5 + 2 others),
+        // remaining 3 other: 1 paid out, 2 lost. Fifth week is all transferred.
+        var data = Seed(15, transferAllowed: true);
+        data.SetTransferLimit(new HolidayYear(2025), 7);
+        data.SetPayout(new HolidayYear(2025), PayoutMode.Some, 1);
+        var vm = NewVm(Dec18, data);
 
         Assert.Equal(BalanceStatus.DaysToPlan, vm.Status.Status);
-        Assert.Contains("You have 2 days not yet booked", vm.StatusMessage);
-        Assert.Contains("2 days will be paid out", vm.StatusDetail);
-        Assert.DoesNotContain("5th-week", vm.StatusDetail);
+        Assert.Equal(
+            "If they are not booked, 7 days will be transferred to 2026/27, 1 day will be paid out and 2 days will be lost.",
+            Assert.Single(Lines(vm.StatusDetail)));
     }
 
     [Fact]
-    public void FifthWeek_SettingOn_AfterDeadline_NoTransferSentence()
+    public void DaysToPlan_TransferOn_LimitSmallerThan5_RestOfFifthWeekIsPaidOut()
     {
-        var vm = NewVm(new DateOnly(2027, 1, 4), Seed(20, transferAllowed: true));
-        vm.SelectedYear = 2026; // initial year is 2027 (today is in January 2027)
+        // 20 used, limit 2: 2 transferred, 3 5th-week days paid out (always), nothing lost.
+        var data = Seed(20, transferAllowed: true);
+        data.SetTransferLimit(new HolidayYear(2025), 2);
+        var vm = NewVm(Dec18, data);
 
-        Assert.False(vm.HasStatusDetail);
+        Assert.Equal(BalanceStatus.DaysToPlan, vm.Status.Status);
+        Assert.Equal(
+            "If they are not booked, 2 days will be transferred to 2026/27 and 3 days will be paid out.",
+            Assert.Single(Lines(vm.StatusDetail)));
     }
 
-    // ---- Wording problem reported to the owner ----
+    [Fact]
+    public void DaysToPlan_PayoutAll_NothingLost()
+    {
+        // Transfer off, 15 used: 5 5th-week + 5 other unused. Payout All -> 10 paid out, 0 lost.
+        var data = Seed(15);
+        data.SetPayout(new HolidayYear(2025), PayoutMode.All);
+        var vm = NewVm(Dec18, data);
+
+        Assert.Equal(
+            "If they are not booked, 10 days will be paid out.",
+            Assert.Single(Lines(vm.StatusDetail)));
+    }
 
     [Fact]
-    public void FifthWeek_SettingOff_DoesNotRepeatPaidOutTwice()
+    public void DaysToPlan_UnbookedRestLargerThanFreeDays_ButTransferable_IsNotDaysWillBeLost()
     {
-        // The requirement: the banner "says they will be paid out". Saying it twice in a row, i.e.
-        // "If they are not booked, 5 days will be paid out." followed by
-        // "The unused 5th-week days (5 days) will be paid out.", is redundant.
-        var vm = NewVm(Dec18, Seed(20));
+        // 10 used, transfer on: 15 unbooked, 10 free, 5 can't fit - but they are the 5 transferable days,
+        // so nothing is paid out or lost even if every free day is booked: DaysToPlan, not DaysWillBeLost.
+        var vm = NewVm(Dec18, Seed(10, transferAllowed: true));
 
-        var paidOutMentions = Lines(vm.StatusDetail).Count(l => l.Contains("paid out"));
-        Assert.True(paidOutMentions <= 1, "Detail repeats 'paid out':" + Environment.NewLine + vm.StatusDetail);
+        Assert.Equal(BalanceStatus.DaysToPlan, vm.Status.Status);
+        Assert.Equal(5m, vm.Status.DaysAtRisk);
+        Assert.Equal(
+            "You have 15 days not yet booked. They must be used by 31 December 2026 (10 working days are still free).",
+            vm.StatusMessage);
+        // Unused if nothing more is booked: 5 transferred, 10 lost.
+        Assert.Equal(
+            "If they are not booked, 5 days will be transferred to 2026/27 and 10 days will be lost.",
+            Assert.Single(Lines(vm.StatusDetail)));
+    }
+
+    [Fact]
+    public void DaysWillBeLost_TransferOn_SplitIncludesTransferPart()
+    {
+        // 5 used, transfer on: 20 unbooked, 10 free, 10 can't fit. Booking 10 -> 15 booked, 10 unused
+        // (5 first-20 + 5 5th week): 5 transferred, 5 lost.
+        var vm = NewVm(Dec18, Seed(5, transferAllowed: true));
+
+        Assert.Equal(BalanceStatus.DaysWillBeLost, vm.Status.Status);
+        Assert.Equal(
+            "10 days can't fit even if you book every free working day: 5 days will be transferred to 2026/27 and 5 days will be lost.",
+            Assert.Single(Lines(vm.StatusDetail)));
+    }
+
+    [Fact]
+    public void DaysWillBeLost_TransferOn_Singular()
+    {
+        // Thu 2026-12-31, 23 used + 1 free day: unbooked 2, 1 can't fit. Booking it -> 24 booked, 1 unused 5th-week
+        // day -> transferred. Not lost, so status is DaysToPlan here; use a limit of 0 to force the paid-out case.
+        var data = Seed(23, transferAllowed: true);
+        data.SetTransferLimit(new HolidayYear(2025), 0);
+        var vm = NewVm(Dec31, data);
+
+        Assert.Equal(BalanceStatus.DaysWillBeLost, vm.Status.Status);
+        Assert.Equal(
+            "1 day can't fit even if you book every free working day: 1 day will be paid out.",
+            Assert.Single(Lines(vm.StatusDetail)));
+    }
+
+    // ---- Transferred-in line ----
+
+    [Fact]
+    public void TransferredIn_LineWarnsThatDaysMustBeUsedInThisHolidayYear()
+    {
+        // 20 used in 2025/26 -> 5 transferred into 2026/27. Viewing 2027 on Fri 2026-12-18: 30 unbooked (261 free).
+        // Unused if nothing is booked: 5 transferred-in lost + own 25 (5 transferred on, 20 lost) = 25 lost.
+        var vm = NewVm(Dec18, Seed(20, transferAllowed: true));
+        vm.SelectedYear = 2027;
+
+        Assert.Equal(BalanceStatus.DaysToPlan, vm.Status.Status);
+        var lines = Lines(vm.StatusDetail);
+        Assert.Equal(2, lines.Length);
+        Assert.Equal("If they are not booked, 5 days will be transferred to 2027/28 and 25 days will be lost.", lines[0]);
+        Assert.Contains("5 days transferred from 2025/26", lines[1]);
+        Assert.Contains("must be used", lines[1]);
+        Assert.Contains("lost", lines[1]);
+    }
+
+    [Fact]
+    public void TransferredIn_LineIsSingularForOneDay()
+    {
+        var data = Seed(24, transferAllowed: true); // 1 unused -> 1 transferred in to 2026/27
+        var vm = NewVm(Dec18, data);
+        vm.SelectedYear = 2027;
+
+        var lines = Lines(vm.StatusDetail);
+        Assert.Contains("1 day transferred from 2025/26", lines[^1]);
+        Assert.Contains("it is lost", lines[^1]);
+    }
+
+    [Fact]
+    public void TransferredIn_NoLine_WhenNothingWasTransferredIn()
+    {
+        var vm = NewVm(Dec18, Seed(25, transferAllowed: true));
+        vm.SelectedYear = 2027;
+
+        Assert.DoesNotContain("transferred from", vm.StatusDetail);
+    }
+
+    [Fact]
+    public void TransferredIn_NoLine_WhenAllTransferredInDaysAreBooked()
+    {
+        // 20 used in 2025/26 -> 5 transferred into 2026/27. Book 5 days in 2027 (Mon 2027-01-04..Fri 01-08):
+        // those use the transferred-in days first, none left unused.
+        var data = Seed(20, transferAllowed: true);
+        for (var d = new DateOnly(2027, 1, 4); d <= new DateOnly(2027, 1, 8); d = d.AddDays(1))
+            data.Days.Add(new BookedDay { Date = d });
+        var vm = NewVm(Dec18, data);
+        vm.SelectedYear = 2027;
+
+        Assert.DoesNotContain("transferred from", vm.StatusDetail);
     }
 }

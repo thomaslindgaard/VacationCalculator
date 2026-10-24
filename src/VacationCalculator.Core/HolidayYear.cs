@@ -7,6 +7,12 @@ namespace VacationCalculator.Core;
 /// </summary>
 public readonly record struct HolidayYear(int StartYear)
 {
+    /// <summary>Smallest start year whose dates (1 Sep .. deadline) are all representable as <see cref="DateOnly"/>.</summary>
+    public const int MinStartYear = 1;
+
+    /// <summary>Largest start year whose dates (1 Sep .. deadline 31 Dec of the next year) are all representable as <see cref="DateOnly"/>.</summary>
+    public const int MaxStartYear = 9998;
+
     /// <summary>First day of the holiday year and of its holiday-taking period (1 September).</summary>
     public DateOnly Start => new(StartYear, 9, 1);
 
@@ -59,6 +65,9 @@ public static class Accrual
 
     /// <summary>Days of a year's own earnings within the first four weeks; anything above is the 5th week.</summary>
     public const decimal FourWeeks = 20m;
+
+    /// <summary>The most 5th-week days a year can have (25 - 20); also the part of a transfer limit the Holiday Act gives.</summary>
+    public const decimal FifthWeek = DaysPerFullYear - FourWeeks;
 
     /// <summary>Days the holiday year earns in total by 31 August (25 for a full year).</summary>
     public static decimal EarnableDays(HolidayYear year, DateOnly? employedSince) =>

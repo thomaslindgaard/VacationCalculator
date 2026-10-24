@@ -10,17 +10,24 @@ public sealed record EntryRow(BookedPeriod Period, bool IsPast);
 
 /// <summary>One line of the holiday-years card.</summary>
 public sealed record HolidayYearRow(
-    string Name, string Earned, decimal TransferredIn, decimal Used, decimal BookedAhead,
-    decimal Remaining, int RemainingSign, DateOnly Deadline, string Note, bool NoteIsError)
+    string Name, string Earned, decimal TransferredIn, decimal TransferredOut, decimal Used, decimal BookedAhead,
+    decimal Remaining, int RemainingSign, DateOnly Deadline, string Note, bool NoteIsError,
+    bool TransferredInIsProjected = false, string ProjectedTooltip = "")
 {
+    /// <summary>The transferred-in figure is a projection that is still counted in the previous holiday year.</summary>
+    public bool ShowProjected => TransferredInIsProjected && TransferredIn > 0;
+
     public static HolidayYearRow From(HolidayYearBalance b)
     {
         var note = b.ExceedsEarnableBy > 0
             ? $"{b.ExceedsEarnableBy:0.##} more than can be earned by 31 August"
             : b.ExceedsEarnedSoFarBy > 0 ? $"advance holiday: {b.ExceedsEarnedSoFarBy:0.##} not earned yet" : "";
         return new HolidayYearRow(
-            b.HolidayYear.ToString(), $"{b.EarnedSoFar:0.##} of {b.EarnableDays:0.##}", b.TransferredIn, b.UsedDays,
-            b.BookedAheadDays, b.RemainingDays, Math.Sign(b.RemainingDays), b.Deadline, note, b.ExceedsEarnableBy > 0);
+            b.HolidayYear.ToString(), $"{b.EarnedSoFar:0.##} of {b.EarnableDays:0.##}", b.TransferredIn, b.TransferredToNext, b.UsedDays,
+            b.BookedAheadDays, b.RemainingDays, Math.Sign(b.RemainingDays), b.Deadline, note, b.ExceedsEarnableBy > 0,
+            b.TransferredInIsProjected,
+            $"Projected transfer from {b.HolidayYear.Previous} on {b.HolidayYear.Previous.Deadline:D}. " +
+            $"Until then these days still count as remaining in {b.HolidayYear.Previous}.");
     }
 }
 
@@ -60,6 +67,8 @@ public sealed class MainViewModel : ObservableObject
         DeleteEntryCommand = new RelayCommand(p => DeleteEntry((EntryRow)p!));
         AddHolidayCommand = new RelayCommand(_ => AddHoliday());
         RemoveHolidayCommand = new RelayCommand(p => RemoveHoliday((DateOnly)p!));
+        ResetTransferLimitCommand = new RelayCommand(_ => { _data.ClearTransferLimit(DeadlineYear); SaveAndRefresh(); });
+        ResetPayoutCommand = new RelayCommand(_ => { _data.ClearPayout(DeadlineYear); SaveAndRefresh(); });
 
         Refresh();
     }
@@ -107,6 +116,8 @@ public sealed class MainViewModel : ObservableObject
     public RelayCommand DeleteEntryCommand { get; }
     public RelayCommand AddHolidayCommand { get; }
     public RelayCommand RemoveHolidayCommand { get; }
+    public RelayCommand ResetTransferLimitCommand { get; }
+    public RelayCommand ResetPayoutCommand { get; }
 
     public ObservableCollection<EntryRow> Entries { get; } = [];
     public ObservableCollection<DateOnly> Holidays { get; } = [];
@@ -141,41 +152,150 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
-    public bool FifthWeekTransferAllowed
+    /// <summary>Holiday years that can be chosen as the first tracked one, oldest first.</summary>
+    public IReadOnlyList<HolidayYear> FirstTrackedChoices
     {
-        get => _data.FifthWeekTransferAllowed;
+        get
+        {
+            var newest = HolidayYear.OpenOn(Today)[^1].StartYear;
+            var oldest = Math.Min(newest, Math.Max(MinFirstTrackedStartYear,
+                _data.EmployedSince is { } since ? HolidayYear.Containing(since).StartYear : MinFirstTrackedStartYear));
+            var years = Enumerable.Range(oldest, newest - oldest + 1).Select(y => new HolidayYear(y)).ToList();
+            // A stored value outside that range (hand-edited, or clamped by Core) still has to be selectable: add just that year.
+            var effective = _data.EffectiveFirstTrackedHolidayYear(Today);
+            if (!years.Contains(effective))
+            {
+                if (effective.StartYear < oldest)
+                    years.Insert(0, effective);
+                else
+                    years.Add(effective);
+            }
+            return years;
+        }
+    }
+
+    private const int MinFirstTrackedStartYear = 2015;
+
+    /// <summary>The first holiday year whose transfers are calculated; earlier years transfer nothing.</summary>
+    public HolidayYear FirstTrackedHolidayYear
+    {
+        get => _data.EffectiveFirstTrackedHolidayYear(Today);
         set
         {
-            if (value == _data.FifthWeekTransferAllowed)
+            if (value.StartYear == 0 || value == _data.EffectiveFirstTrackedHolidayYear(Today))
                 return;
 
-            _data.FifthWeekTransferAllowed = value;
+            _data.FirstTrackedHolidayYear = value.StartYear;
+            SaveAndRefresh();
+        }
+    }
+
+    /// <summary>Unused days brought into the first tracked holiday year.</summary>
+    public decimal OpeningBalanceDays
+    {
+        get => _data.OpeningBalanceDays;
+        set
+        {
+            if (value == _data.OpeningBalanceDays)
+                return;
+
+            _data.OpeningBalanceDays = value;
+            SaveAndRefresh();
+        }
+    }
+
+    /// <summary>Employment-wide: whether unused days are transferred to the next holiday year at each deadline.</summary>
+    public bool TransferAllowed
+    {
+        get => _data.TransferAllowed;
+        set
+        {
+            if (value == _data.TransferAllowed)
+                return;
+
+            _data.TransferAllowed = value;
             OnPropertyChanged();
             SaveAndRefresh();
         }
     }
 
-    /// <summary>Days transferred from the holiday year expiring on 31 December of the selected year (as applied by Core).</summary>
-    public decimal TransferredToNext
+    private HolidayYear DeadlineYear => Status.HolidayYear.HolidayYear;
+    private DeadlineSettings DeadlineSettings => Status.HolidayYear.Settings;
+
+    /// <summary>Heading of the per-holiday-year settings in the sidebar.</summary>
+    public string DeadlineSettingsTitle => $"When {DeadlineYear} expires ({DeadlineYear.Deadline:D})";
+
+    public decimal TransferLimitDays
     {
-        get => Status.HolidayYear.TransferredToNext;
+        get => DeadlineSettings.TransferLimitDays;
         set
         {
-            var year = Status.HolidayYear;
-            var clamped = Math.Clamp(value, 0, Math.Max(0, year.MaxTransferToNext));
-            var stored = _data.FindHolidayYear(year.HolidayYear.StartYear)?.TransferredToNext ?? 0;
-            if (clamped == stored)
-            {
-                OnPropertyChanged();
+            if (DeadlineSettings.TransferLimitIsOwn && value == DeadlineSettings.TransferLimitDays)
                 return;
-            }
 
-            _data.GetOrAddHolidayYear(year.HolidayYear.StartYear).TransferredToNext = clamped;
+            _data.SetTransferLimit(DeadlineYear, value);
             SaveAndRefresh();
         }
     }
 
-    public string MaxTransferText => $"max {Status.HolidayYear.MaxTransferToNext:0.##}";
+    public string TransferLimitSource => Source(DeadlineSettings.TransferLimitFrom, DeadlineSettings.TransferLimitIsOwn);
+    public bool TransferLimitIsOwn => DeadlineSettings.TransferLimitIsOwn;
+
+    public bool PayoutNone
+    {
+        get => DeadlineSettings.PayoutMode == PayoutMode.None;
+        set { if (value) SetPayoutMode(PayoutMode.None); }
+    }
+
+    public bool PayoutSome
+    {
+        get => DeadlineSettings.PayoutMode == PayoutMode.Some;
+        set { if (value) SetPayoutMode(PayoutMode.Some); }
+    }
+
+    public bool PayoutAll
+    {
+        get => DeadlineSettings.PayoutMode == PayoutMode.All;
+        set { if (value) SetPayoutMode(PayoutMode.All); }
+    }
+
+    public decimal PayoutDays
+    {
+        get => DeadlineSettings.PayoutDays;
+        set
+        {
+            if (DeadlineSettings.PayoutMode != PayoutMode.Some || (DeadlineSettings.PayoutIsOwn && value == DeadlineSettings.PayoutDays))
+                return;
+
+            _data.SetPayout(DeadlineYear, PayoutMode.Some, value);
+            SaveAndRefresh();
+        }
+    }
+
+    public string PayoutSource => Source(DeadlineSettings.PayoutFrom, DeadlineSettings.PayoutIsOwn);
+    public bool PayoutIsOwn => DeadlineSettings.PayoutIsOwn;
+
+    private void SetPayoutMode(PayoutMode mode)
+    {
+        if (mode == DeadlineSettings.PayoutMode)
+            return;
+
+        _data.SetPayout(DeadlineYear, mode, DeadlineSettings.PayoutDays);
+        SaveAndRefresh();
+    }
+
+    private static string Source(HolidayYear? from, bool isOwn) =>
+        isOwn ? "Set for this year" : from is { } year ? $"From {year}" : "Default";
+
+    private void RaiseDeadlineSettingsChanged()
+    {
+        foreach (var name in new[]
+        {
+            nameof(DeadlineSettingsTitle), nameof(TransferLimitDays), nameof(TransferLimitSource), nameof(TransferLimitIsOwn),
+            nameof(PayoutNone), nameof(PayoutSome), nameof(PayoutAll), nameof(PayoutDays), nameof(PayoutSource), nameof(PayoutIsOwn),
+        })
+            OnPropertyChanged(name);
+    }
 
     public CalendarYearStatus Status
     {
@@ -190,12 +310,9 @@ public sealed class MainViewModel : ObservableObject
                 OnPropertyChanged(nameof(HasStatusDetail));
                 OnPropertyChanged(nameof(UnbookedSign));
                 OnPropertyChanged(nameof(EarnableNote));
-                OnPropertyChanged(nameof(TransferredToNext));
-                OnPropertyChanged(nameof(MaxTransferText));
             }
         }
     }
-
     /// <summary>The holiday years open around the selected calendar year (the expiring one and the next).</summary>
     public IReadOnlyList<HolidayYearRow> HolidayYearRows
     {
@@ -226,8 +343,7 @@ public sealed class MainViewModel : ObservableObject
             {
                 BalanceStatus.AllPlanned when s.HolidayYear.TotalDays == 0 =>
                     $"No vacation days to use in holiday year {s.HolidayYear.HolidayYear}.",
-                BalanceStatus.AllPlanned =>
-                    "Everything is used, booked or transferred. Nothing will expire.",
+                BalanceStatus.AllPlanned => PastDeadline ? "Nothing was paid out or lost." : "Nothing will be paid out or lost.",
                 BalanceStatus.DaysToPlan =>
                     $"You have {Days(unbooked)} not yet booked. {(unbooked == 1 ? "It" : "They")} must be used by {deadline} " +
                     $"({WorkingDays(s.WorkingDaysLeft)} still free).",
@@ -237,52 +353,67 @@ public sealed class MainViewModel : ObservableObject
                     $"You have booked {Days(s.HolidayYear.ExceedsEarnableBy)} more than you can earn by 31 August.",
                 BalanceStatus.Expired =>
                     $"Holiday year {s.HolidayYear.HolidayYear} expired on {deadline}: " +
-                    JoinAnd(
-                        s.PaidOutDays > 0 ? $"{Days(s.PaidOutDays)} {(s.PaidOutDays == 1 ? "was" : "were")} paid out" : null,
-                        s.LostDays > 0 ? $"{Days(s.LostDays)} {(s.LostDays == 1 ? "was" : "were")} lost" : null) + ".",
+                    Outcome(s.HolidayYear.AtDeadline, s.NextHolidayYear, past: true) + ".",
                 _ => "",
             };
         }
     }
 
-    /// <summary>Second, smaller line of the banner: what happens to the unbooked days, and the 5th-week hint.</summary>
+    private bool PastDeadline => Status.Deadline < Today;
+
+    /// <summary>Second, smaller line of the banner: what happens to the days at the deadline.</summary>
     public string StatusDetail
     {
         get
         {
             var s = Status;
             var lines = new List<string>();
-            var unusedFifth = s.HolidayYear.UnusedFifthWeekDays;
-            // When a transfer is still possible, the 5th-week sentence below carries the "otherwise paid out" fact.
-            var transferHint = s.Status != BalanceStatus.Expired && unusedFifth > 0
-                && s.TransferOptionApplies && s.HolidayYear.TransferredToNext == 0;
+            var next = s.NextHolidayYear;
+            var transferredIn = s.HolidayYear.UnusedTransferredInDays;
             switch (s.Status)
             {
                 case BalanceStatus.DaysToPlan:
-                    var outcome = JoinAnd(
-                        !transferHint && s.PaidOutDays > 0 ? $"{Days(s.PaidOutDays)} will be paid out" : null,
-                        s.LostDays > 0 ? $"{Days(s.LostDays)} will be lost" : null);
+                    var outcome = Outcome(s.HolidayYear.AtDeadline, next, past: false);
                     if (outcome.Length > 0)
                         lines.Add($"If they are not booked, {outcome}.");
                     break;
                 case BalanceStatus.DaysWillBeLost:
-                    if (transferHint)
-                    {
-                        if (s.AtRiskLostDays > 0)
-                            lines.Add($"{Days(s.AtRiskLostDays)} will be lost even if you book every free working day.");
-                        break;
-                    }
-                    var atRisk = JoinAnd(
-                        s.AtRiskLostDays > 0 ? $"{Days(s.AtRiskLostDays)} will be lost" : null,
-                        s.AtRiskPaidOutDays > 0 ? $"{Days(s.AtRiskPaidOutDays)} will be paid out" : null);
-                    lines.Add($"{Days(s.DaysAtRisk)} can't fit even if you book every free working day: {atRisk}.");
+                    lines.Add($"{Days(s.DaysAtRisk)} can't fit even if you book every free working day: " +
+                        $"{Outcome(s.AtRisk, next, past: false)}.");
+                    break;
+                case BalanceStatus.AllPlanned when s.HolidayYear.TotalDays > 0 && s.TransferredToNext > 0:
+                    lines.Add($"{Days(s.TransferredToNext)} {(PastDeadline ? (s.TransferredToNext == 1 ? "was" : "were") : "will be")} transferred to {next}.");
                     break;
             }
 
-            if (transferHint)
-                lines.Add($"The unused 5th-week days ({Days(unusedFifth)}) can be transferred by agreement before 31 December, otherwise they are paid out.");
+            if (transferredIn > 0 && s.Status is BalanceStatus.DaysToPlan or BalanceStatus.DaysWillBeLost)
+            {
+                var source = s.HolidayYear.HolidayYear == _data.EffectiveFirstTrackedHolidayYear(Today)
+                    ? "of opening balance"
+                    : $"transferred from {s.HolidayYear.HolidayYear.Previous}";
+                lines.Add($"{Days(transferredIn)} {source} " +
+                    $"must be used in this holiday year, or {(transferredIn == 1 ? "it is" : "they are")} lost.");
+            }
             return string.Join(Environment.NewLine, lines);
         }
+    }
+
+    /// <summary>"5 days will be transferred to 2026/27, 2 days will be paid out and 3 days will be lost" (zero parts omitted).</summary>
+    private static string Outcome(DeadlineOutcome o, HolidayYear next, bool past)
+    {
+        var parts = new List<string>();
+        if (o.TransferredDays > 0)
+            parts.Add($"{Days(o.TransferredDays)} {(past ? (o.TransferredDays == 1 ? "was" : "were") : "will be")} transferred to {next}");
+        if (o.PaidOutDays > 0)
+            parts.Add($"{Days(o.PaidOutDays)} {(past ? (o.PaidOutDays == 1 ? "was" : "were") : "will be")} paid out");
+        if (o.LostDays > 0)
+            parts.Add($"{Days(o.LostDays)} {(past ? (o.LostDays == 1 ? "was" : "were") : "will be")} lost");
+        return parts.Count switch
+        {
+            0 => "",
+            1 => parts[0],
+            _ => string.Join(", ", parts.Take(parts.Count - 1)) + " and " + parts[^1],
+        };
     }
     public bool HasStatusDetail => StatusDetail.Length > 0;
     public DateTime? NewStart
@@ -447,6 +578,7 @@ public sealed class MainViewModel : ObservableObject
     {
         try
         {
+            _data.EnsureFirstTrackedHolidayYear(Today);
             _store.Save(_data);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -470,10 +602,12 @@ public sealed class MainViewModel : ObservableObject
         HolidayYearRows = BalanceCalculator.CalculateHolidayYears(_data, HolidayYear.InCalendarYear(_settings.Year), Today)
             .Select(HolidayYearRow.From).ToList();
         OnPropertyChanged(nameof(EmployedSince));
+        OnPropertyChanged(nameof(FirstTrackedChoices));
+        OnPropertyChanged(nameof(FirstTrackedHolidayYear));
+        OnPropertyChanged(nameof(OpeningBalanceDays));
         OnPropertyChanged(nameof(NewEntryPreview));
+        RaiseDeadlineSettingsChanged();
     }
-
-    private static string JoinAnd(params string?[] parts) => string.Join(" and ", parts.Where(p => p is not null));
 
     private static string Days(decimal days) => days == 1 ? "1 day" : $"{days:0.##} days";
 

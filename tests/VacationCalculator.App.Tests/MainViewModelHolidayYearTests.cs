@@ -1,9 +1,9 @@
-using VacationCalculator.App.ViewModels;
+﻿using VacationCalculator.App.ViewModels;
 using VacationCalculator.Core;
 
 namespace VacationCalculator.App.Tests;
 
-/// <summary>Settings (Employed since, 5th-week transfer), transfer registration and the holiday-year card.</summary>
+/// <summary>Employed since and the holiday-year card (settings for transfer and payout: MainViewModelDeadlineSettingsTests).</summary>
 public class MainViewModelHolidayYearTests : HolidayYearVmTestBase
 {
     private VacationData Saved() => new DataStore(DataFile).Load();
@@ -159,150 +159,63 @@ public class MainViewModelHolidayYearTests : HolidayYearVmTestBase
         Assert.Single(Saved().Days);
     }
 
-    // ---- Transfer setting ----
+    // ---- Card: transfer columns ----
 
     [Fact]
-    public void TransferSetting_DefaultsToOff_Toggles_AndIsSaved()
+    public void Rows_TransferOn_ShowTransferredOutAndIn()
+    {
+        // 20 used, transfer on: 5 unused 5th-week days are transferred from 2025/26 to 2026/27.
+        // 2026/27: 6.25 earned so far (Sep-Nov). The 5 transferred days are only projected on Dec 18 (2025/26 is
+        // still open and still counts them as its own 5 remaining), so they are not in 2026/27's Remaining yet:
+        // 6.25 + 5 (in 2025/26) = 11.25 days that really exist, not 16.25.
+        var vm = NewVm(Dec18, Seed(20, transferAllowed: true));
+
+        Assert.Equal(5m, vm.HolidayYearRows[0].TransferredOut);
+        Assert.Equal(0m, vm.HolidayYearRows[0].TransferredIn);
+        Assert.Equal(5m, vm.HolidayYearRows[1].TransferredIn);
+        Assert.True(vm.HolidayYearRows[1].TransferredInIsProjected);
+        Assert.Equal(6.25m, vm.HolidayYearRows[1].Remaining);
+        Assert.Equal(11.25m, vm.HolidayYearRows[0].Remaining + vm.HolidayYearRows[1].Remaining);
+        // The projected transfer does not reduce what is still bookable in 2025/26.
+        Assert.Equal(5m, vm.HolidayYearRows[0].Remaining);
+    }
+
+    [Fact]
+    public void Rows_TransferOff_ShowNoTransfers()
     {
         var vm = NewVm(Dec18, Seed(20));
-        Assert.False(vm.FifthWeekTransferAllowed);
-        Assert.Equal("max 0", vm.MaxTransferText);
-        Assert.False(vm.Status.TransferOptionApplies);
 
-        var raised = new List<string?>();
-        vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
-        vm.FifthWeekTransferAllowed = true;
-
-        Assert.Contains("FifthWeekTransferAllowed", raised);
-        Assert.Contains("StatusDetail", raised);
-        Assert.Equal("max 5", vm.MaxTransferText);
-        Assert.True(vm.Status.TransferOptionApplies);
-        Assert.True(Saved().FifthWeekTransferAllowed);
-        Assert.True(NewVm(Dec18).FifthWeekTransferAllowed);
-
-        vm.FifthWeekTransferAllowed = false;
-        Assert.Equal("max 0", vm.MaxTransferText);
-        Assert.False(Saved().FifthWeekTransferAllowed);
+        Assert.All(vm.HolidayYearRows, r => Assert.Equal(0m, r.TransferredOut));
+        Assert.All(vm.HolidayYearRows, r => Assert.Equal(0m, r.TransferredIn));
     }
 
     [Fact]
-    public void TransferredToNext_IsCappedAtUnusedFifthWeekDays()
+    public void Rows_TransferredOut_FollowsThePerYearLimit()
     {
-        // 20 used -> 5 unused 5th-week days. Typing 10 shows (applies) 5.
-        var vm = NewVm(Dec18, Seed(20, transferAllowed: true));
+        // Limit 3 for 2025/26: 3 of the 5 unused days are transferred.
+        var data = Seed(20, transferAllowed: true);
+        data.SetTransferLimit(new HolidayYear(2025), 3);
+        var vm = NewVm(Dec18, data);
 
-        vm.TransferredToNext = 10;
-
-        Assert.Equal(5m, vm.TransferredToNext);
-        Assert.Equal(BalanceStatus.AllPlanned, vm.Status.Status);
-    }
-
-    [Fact]
-    public void TransferredToNext_TypingTheAppliedValueAfterAnOverCap_StoresWhatWasLastTyped()
-    {
-        // 5 unused 5th-week days. The user types 10 (shown as 5), then types 5. The registered transfer must now be
-        // 5; if the over-cap 10 stays in the file, deleting a booking later would silently raise the transfer to 6+.
-        var vm = NewVm(Dec18, Seed(20, transferAllowed: true));
-        vm.TransferredToNext = 10;
-        Assert.Equal(5m, vm.TransferredToNext);
-
-        vm.TransferredToNext = 5;
-
-        Assert.True(Saved().HolidayYears.Single().TransferredToNext <= 5m,
-            "stored value is " + Saved().HolidayYears.Single().TransferredToNext);
-    }
-
-    [Fact]
-    public void TransferredToNext_IsSavedToTheHolidayYearExpiringInTheSelectedYear_AndReloaded()
-    {
-        // Selected 2026 -> holiday year 2025/26, whose StartYear is 2025.
-        var vm = NewVm(Dec18, Seed(20, transferAllowed: true));
-
-        vm.TransferredToNext = 3;
-
-        Assert.Equal(3m, vm.TransferredToNext);
-        var stored = Assert.Single(Saved().HolidayYears);
-        Assert.Equal(2025, stored.StartYear);
-        Assert.Equal(3m, stored.TransferredToNext);
-        Assert.Equal(3m, NewVm(Dec18).TransferredToNext);
-    }
-
-    [Fact]
-    public void TransferredToNext_AddsDaysToTheNextHolidayYear()
-    {
-        var vm = NewVm(Dec18, Seed(20, transferAllowed: true));
-
-        vm.TransferredToNext = 3;
-
+        Assert.Equal(3m, vm.HolidayYearRows[0].TransferredOut);
         Assert.Equal(3m, vm.HolidayYearRows[1].TransferredIn);
-        Assert.Equal(9.25m, vm.HolidayYearRows[1].Remaining); // 6.25 earned so far + 3 transferred in, nothing used
     }
 
     [Fact]
-    public void TransferredToNext_ForAnotherSelectedYear_WritesThatYearsPrecedingHolidayYear()
+    public void Rows_SeptemberToDecember_BookingsUseTheOlderYearFirst_ReducingTheTransfer()
     {
-        // Selected 2027 -> holiday year 2026/27 (StartYear 2026), nothing booked: 25 unused, 5 of them 5th week.
-        var vm = NewVm(Dec18, Seed(0, transferAllowed: true));
-        vm.SelectedYear = 2027;
-        Assert.Equal("max 5", vm.MaxTransferText);
+        // 20 used in Jan; booking Mon 12-21 and Tue 12-22 (after today 12-18) use 2026's older year first:
+        // 2025/26 has 5 left -> 2 more booked -> 3 unused -> only 3 transferred.
+        var data = Seed(20, transferAllowed: true);
+        foreach (var day in new[] { 21, 22 })
+            data.Days.Add(new BookedDay { Date = new DateOnly(2026, 12, day) });
+        var vm = NewVm(Dec18, data);
 
-        vm.TransferredToNext = 2;
-
-        var stored = Assert.Single(Saved().HolidayYears);
-        Assert.Equal(2026, stored.StartYear);
-        Assert.Equal(2m, stored.TransferredToNext);
+        Assert.Equal(2m, vm.HolidayYearRows[0].BookedAhead);
+        Assert.Equal(3m, vm.HolidayYearRows[0].TransferredOut);
+        Assert.Equal(3m, vm.HolidayYearRows[1].TransferredIn);
+        Assert.Equal(0m, vm.HolidayYearRows[1].BookedAhead);
     }
-
-    [Fact]
-    public void TransferredToNext_Negative_BecomesZero()
-    {
-        var vm = NewVm(Dec18, Seed(20, transferAllowed: true, transferred: 3));
-
-        vm.TransferredToNext = -4;
-
-        Assert.Equal(0m, vm.TransferredToNext);
-        Assert.Equal(0m, Saved().HolidayYears.Single().TransferredToNext);
-    }
-
-    [Fact]
-    public void TransferredToNext_Decimal_IsAccepted()
-    {
-        var vm = NewVm(Dec18, Seed(20, transferAllowed: true));
-
-        vm.TransferredToNext = 2.5m;
-
-        Assert.Equal(2.5m, vm.TransferredToNext);
-    }
-
-    [Fact]
-    public void TransferredToNext_SettingOff_ShowsZero_AndStoredValueIsKeptWhenSwitchedOff()
-    {
-        var vm = NewVm(Dec18, Seed(20, transferAllowed: true, transferred: 3));
-        Assert.Equal(3m, vm.TransferredToNext);
-
-        vm.FifthWeekTransferAllowed = false;
-
-        Assert.Equal(0m, vm.TransferredToNext);
-        // Not destroyed: switching the setting back on restores the registered transfer.
-        Assert.Equal(3m, Saved().HolidayYears.Single().TransferredToNext);
-        vm.FifthWeekTransferAllowed = true;
-        Assert.Equal(3m, vm.TransferredToNext);
-    }
-
-    [Fact]
-    public void TransferredToNext_Change_RaisesStatusProperties()
-    {
-        var vm = NewVm(Dec18, Seed(20, transferAllowed: true));
-        var raised = new List<string?>();
-        vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
-
-        vm.TransferredToNext = 5;
-
-        Assert.Contains("TransferredToNext", raised);
-        Assert.Contains("StatusMessage", raised);
-        Assert.Contains("UnbookedSign", raised);
-    }
-
     // ---- Data written by the previous version ----
 
     [Fact]
@@ -321,10 +234,10 @@ public class MainViewModelHolidayYearTests : HolidayYearVmTestBase
         Assert.Single(vm.Entries);
         Assert.Equal(new DateOnly(2026, 12, 24), Assert.Single(vm.Holidays));
         Assert.Null(vm.EmployedSince);
-        Assert.False(vm.FifthWeekTransferAllowed);
+        Assert.False(vm.TransferAllowed);
 
         // An edit saves, and the bookings and holidays are still there afterwards.
-        vm.FifthWeekTransferAllowed = true;
+        vm.TransferAllowed = true;
         var saved = Saved();
         Assert.Single(saved.Days);
         Assert.Contains(new DateOnly(2026, 12, 24), saved.Years.Single(y => y.Year == 2026).PublicHolidays);

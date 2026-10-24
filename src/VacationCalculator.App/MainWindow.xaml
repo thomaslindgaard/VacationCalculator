@@ -14,6 +14,10 @@
         Foreground="{DynamicResource TextBrush}"
         FontFamily="Segoe UI" FontSize="13">
 
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+    </Window.Resources>
+
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="288" />
@@ -40,8 +44,10 @@
                     </UniformGrid>
                 </StackPanel>
 
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False">
+                <StackPanel Margin="0,0,6,0">
                 <!-- Year navigation -->
-                <StackPanel DockPanel.Dock="Top" Margin="0,0,0,22">
+                <StackPanel Margin="0,0,0,22">
                     <TextBlock Text="Year" Style="{StaticResource FieldLabel}" />
                     <DockPanel>
                         <Button DockPanel.Dock="Left" Content="◀" Command="{Binding PreviousYearCommand}" ToolTip="Previous year" />
@@ -59,27 +65,66 @@
                     <DatePicker SelectedDate="{Binding EmployedSince}" />
                     <TextBlock Text="Leave empty if you were employed before the holiday years shown." TextWrapping="Wrap"
                                Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,4,0,12" />
-                    <CheckBox IsChecked="{Binding FifthWeekTransferAllowed}">
-                        <TextBlock Text="5th week can be transferred by agreement with manager" TextWrapping="Wrap" />
+                    <TextBlock Text="First holiday year tracked" Style="{StaticResource FieldLabel}" />
+                    <ComboBox ItemsSource="{Binding FirstTrackedChoices}" SelectedItem="{Binding FirstTrackedHolidayYear}" />
+                    <TextBlock Text="Days transferred into it" Style="{StaticResource FieldLabel}" Margin="0,8,0,0" />
+                    <TextBox Text="{Binding OpeningBalanceDays, UpdateSourceTrigger=PropertyChanged, Delay=400}" />
+                    <TextBlock Text="Unused days you brought into that year. Leave at 0 if none." TextWrapping="Wrap"
+                               Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,4,0,12" />
+                    <CheckBox IsChecked="{Binding TransferAllowed}">
+                        <TextBlock Text="Unused days can be transferred to the next holiday year" TextWrapping="Wrap" />
                     </CheckBox>
-                    <StackPanel Margin="0,12,0,0">
+
+                    <!-- Settings for the holiday year whose deadline is in the selected calendar year -->
+                    <TextBlock Text="{Binding DeadlineSettingsTitle}" TextWrapping="Wrap" FontWeight="SemiBold" Margin="0,14,0,6" />
+
+                    <StackPanel>
                         <StackPanel.Style>
                             <Style TargetType="StackPanel">
                                 <Setter Property="Visibility" Value="Collapsed" />
                                 <Style.Triggers>
-                                    <DataTrigger Binding="{Binding FifthWeekTransferAllowed}" Value="True">
+                                    <DataTrigger Binding="{Binding TransferAllowed}" Value="True">
                                         <Setter Property="Visibility" Value="Visible" />
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
                         </StackPanel.Style>
-                        <TextBlock Text="Days transferred to next holiday year" Style="{StaticResource FieldLabel}" TextWrapping="Wrap" />
-                        <DockPanel>
-                            <TextBlock DockPanel.Dock="Right" Text="{Binding MaxTransferText}" Foreground="{DynamicResource MutedBrush}"
-                                       VerticalAlignment="Center" Margin="10,0,0,0" />
-                            <TextBox Text="{Binding TransferredToNext, UpdateSourceTrigger=PropertyChanged, Delay=400}" />
+                        <TextBlock Text="Days that can be transferred" Style="{StaticResource FieldLabel}" />
+                        <TextBox Text="{Binding TransferLimitDays, UpdateSourceTrigger=PropertyChanged, Delay=400}" />
+                        <DockPanel Margin="0,3,0,0">
+                            <Button DockPanel.Dock="Right" Content="Reset" Command="{Binding ResetTransferLimitCommand}"
+                                    Style="{StaticResource LinkButton}" Visibility="{Binding TransferLimitIsOwn, Converter={StaticResource BoolToVisibility}}" />
+                            <TextBlock Text="{Binding TransferLimitSource}" Foreground="{DynamicResource MutedBrush}" FontSize="11" />
                         </DockPanel>
+                        <TextBlock Text="5 by the Holiday Act; more with a personal agreement." TextWrapping="Wrap"
+                                   Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,2,0,10" />
                     </StackPanel>
+
+                    <TextBlock Text="Other unused days paid out" Style="{StaticResource FieldLabel}" />
+                    <UniformGrid Rows="1">
+                        <RadioButton GroupName="Payout" Content="None" Style="{StaticResource SegmentButton}" IsChecked="{Binding PayoutNone}" />
+                        <RadioButton GroupName="Payout" Content="Some" Style="{StaticResource SegmentButton}" IsChecked="{Binding PayoutSome}" />
+                        <RadioButton GroupName="Payout" Content="All" Style="{StaticResource SegmentButton}" IsChecked="{Binding PayoutAll}" />
+                    </UniformGrid>
+                    <TextBox Text="{Binding PayoutDays, UpdateSourceTrigger=PropertyChanged, Delay=400}" Margin="0,6,4,0">
+                        <TextBox.Style>
+                            <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding PayoutSome}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBox.Style>
+                    </TextBox>
+                    <DockPanel Margin="0,3,0,0">
+                        <Button DockPanel.Dock="Right" Content="Reset" Command="{Binding ResetPayoutCommand}"
+                                Style="{StaticResource LinkButton}" Visibility="{Binding PayoutIsOwn, Converter={StaticResource BoolToVisibility}}" />
+                        <TextBlock Text="{Binding PayoutSource}" Foreground="{DynamicResource MutedBrush}" FontSize="11" />
+                    </DockPanel>
+                    <TextBlock Text="Covers days beyond the 5th week. 5th-week days are always paid out unless transferred."
+                               TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,2,0,0" />
                 </StackPanel>
                 <!-- Public holidays fill the remaining height -->
                 <DockPanel>
@@ -90,7 +135,7 @@
                         <Button DockPanel.Dock="Right" Content="Add" Command="{Binding AddHolidayCommand}" Margin="8,0,0,0" />
                         <DatePicker SelectedDate="{Binding NewHoliday}" />
                     </DockPanel>
-                    <ListBox ItemsSource="{Binding Holidays}" HorizontalContentAlignment="Stretch">
+                    <ListBox ItemsSource="{Binding Holidays}" HorizontalContentAlignment="Stretch" MaxHeight="150">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
                                 <DockPanel>
@@ -104,6 +149,8 @@
                         </ListBox.ItemTemplate>
                     </ListBox>
                 </DockPanel>
+                </StackPanel>
+                </ScrollViewer>
             </DockPanel>
         </Border>
 
@@ -182,6 +229,7 @@
                                 <ColumnDefinition SharedSizeGroup="E" Width="Auto" />
                                 <ColumnDefinition SharedSizeGroup="F" Width="Auto" />
                                 <ColumnDefinition SharedSizeGroup="G" Width="Auto" />
+                                <ColumnDefinition SharedSizeGroup="H" Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text="Year" Style="{StaticResource FieldLabel}" Margin="0,0,16,0" />
                             <TextBlock Grid.Column="1" Text="Earned so far" Style="{StaticResource FieldLabel}" Margin="0,0,16,0" />
@@ -189,7 +237,8 @@
                             <TextBlock Grid.Column="3" Text="Used" Style="{StaticResource FieldLabel}" Margin="0,0,16,0" />
                             <TextBlock Grid.Column="4" Text="Booked ahead" Style="{StaticResource FieldLabel}" Margin="0,0,16,0" />
                             <TextBlock Grid.Column="5" Text="Remaining" Style="{StaticResource FieldLabel}" Margin="0,0,16,0" />
-                            <TextBlock Grid.Column="6" Text="Use by" Style="{StaticResource FieldLabel}" />
+                            <TextBlock Grid.Column="6" Text="To next year" Style="{StaticResource FieldLabel}" Margin="0,0,16,0" />
+                            <TextBlock Grid.Column="7" Text="Use by" Style="{StaticResource FieldLabel}" />
                         </Grid>
                         <ItemsControl ItemsSource="{Binding HolidayYearRows}">
                             <ItemsControl.ItemTemplate>
@@ -204,10 +253,25 @@
                                                 <ColumnDefinition SharedSizeGroup="E" Width="Auto" />
                                                 <ColumnDefinition SharedSizeGroup="F" Width="Auto" />
                                                 <ColumnDefinition SharedSizeGroup="G" Width="Auto" />
+                                <ColumnDefinition SharedSizeGroup="H" Width="Auto" />
                                             </Grid.ColumnDefinitions>
                                             <TextBlock Grid.Column="0" Text="{Binding Name}" FontWeight="SemiBold" Margin="0,0,16,0" />
                                             <TextBlock Grid.Column="1" Text="{Binding Earned}" Margin="0,0,16,0" />
-                                            <TextBlock Grid.Column="2" Text="{Binding TransferredIn, StringFormat={}{0:0.##;;–}}" Margin="0,0,16,0" />
+                                            <TextBlock Grid.Column="2" Margin="0,0,16,0">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Text" Value="{Binding TransferredIn, StringFormat={}{0:0.##;;–}}" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding ShowProjected}" Value="True">
+                                                                <Setter Property="Text" Value="{Binding TransferredIn, StringFormat={}{0:0.##} (projected)}" />
+                                                                <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+                                                                <Setter Property="FontStyle" Value="Italic" />
+                                                                <Setter Property="ToolTip" Value="{Binding ProjectedTooltip}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
                                             <TextBlock Grid.Column="3" Text="{Binding Used, StringFormat={}{0:0.##}}" Margin="0,0,16,0" />
                                             <TextBlock Grid.Column="4" Text="{Binding BookedAhead, StringFormat={}{0:0.##}}" Margin="0,0,16,0" />
                                             <TextBlock Grid.Column="5" Text="{Binding Remaining, StringFormat={}{0:0.##}}" Margin="0,0,16,0">
@@ -222,7 +286,8 @@
                                                     </Style>
                                                 </TextBlock.Style>
                                             </TextBlock>
-                                            <TextBlock Grid.Column="6" Text="{Binding Deadline, StringFormat=d}" />
+                                            <TextBlock Grid.Column="6" Text="{Binding TransferredOut, StringFormat={}{0:0.##;;–}}" Margin="0,0,16,0" />
+                                            <TextBlock Grid.Column="7" Text="{Binding Deadline, StringFormat=d}" />
                                         </Grid>
                                         <TextBlock Text="{Binding Note}" FontSize="11" Margin="0,1,0,0">
                                             <TextBlock.Style>
@@ -301,11 +366,11 @@
                     <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,8">
                         <StackPanel Margin="0,0,12,0">
                             <TextBlock Text="From" Style="{StaticResource FieldLabel}" />
-                            <DatePicker SelectedDate="{Binding NewStart}" Width="140" />
+                            <DatePicker SelectedDate="{Binding NewStart}" Width="140" DisplayDateEnd="9998-12-31" />
                         </StackPanel>
                         <StackPanel Margin="0,0,12,0">
                             <TextBlock Text="To" Style="{StaticResource FieldLabel}" />
-                            <DatePicker SelectedDate="{Binding NewEnd}" Width="140" />
+                            <DatePicker SelectedDate="{Binding NewEnd}" Width="140" DisplayDateEnd="9998-12-31" />
                         </StackPanel>
                         <StackPanel Margin="0,0,12,0">
                             <TextBlock Text="Description" Style="{StaticResource FieldLabel}" />

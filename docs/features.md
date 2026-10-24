@@ -94,7 +94,7 @@ When implemented, the "Domain rules" section of `CLAUDE.md` must be updated to m
 
 ## 2b. Calculated transfer and payout of unused days
 
-**Status:** Planned (next)
+**Status:** Done
 
 Changes feature 2: 5th-week transfers are no longer registered per holiday year. The app only knows whether transfer is allowed and how many days can be transferred, and calculates what happens to each holiday year's unused days at its deadline: transferred, paid out or lost.
 
@@ -117,7 +117,7 @@ Days transferred into a holiday year are used first within that year (they are t
 Calculation at each holiday year's deadline (31 December of the following year), from the days still unused after all bookings (used and booked ahead):
 
 1. **Transferred-in days still unused:** lost.
-2. **Transferred:** if transfer is on, the year's own unused days up to the transfer limit: 5th-week days first (the year's own earnings beyond 20, at most 5), then other unused days if the limit is higher. They are added to the next holiday year's total.
+2. **Transferred:** if transfer is on, the year's own unused days up to the transfer limit: 5th-week days first (the year's own earnings beyond 20, at most 5), then other own unused days only through the part of the limit above 5 (a personal agreement). With the default limit 5 only 5th-week days move, as in the Holiday Act; limit 8 can also move up to 3 days from the first 20. They are added to the next holiday year's total.
 3. **5th-week days not transferred:** always paid out, as the Holiday Act says.
 4. **Other unused days** (beyond the 5th week): paid out up to the payout setting (none, some N, or all); the rest are lost.
 
