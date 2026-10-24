@@ -20,21 +20,21 @@ public class OpeningBalanceIndependentTests
     [Fact]
     public void Opening_ReceivedByFirstTrackedYear_NotByEarlierOrLater()
     {
-        // First tracked 2026, opening 3, nothing booked, transfer off.
-        var data = Data(firstTracked: 2026, openingBalance: 3);
+        // First tracked 2026, opening 3, nothing booked, transfer off (2c: limit 0 on 2026).
+        var data = Data(firstTracked: 2026, openingBalance: 3).NoTransferFrom(2026);
 
         Assert.Equal(0m, Bal(data, 2025).TransferredIn);
         Assert.Equal(3m, Bal(data, 2026).TransferredIn);
         Assert.Equal(28m, Bal(data, 2026).TotalDays);
-        Assert.Equal(0m, Bal(data, 2027).TransferredIn); // transfer off: nothing flows on from 2026
+        Assert.Equal(0m, Bal(data, 2027).TransferredIn); // limit 0: nothing flows on from 2026
     }
 
     [Fact]
-    public void Opening_TransferOff_UnusedIsLost_5thWeekPaid()
+    public void Opening_LimitZero_UnusedIsLost_5thWeekPaid()
     {
         // 2026: 3 opening days unused -> lost. Own 25 unused: 5th week 5 paid out (always), first 20 lost.
         // Lost = 3 + 20 = 23, paid out 5, transferred 0.
-        var b = Bal(Data(firstTracked: 2026, openingBalance: 3), 2026);
+        var b = Bal(Data(firstTracked: 2026, openingBalance: 3).NoTransferFrom(2026), 2026); // 2c: limit 0
 
         Assert.Equal(0m, b.TransferredToNext);
         Assert.Equal(5m, b.PaidOutDays);
@@ -48,7 +48,7 @@ public class OpeningBalanceIndependentTests
     {
         // Opening 3, nothing booked, limit 100 so everything own could move: own 25 all move, the 3 opening days do not.
         // 2027 therefore gets 25 (not 28). Lost in 2026 = the 3 opening days only.
-        var data = Data(firstTracked: 2026, openingBalance: 3, transferAllowed: true).WithLimit(2026, 100);
+        var data = Data(firstTracked: 2026, openingBalance: 3).WithLimit(2026, 100);
 
         var b = Bal(data, 2026);
 
@@ -60,7 +60,7 @@ public class OpeningBalanceIndependentTests
     [Fact]
     public void Opening_TransferOn_DefaultLimit_Gives5NotOpeningPlus5()
     {
-        var data = Data(firstTracked: 2026, openingBalance: 3, transferAllowed: true);
+        var data = Data(firstTracked: 2026, openingBalance: 3);
 
         var b = Bal(data, 2026);
 
@@ -79,7 +79,7 @@ public class OpeningBalanceIndependentTests
     [InlineData("26", "0", "2", "0")]  // 3 opening + 23 own: 2 5th-week days left, moved
     public void Opening_IsUsedFirst(string booked, string unusedOpening, string transferred, string lost)
     {
-        var data = Data(Fill(M(booked), "2027-01-04"), firstTracked: 2026, openingBalance: 3, transferAllowed: true);
+        var data = Data(Fill(M(booked), "2027-01-04"), firstTracked: 2026, openingBalance: 3);
 
         var b = Bal(data, 2026);
 
@@ -93,7 +93,7 @@ public class OpeningBalanceIndependentTests
     public void Opening_OverBooking_UsesOpeningThenOwn()
     {
         // Capacity 28; 29 booked -> over-booked by 1, nothing transferred.
-        var b = Bal(Data(Fill(29, "2027-01-04"), firstTracked: 2026, openingBalance: 3, transferAllowed: true), 2026);
+        var b = Bal(Data(Fill(29, "2027-01-04"), firstTracked: 2026, openingBalance: 3), 2026);
 
         Assert.Equal(1m, b.ExceedsEarnableBy);
         Assert.Equal(0m, b.TransferredToNext);
@@ -122,7 +122,7 @@ public class OpeningBalanceIndependentTests
     [Fact]
     public void Opening_Zero_ChangesNothing()
     {
-        var b = Bal(Data(firstTracked: 2026, transferAllowed: true), 2026);
+        var b = Bal(Data(firstTracked: 2026), 2026);
 
         Assert.Equal(0m, b.TransferredIn);
         Assert.Equal(25m, b.TotalDays);
@@ -163,7 +163,7 @@ public class OpeningBalanceIndependentTests
     {
         // First tracked 2025, opening 4, nothing booked, transfer on, limit 5.
         // 2025: in 4 (lost), out 5. 2026: in 5 (lost), out 5. 2027: in 5.
-        var data = Data(firstTracked: 2025, openingBalance: 4, transferAllowed: true);
+        var data = Data(firstTracked: 2025, openingBalance: 4);
 
         Assert.Equal(4m, Bal(data, 2025).TransferredIn);
         Assert.Equal(5m, Bal(data, 2025).TransferredToNext);
@@ -181,7 +181,7 @@ public class OpeningBalanceIndependentTests
         // 2026: Fill(7, 2027-01-04): 5 transferred-in + 2 own: own unused 23 = 5 (5th) + 18 -> 5 to 2027.
         // 2027: Fill(1, 2028-01-03): 5 in, 1 used, 4 lost; own 25 unused -> 5 out.
         var data = Data(Fill(22).Concat(Fill(7, "2027-01-04")).Concat(Fill(1, "2028-01-03")),
-            firstTracked: 2025, openingBalance: 2, transferAllowed: true);
+            firstTracked: 2025, openingBalance: 2);
 
         Assert.Equal(0m, Bal(data, 2025).UnusedTransferredInDays);
         Assert.Equal(5m, Bal(data, 2025).TransferredToNext);
@@ -195,9 +195,9 @@ public class OpeningBalanceIndependentTests
     }
 
     [Fact]
-    public void Chain_Opening_ThenNoTransferAfterwardsWhenTransferOffForEmployment()
+    public void Chain_Opening_ThenNoTransferAfterwardsWhenLimitZero()
     {
-        var data = Data(firstTracked: 2025, openingBalance: 4);
+        var data = Data(firstTracked: 2025, openingBalance: 4).NoTransferFrom(2025); // 2c: was the employment-wide switch off
 
         Assert.Equal(4m, Bal(data, 2025).TransferredIn);
         Assert.Equal(0m, Bal(data, 2026).TransferredIn);
@@ -210,13 +210,13 @@ public class OpeningBalanceIndependentTests
     {
         // First tracked 2026; 2025 has 10 used, so 15 unused = 5th week 5 + 10 other. Transfer on, but 2025 is before
         // the first tracked year: nothing moves. Payout None: 5 paid out, 10 lost. Payout All: 15 paid, 0 lost.
-        var none = Bal(Data(Fill(10), firstTracked: 2026, transferAllowed: true), 2025);
+        var none = Bal(Data(Fill(10), firstTracked: 2026), 2025);
         Assert.Equal(0m, none.TransferredToNext);
         Assert.Equal(5m, none.PaidOutDays);
         Assert.Equal(10m, none.LostDays);
         Assert.Equal(0m, none.TransferredIn);
 
-        var all = Bal(Data(Fill(10), firstTracked: 2026, transferAllowed: true).WithPayout(2025, PayoutMode.All), 2025);
+        var all = Bal(Data(Fill(10), firstTracked: 2026).WithPayout(2025, PayoutMode.All), 2025);
         Assert.Equal(15m, all.PaidOutDays);
         Assert.Equal(0m, all.LostDays);
     }
@@ -226,7 +226,7 @@ public class OpeningBalanceIndependentTests
     {
         // 2025 has 5 unused days + transfer on would give 5 to 2026 if it were tracked. It isn't: 2026 gets only the
         // opening balance (1).
-        var data = Data(Fill(20), firstTracked: 2026, openingBalance: 1, transferAllowed: true);
+        var data = Data(Fill(20), firstTracked: 2026, openingBalance: 1);
 
         Assert.Equal(1m, Bal(data, 2026).TransferredIn);
     }
@@ -234,7 +234,7 @@ public class OpeningBalanceIndependentTests
     [Fact]
     public void BeforeFirstTracked_BookingsStillCountAsUsedForThatYear()
     {
-        var b = Bal(Data(Fill(12), firstTracked: 2030, transferAllowed: true), 2025);
+        var b = Bal(Data(Fill(12), firstTracked: 2030), 2025);
 
         Assert.Equal(12m, b.UsedDays);
         Assert.Equal(0m, b.TransferredToNext);
@@ -245,7 +245,7 @@ public class OpeningBalanceIndependentTests
     public void FirstTrackedYear_ItselfTransfers_YearBeforeDoesNot_Boundary()
     {
         // First tracked 2025: 2025 transfers 5 (nothing booked), 2024 transfers nothing.
-        var data = Data(firstTracked: 2025, transferAllowed: true);
+        var data = Data(firstTracked: 2025);
 
         Assert.Equal(5m, Bal(data, 2025).TransferredToNext);
         Assert.Equal(0m, Bal(data, 2024).TransferredToNext);
@@ -256,9 +256,9 @@ public class OpeningBalanceIndependentTests
     public void CalendarYearStatus_UsesTheOpeningBalance()
     {
         // 2026 deadline year = holiday year 2025. First tracked 2025, opening 4, 21 booked in Jan/Feb 2026 (used by
-        // 2026-10-24): 4 opening + 17 own. Own unused 8 = 5th week 5 + 3 other. Transfer off: 5 paid out, 3 lost.
+        // 2026-10-24): 4 opening + 17 own. Own unused 8 = 5th week 5 + 3 other. Limit 0 (2c): 5 paid out, 3 lost.
         var status = BalanceCalculator.CalculateCalendarYear(
-            Data(Fill(21), firstTracked: 2025, openingBalance: 4), 2026, D("2026-10-24"));
+            Data(Fill(21), firstTracked: 2025, openingBalance: 4).NoTransferFrom(2025), 2026, D("2026-10-24"));
 
         Assert.Equal(29m, status.HolidayYear.TotalDays);
         Assert.Equal(8m, status.UnbookedDays);
@@ -321,7 +321,7 @@ public class OpeningBalanceIndependentTests
     public void NotStored_ThenAnUnstoredFileFollowsTodayUntilEnsured()
     {
         // A file without a stored first tracked year uses the default of 'today' in every calculation.
-        var data = Data(Fill(20), openingBalance: 5, transferAllowed: true);
+        var data = Data(Fill(20), openingBalance: 5);
 
         // Late in 2026: default 2025 -> opening 5 lands in 2025.
         Assert.Equal(5m, Bal(data, 2025, "2026-12-18").TransferredIn);
@@ -336,7 +336,7 @@ public class OpeningBalanceIndependentTests
         decimal limit, decimal transferredIn, decimal own, decimal booked, bool transfer = true,
         PayoutMode mode = PayoutMode.None, decimal payoutDays = 0)
     {
-        var data = Data(transferAllowed: transfer).WithLimit(2025, limit).WithPayout(2025, mode, payoutDays);
+        var data = Data().WithLimit(2025, limit).WithPayout(2025, mode, payoutDays);
         return data.GetDeadlineSettings(new HolidayYear(2025)).Split(transferredIn, own, booked, transfer);
     }
 

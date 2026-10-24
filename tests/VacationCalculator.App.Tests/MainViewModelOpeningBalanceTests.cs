@@ -55,7 +55,7 @@ public class MainViewModelOpeningBalanceTests : HolidayYearVmTestBase
         var vm = NewVm(DateOnly.Parse(today, System.Globalization.CultureInfo.InvariantCulture), Seed(0, firstTracked: null));
         Assert.Null(Saved().FirstTrackedHolidayYear);
 
-        vm.TransferAllowed = true; // any edit saves
+        vm.OpeningBalanceDays = 1; // any edit saves
 
         Assert.Equal(expected, Saved().FirstTrackedHolidayYear);
         Assert.Equal(new HolidayYear(expected), vm.FirstTrackedHolidayYear);
@@ -76,7 +76,7 @@ public class MainViewModelOpeningBalanceTests : HolidayYearVmTestBase
     public void ALaterSave_DoesNotMoveTheStoredYear()
     {
         var first = NewVm(Dec18, Seed(0, firstTracked: null));
-        first.TransferAllowed = true; // stores 2025
+        first.OpeningBalanceDays = 1; // stores 2025
 
         var later = NewVm(new DateOnly(2028, 3, 1));
         later.OpeningBalanceDays = 2; // saves again, two years later
@@ -92,7 +92,7 @@ public class MainViewModelOpeningBalanceTests : HolidayYearVmTestBase
     {
         var vm = NewVm(Dec18, Seed(0, firstTracked: 2019));
 
-        vm.TransferAllowed = true;
+        vm.OpeningBalanceDays = 1;
         vm.EmployedSince = new DateTime(2018, 5, 2);
 
         Assert.Equal(2019, Saved().FirstTrackedHolidayYear);
@@ -255,12 +255,12 @@ public class MainViewModelOpeningBalanceTests : HolidayYearVmTestBase
     }
 
     [Fact]
-    public void OpeningBalance_AppliesWithTransferOff()
+    public void OpeningBalance_AppliesWithTransferLimitZero()
     {
         var vm = NewVm(Dec18, Seed(10));
         vm.OpeningBalanceDays = 4;
 
-        Assert.False(vm.TransferAllowed);
+        Assert.Equal(0m, vm.TransferLimitDays); // the test data has transfer off = limit 0
         Assert.Equal(4m, vm.HolidayYearRows[0].TransferredIn);
         // 29 total, 10 booked.
         Assert.Equal(19m, vm.Status.UnbookedDays);
@@ -483,7 +483,7 @@ public class MainViewModelOpeningBalanceTests : HolidayYearVmTestBase
         vm.OpeningBalanceDays = 1;
         var saved = Saved();
         Assert.Equal("keep me", Assert.Single(saved.Days).Description);
-        Assert.True(saved.TransferAllowed);
+        Assert.DoesNotContain("TransferAllowed", File.ReadAllText(DataFile)); // the old switch is dropped on save
         Assert.Equal(2025, saved.FirstTrackedHolidayYear);
     }
 

@@ -20,7 +20,7 @@ public class ProjectedTransferInTests
 
     /// <summary>Transfer on, default limit 5, first tracked 2025/26, 20 days used Mon 2026-01-05 .. Fri 2026-01-30.</summary>
     private static VacationData Scenario(IEnumerable<BookedDay>? extra = null) =>
-        Data(Fill(20).Concat(extra ?? []), transferAllowed: true, firstTracked: 2025);
+        Data(Fill(20).Concat(extra ?? []), firstTracked: 2025);
 
     // ------------------------------------------------------------ the scenario from the review
 
@@ -127,7 +127,7 @@ public class ProjectedTransferInTests
     public void FirstTrackedYear_OpeningBalance_IsActualFromTheStart()
     {
         // First tracked 2026/27 with an opening balance of 3; today Sat 2026-10-24 (before 2025/26's deadline).
-        var data = Data(Fill(20), transferAllowed: true, firstTracked: 2026, openingBalance: 3);
+        var data = Data(Fill(20), firstTracked: 2026, openingBalance: 3);
 
         var newer = Bal(data, Hy2026, "2026-10-24");
         var older = Bal(data, Hy2025, "2026-10-24");
@@ -141,9 +141,10 @@ public class ProjectedTransferInTests
     }
 
     [Fact]
-    public void TransferOff_NothingIsProjected()
+    public void LimitZero_NothingIsProjected()
     {
-        var data = Data(Fill(20), transferAllowed: false, firstTracked: 2025);
+        // 2c: transfer off is limit 0 on the transferring year (2025)
+        var data = Data(Fill(20), firstTracked: 2025).NoTransferFrom(2025);
 
         var newer = Bal(data, Hy2026, "2026-10-24");
 
@@ -192,7 +193,7 @@ public class ProjectedTransferInTests
     [InlineData(int.MaxValue)]
     public void BadFirstTrackedYear_WithTransferOn_DoesNotThrowAndIsFast(int stored)
     {
-        var data = Data(Fill(20), transferAllowed: true, firstTracked: stored, openingBalance: 2);
+        var data = Data(Fill(20), firstTracked: stored, openingBalance: 2);
         var today = D("2026-10-24");
         var watch = Stopwatch.StartNew();
 
@@ -212,7 +213,7 @@ public class ProjectedTransferInTests
     {
         // Clamped to 0001/02: every year from then on is tracked. 2024/25 has no bookings, so it transfers its
         // 5th week (5) into 2025/26, which is actual on Sat 2026-10-24 (2024/25's deadline 2025-12-31 has passed).
-        var data = Data(Fill(20), transferAllowed: true, firstTracked: 0);
+        var data = Data(Fill(20), firstTracked: 0);
 
         var b = Bal(data, Hy2025, "2026-10-24");
 
@@ -224,7 +225,7 @@ public class ProjectedTransferInTests
     [Fact]
     public void FirstTrackedYearAboveRange_NothingIsTracked()
     {
-        var data = Data(Fill(20), transferAllowed: true, firstTracked: 10000, openingBalance: 3);
+        var data = Data(Fill(20), firstTracked: 10000, openingBalance: 3);
 
         var b = Bal(data, Hy2025, "2026-10-24");
 
@@ -236,7 +237,7 @@ public class ProjectedTransferInTests
     [Fact]
     public void FarFutureSelectedYear_FromFirstTrackedYearOne_IsFast()
     {
-        var data = Data(Fill(20), transferAllowed: true, firstTracked: 1);
+        var data = Data(Fill(20), firstTracked: 1);
         var today = D("2026-10-24");
         var watch = Stopwatch.StartNew();
 
@@ -256,7 +257,7 @@ public class ProjectedTransferInTests
     {
         // Mon 0001-01-01 (holiday year 0, unrepresentable: ignored), Mon 0001-09-03 (holiday year 1, no older year),
         // Thu 9999-09-02 (holiday year 9999, unrepresentable: ignored).
-        var data = Data([Day("0001-01-01"), Day("0001-09-03"), Day("9999-09-02")], transferAllowed: true, firstTracked: 1);
+        var data = Data([Day("0001-01-01"), Day("0001-09-03"), Day("9999-09-02")], firstTracked: 1);
 
         var allocations = BalanceCalculator.Allocate(data, D("2026-10-24"));
 

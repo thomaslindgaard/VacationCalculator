@@ -74,24 +74,11 @@
                     <TextBox Text="{Binding OpeningBalanceDays, UpdateSourceTrigger=PropertyChanged, Delay=400}" beh:CommitOnEnter.IsEnabled="True" />
                     <TextBlock Text="Unused days you brought into that year. Leave at 0 if none." TextWrapping="Wrap"
                                Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,4,0,12" />
-                    <CheckBox IsChecked="{Binding TransferAllowed}">
-                        <TextBlock Text="Unused days can be transferred to the next holiday year" TextWrapping="Wrap" />
-                    </CheckBox>
 
                     <!-- Settings for the holiday year whose deadline is in the selected calendar year -->
-                    <TextBlock Text="{Binding DeadlineSettingsTitle}" TextWrapping="Wrap" FontWeight="SemiBold" Margin="0,14,0,6" />
+                    <TextBlock Text="{Binding DeadlineSettingsTitle}" TextWrapping="Wrap" FontWeight="SemiBold" Margin="0,2,0,6" />
 
                     <StackPanel>
-                        <StackPanel.Style>
-                            <Style TargetType="StackPanel">
-                                <Setter Property="Visibility" Value="Collapsed" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding TransferAllowed}" Value="True">
-                                        <Setter Property="Visibility" Value="Visible" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </StackPanel.Style>
                         <TextBlock Text="Days that can be transferred" Style="{StaticResource FieldLabel}" />
                         <TextBox Text="{Binding TransferLimitDays, UpdateSourceTrigger=PropertyChanged, Delay=400}" beh:CommitOnEnter.IsEnabled="True" />
                         <DockPanel Margin="0,3,0,0">
@@ -99,7 +86,7 @@
                                     Style="{StaticResource LinkButton}" Visibility="{Binding TransferLimitIsOwn, Converter={StaticResource BoolToVisibility}}" />
                             <TextBlock Text="{Binding TransferLimitSource}" Foreground="{DynamicResource MutedBrush}" FontSize="11" />
                         </DockPanel>
-                        <TextBlock Text="5 by the Holiday Act; more with a personal agreement." TextWrapping="Wrap"
+                        <TextBlock Text="5 by the Holiday Act; more with a personal agreement; 0 = no transfer." TextWrapping="Wrap"
                                    Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,2,0,10" />
                     </StackPanel>
 

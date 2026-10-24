@@ -289,19 +289,6 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
-    /// <summary>Employment-wide: whether unused days are transferred to the next holiday year at each deadline.</summary>
-    public bool TransferAllowed
-    {
-        get => _data.TransferAllowed;
-        set
-        {
-            if (value == _data.TransferAllowed)
-                return;
-
-            Apply(() => _data.TransferAllowed = value);
-        }
-    }
-
     private HolidayYear DeadlineYear => Status.HolidayYear.HolidayYear;
     private DeadlineSettings DeadlineSettings => Status.HolidayYear.Settings;
 
@@ -864,7 +851,6 @@ public sealed class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(FeriefriBanner));
         OnPropertyChanged(nameof(HasFeriefriBanner));
         OnPropertyChanged(nameof(EmployedSince));
-        OnPropertyChanged(nameof(TransferAllowed));
         OnPropertyChanged(nameof(FirstTrackedChoices));
         OnPropertyChanged(nameof(FirstTrackedHolidayYear));
         OnPropertyChanged(nameof(OpeningBalanceDays));

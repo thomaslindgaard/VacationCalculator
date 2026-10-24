@@ -16,8 +16,12 @@ public class HolidayActIndependentTests
         BalanceCalculator.CalculateHolidayYear(data, new HolidayYear(startYear), D(today));
 
     // Feature 2b: transfers are calculated, not registered, so the stored-transfer parameter is gone.
-    private static VacationData Dat(IEnumerable<BookedDay>? days, bool transferAllowed) =>
-        Data(days, null, transferAllowed, firstTracked: 2025); // tracked from 2025, as the old rule gave for these bookings
+    // Feature 2c: the transfer switch is gone; "no transfer" is limit 0 on 2025 (inherited by later years).
+    private static VacationData Dat(IEnumerable<BookedDay>? days, bool transfer)
+    {
+        var data = Data(days, null, firstTracked: 2025); // tracked from 2025, as the old rule gave for these bookings
+        return transfer ? data : data.NoTransferFrom(2025);
+    }
 
     private static CalendarYearStatus Cal(VacationData data, int year, string today) =>
         BalanceCalculator.CalculateCalendarYear(data, year, D(today));
@@ -279,7 +283,7 @@ public class HolidayActIndependentTests
     public void AdvanceHoliday_BookedBeforeEarned_GoesNegativeButIsNotBlocked()
     {
         // Today Tue 2026-09-15: nothing of 2026/27 is usable yet. 3 days Mon 2027-01-04 .. Wed 01-06 are booked.
-        var b = Bal(Data(Range("2027-01-04", "2027-01-06")), 2026, "2026-09-15");
+        var b = Bal(Data(Range("2027-01-04", "2027-01-06")).NoTransferFrom(2025), 2026, "2026-09-15"); // 2c: limit 0, nothing transferred in
 
         Assert.Equal(0m, b.EarnedSoFar);
         Assert.Equal(3m, b.BookedAheadDays);
@@ -304,7 +308,7 @@ public class HolidayActIndependentTests
     [Fact]
     public void ExactlyEarnable_IsNotOverBooked()
     {
-        var data = Data(Fill(25, "2027-01-04"));
+        var data = Data(Fill(25, "2027-01-04")).NoTransferFrom(2025); // 2c: limit 0, nothing transferred in
         var status = Cal(data, 2027, "2026-12-18");
 
         Assert.Equal(0m, status.UnbookedDays);
@@ -334,7 +338,7 @@ public class HolidayActIndependentTests
     [Fact]
     public void PaidOutAndLost_SameBeforeTheDeadline()
     {
-        var b = Bal(Data(Fill(15)), 2025, "2026-12-18");
+        var b = Bal(Data(Fill(15)).NoTransferFrom(2025), 2025, "2026-12-18"); // 2c: limit 0, else the 5th week moves
 
         Assert.Equal(5m, b.PaidOutDays);
         Assert.Equal(5m, b.LostDays);
@@ -348,7 +352,7 @@ public class HolidayActIndependentTests
 
         Assert.Equal(0m, b.PaidOutDays);
         Assert.Equal(12.5m, b.LostDays);
-        Assert.Equal(0m, b.TransferredToNext); // feature 2b: MaxTransferToNext removed; transfer is off here
+        Assert.Equal(0m, b.TransferredToNext); // feature 2b: MaxTransferToNext removed; no 5th-week days (and 2025 untracked on this date)
     }
 
     [Fact]
@@ -422,9 +426,10 @@ public class HolidayActIndependentTests
     }
 
     [Fact]
-    public void Transfer_SettingOff_IgnoresStoredValue()
+    public void Transfer_LimitZero_NothingTransferred_FifthWeekPaidOut()
     {
-        var data = Dat(Fill(20), false).WithLimit(2025, 5m); // 2b: a limit instead of a stored transfer
+        // 2c: was "setting off ignores the limit"; the switch is gone, so limit 0 is how transfer is turned off
+        var data = Dat(Fill(20), false);
         var old = Bal(data, 2025, "2026-12-18");
 
         Assert.Equal(0m, old.TransferredToNext);
@@ -440,7 +445,7 @@ public class HolidayActIndependentTests
     public void Transfer_MaxIsUnusedFifthWeekDays_NotUnusedDays(decimal used, decimal max)
     {
         // 2b: MaxTransferToNext removed; with the default limit 5 the calculated transfer gives the same numbers
-        var b = Bal(Data(Fill(used), transferAllowed: true, firstTracked: 2025), 2025, "2026-12-18");
+        var b = Bal(Data(Fill(used), firstTracked: 2025), 2025, "2026-12-18");
 
         Assert.Equal(max, b.TransferredToNext);
     }
@@ -594,8 +599,8 @@ public class HolidayActIndependentTests
     public void Calendar_UnbookedEqualToFreeDays_IsDaysToPlan_HalfMoreIsWillBeLost()
     {
         // Thu 2026-12-31: one free day. 24 used -> 1 unbooked -> fits. 23.5 used -> 1.5 unbooked, 0.5 can't fit.
-        var fits = Cal(Data(Fill(24)), 2026, "2026-12-31");
-        var half = Cal(Data(Fill(23.5m)), 2026, "2026-12-31");
+        var fits = Cal(Data(Fill(24)).NoTransferFrom(2025), 2026, "2026-12-31"); // 2c: limit 0
+        var half = Cal(Data(Fill(23.5m)).NoTransferFrom(2025), 2026, "2026-12-31");
 
         Assert.Equal(BalanceStatus.DaysToPlan, fits.Status);
         Assert.Equal(BalanceStatus.DaysWillBeLost, half.Status);
@@ -613,11 +618,11 @@ public class HolidayActIndependentTests
     }
 
     [Fact]
-    public void Calendar_AtRiskSplit_SettingOff()
+    public void Calendar_AtRiskSplit_LimitZero()
     {
         // Fri 2026-12-18, nothing booked: free 18, 21-25, 28-31 = 10; 25 - 10 = 15 can't fit.
         // Booking all 10 leaves 15 unused: 5 of the 5th week (paid out) and 10 within the first 20 (lost).
-        var s = Cal(Data(), 2026, "2026-12-18");
+        var s = Cal(Dat(null, false), 2026, "2026-12-18"); // 2c: limit 0 (was the default "off")
 
         Assert.Equal(10m, s.WorkingDaysLeft);
         Assert.Equal(15m, s.DaysAtRisk);
@@ -629,7 +634,7 @@ public class HolidayActIndependentTests
     [Fact]
     public void Calendar_AtRiskSplit_WithTransfer()
     {
-        // Setting on, nothing booked: 25 unbooked, 10 free -> 15 at risk. Booking 10 leaves 15 unused:
+        // Default limit 5, nothing booked: 25 unbooked, 10 free -> 15 at risk. Booking 10 leaves 15 unused:
         // 5 transferred (limit 5), 10 lost.
         // 2b: the transfer is no longer registered up front, so unbooked is 25 (was 20) and 15 at risk (was 10).
         var s = Cal(Dat(null, true), 2026, "2026-12-18");
@@ -645,10 +650,10 @@ public class HolidayActIndependentTests
     public void Calendar_Transfer_ProjectedBeforeTheDeadline_ActualAfter()
     {
         // 2b: replaces the TransferOptionApplies test (property removed). 20 used -> 5 unused.
-        Assert.Equal(5m, Cal(Data(Fill(20), transferAllowed: true, firstTracked: 2025), 2026, "2026-12-31").TransferredToNext);
-        Assert.Equal(0m, Cal(Data(Fill(20), transferAllowed: false), 2026, "2026-12-18").TransferredToNext);
-        Assert.Equal(0m, Cal(Data(Fill(25), transferAllowed: true, firstTracked: 2025), 2026, "2026-12-18").TransferredToNext); // none unused
-        var after = Cal(Data(Fill(20), transferAllowed: true, firstTracked: 2025), 2026, "2027-01-01");
+        Assert.Equal(5m, Cal(Data(Fill(20), firstTracked: 2025), 2026, "2026-12-31").TransferredToNext);
+        Assert.Equal(0m, Cal(Data(Fill(20)).NoTransferFrom(2025), 2026, "2026-12-18").TransferredToNext);
+        Assert.Equal(0m, Cal(Data(Fill(25), firstTracked: 2025), 2026, "2026-12-18").TransferredToNext); // none unused
+        var after = Cal(Data(Fill(20), firstTracked: 2025), 2026, "2027-01-01");
         Assert.Equal(5m, after.TransferredToNext);
         Assert.Equal(BalanceStatus.AllPlanned, after.Status); // nothing paid out or lost
     }

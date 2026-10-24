@@ -55,11 +55,11 @@ public class MainViewModelYearRangeTests : IDisposable
     [InlineData(9997)]
     public void EdgeYears_WorkEndToEnd_WithAndWithoutTransfer(int year)
     {
-        foreach (var transfer in new[] { false, true })
+        foreach (var limit in new[] { 0m, 5m }) // 0 = no transfer (formerly the switch off)
         {
             var vm = NewVm();
-            vm.TransferAllowed = transfer;
             vm.SelectedYear = year;
+            vm.TransferLimitDays = limit;
             Assert.Equal(year, vm.SelectedYear);
             AssertComputed(vm);
             // Rows are holiday years Y-1 and Y.
@@ -87,7 +87,6 @@ public class MainViewModelYearRangeTests : IDisposable
     public void EdgeYears_WithBookingsInThem(int year)
     {
         var vm = NewVm();
-        vm.TransferAllowed = true;
         vm.SelectedYear = year;
         // Book Mon..Fri in that year's first week of March (some such weekday range exists every year).
         var monday = new DateTime(year, 3, 1);
@@ -209,7 +208,7 @@ public class MainViewModelYearRangeTests : IDisposable
         Assert.NotEmpty(choices);
         Assert.Contains(vm.FirstTrackedHolidayYear, choices);
         // Interacting with the setting at this clock must also be safe.
-        vm.TransferAllowed = true;
+        vm.TransferLimitDays = 3;
         AssertComputed(vm);
         vm.CurrentYearCommand.Execute(null);
         Assert.InRange(vm.SelectedYear, MainViewModel.MinYear, MainViewModel.MaxYear);

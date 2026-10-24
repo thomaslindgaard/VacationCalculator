@@ -1,6 +1,3 @@
-using System.ComponentModel;
-using System.Text.Json.Serialization;
-
 namespace VacationCalculator.Core;
 
 /// <summary>The kind of day off a booked day is. A date has at most one type.</summary>
@@ -54,7 +51,10 @@ public sealed class HolidayYearSettings
 {
     public int StartYear { get; set; }
 
-    /// <summary>Most days that may be transferred to the next holiday year at this year's deadline (when transfer is allowed).</summary>
+    /// <summary>
+    /// Most days that may be transferred to the next holiday year at this year's deadline; 0 = no transfer.
+    /// Null = inherited (see <see cref="VacationData.GetDeadlineSettings"/>; default <see cref="VacationData.DefaultTransferLimitDays"/>).
+    /// </summary>
     public decimal? TransferLimitDays { get; set; }
 
     /// <summary>Payout of unused, non-transferred days at this year's deadline. Null = inherited.</summary>
@@ -87,28 +87,9 @@ public sealed class VacationData
     /// </summary>
     public DateOnly? EmployedSince { get; set; }
 
-    /// <summary>
-    /// Employment-wide: whether unused days are transferred to the next holiday year at each deadline,
-    /// up to that year's transfer limit (see <see cref="GetDeadlineSettings"/>).
-    /// </summary>
-    public bool TransferAllowed { get; set; }
-
-    /// <summary>
-    /// Reads the setting from files written before it was renamed to <see cref="TransferAllowed"/>.
-    /// Never written.
-    /// </summary>
-    [JsonPropertyName("FifthWeekTransferAllowed")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool? LegacyFifthWeekTransferAllowed
-    {
-        get => null;
-        set
-        {
-            if (value == true)
-                TransferAllowed = true;
-        }
-    }
+    // Older files may contain "TransferAllowed" or "FifthWeekTransferAllowed", an employment-wide transfer switch.
+    // It was removed: each holiday year's transfer limit alone decides (0 = no transfer). Unknown JSON properties
+    // are ignored on load, so those files still load; the value is dropped on the next save.
 
     /// <summary>Per holiday year settings, at most one per <see cref="HolidayYearSettings.StartYear"/>.</summary>
     public List<HolidayYearSettings> HolidayYears { get; set; } = [];
@@ -126,7 +107,7 @@ public sealed class VacationData
     /// <summary>
     /// Days transferred into the first tracked holiday year (the opening balance), default 0. Like any transferred-in
     /// days they are used first in that year, lost if unused and never transferred again. Negative values store as 0.
-    /// Applies whether or not <see cref="TransferAllowed"/> is on (it is a fact about the past).
+    /// Applies whatever the transfer limits are (it is a fact about the past).
     /// </summary>
     public decimal OpeningBalanceDays
     {
@@ -134,8 +115,13 @@ public sealed class VacationData
         set => _openingBalanceDays = Math.Max(0, value);
     }
 
-    /// <summary>The default first tracked holiday year: the oldest holiday year open on <paramref name="today"/>.</summary>
-    public static HolidayYear DefaultFirstTrackedHolidayYear(DateOnly today) => HolidayYear.OpenOn(today)[0];
+    /// <summary>
+    /// The default first tracked holiday year: the oldest holiday year open on <paramref name="today"/>, clamped into
+    /// <see cref="HolidayYear.MinStartYear"/>..<see cref="HolidayYear.MaxStartYear"/> (a clock in year 1 before
+    /// 1 September, or any day in September..December of year 1, would otherwise give holiday year 0).
+    /// </summary>
+    public static HolidayYear DefaultFirstTrackedHolidayYear(DateOnly today) =>
+        new(Math.Clamp(HolidayYear.OpenOn(today)[0].StartYear, HolidayYear.MinStartYear, HolidayYear.MaxStartYear));
 
     /// <summary>
     /// The first tracked holiday year that applies: <see cref="FirstTrackedHolidayYear"/> if stored, otherwise
@@ -356,14 +342,14 @@ public sealed record DeadlineSettings(
     /// Splits a holiday year's unused days at its deadline. Bookings (<paramref name="bookedDays"/>) use the
     /// <paramref name="transferredInDays"/> first, then the year's own days (<paramref name="ownDays"/>, the
     /// earnable days), and among those the first 20 before the 5th week. Then, in order:
-    /// unused transferred-in days are lost; if <paramref name="transferAllowed"/>, own unused 5th-week days up to
+    /// unused transferred-in days are lost; if <paramref name="transferAllowed"/> (the year is tracked), own unused 5th-week days up to
     /// <see cref="TransferLimitDays"/> are transferred, plus other own unused days up to the part of the limit above 5
     /// (a personal agreement; the Holiday Act only lets the 5th week move), so the default limit 5 never moves days
     /// from the first 20; own 5th-week days not transferred are paid out; other own unused days are paid out per
     /// <see cref="PayoutMode"/> and the rest lost.
-    /// Over-booking (more booked than transferred in + own) gives all zeros.
+    /// A limit of 0 transfers nothing. Over-booking (more booked than transferred in + own) gives all zeros.
     /// </summary>
-    public DeadlineOutcome Split(decimal transferredInDays, decimal ownDays, decimal bookedDays, bool transferAllowed)
+    public DeadlineOutcome Split(decimal transferredInDays, decimal ownDays, decimal bookedDays, bool transferAllowed = true)
     {
         var transferredIn = Math.Max(0, transferredInDays);
         var own = Math.Max(0, ownDays);

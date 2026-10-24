@@ -199,7 +199,7 @@ public class BalanceCalculatorTests
     public void Balance_BookingsBeyondWhatCanBeEarnedBy31August()
     {
         // Mon 2027-01-04 .. Mon 2027-02-08 = 20 + 5 + 1 = 26 days for holiday year 2026. Today Sat 2026-10-24.
-        var data = Data(Range("2027-01-04", "2027-02-08"));
+        var data = Data(Range("2027-01-04", "2027-02-08")).NoTransferFrom(2025); // nothing transferred in
 
         var b = Balance(data, Hy2026, "2026-10-24");
 
@@ -218,27 +218,105 @@ public class BalanceCalculatorTests
 
         Assert.Equal(0m, b.EarnedSoFar);
         Assert.Equal(25m, b.EarnableDays);
-        Assert.Equal(25m, b.UnbookedDays);
+        // 2c: 2025 and 2026 (tracked from 2025, nothing booked) each transfer their 5th week by default, so 2027
+        // receives a projected 5 from 2026
+        Assert.Equal(5m, b.TransferredIn);
+        Assert.True(b.TransferredInIsProjected);
+        Assert.Equal(30m, b.UnbookedDays);
     }
 
-    // ---- Deadline split, transfer off ----
+    // ---- Deadline split, defaults (2c: no switch, the default limit 5 transfers the 5th week) ----
 
     [Fact]
-    public void Deadline_Defaults_TransferOff_FifthWeekPaidOut_RestLost()
+    public void Deadline_Defaults_FifthWeekTransferred_RestLost()
     {
-        // 15 used Mon 2026-01-05 .. Fri 2026-01-23; today Fri 2027-01-15, after the deadline
-        var b = Balance(Data(Fill(15)), Hy2025, "2027-01-15");
+        // 15 used Mon 2026-01-05 .. Fri 2026-01-23; today Fri 2027-01-15, after the deadline. 2025 tracked.
+        var data = Data(Fill(15), firstTracked: 2025);
+        var b = Balance(data, Hy2025, "2027-01-15");
 
         Assert.Equal(10m, b.UnbookedDays);
         Assert.Equal(5m, b.FifthWeekDays);
+        Assert.Equal(5m, b.UnusedFifthWeekDays);
+        Assert.Equal(5m, b.TransferredToNext);
+        Assert.Equal(0m, b.PaidOutDays);
+        Assert.Equal(5m, b.LostDays);
+        Assert.Equal(5m, b.Settings.TransferLimitDays);
+        Assert.Null(b.Settings.TransferLimitFrom); // the default, nothing stored
+        Assert.Equal(PayoutMode.None, b.Settings.PayoutMode);
+        var next = Balance(data, Hy2026, "2027-01-15");
+        Assert.Equal(5m, next.TransferredIn);
+        Assert.False(next.TransferredInIsProjected); // the deadline has passed
+        Assert.Empty(data.HolidayYears); // reading the default stores nothing
+    }
+
+    [Fact]
+    public void Deadline_Defaults_FifthWeekTransferProjected_BeforeTheDeadline()
+    {
+        // Same bookings, today Sat 2026-10-24 (before the 2025 deadline, default first tracked year 2025)
+        var data = Data(Fill(15));
+
+        Assert.Equal(5m, Balance(data, Hy2025, "2026-10-24").TransferredToNext);
+        var next = Balance(data, Hy2026, "2026-10-24");
+        Assert.Equal(5m, next.TransferredIn);
+        Assert.True(next.TransferredInIsProjected);
+    }
+
+    // ---- Deadline split, transfer off (limit 0) ----
+
+    [Fact]
+    public void Deadline_LimitZero_FifthWeekPaidOut_RestLost()
+    {
+        // 15 used Mon 2026-01-05 .. Fri 2026-01-23; today Fri 2027-01-15, after the deadline
+        var data = Data(Fill(15), firstTracked: 2025).NoTransferFrom(2025);
+        var b = Balance(data, Hy2025, "2027-01-15");
+
+        Assert.Equal(10m, b.UnbookedDays);
         Assert.Equal(5m, b.UnusedFifthWeekDays);
         Assert.Equal(0m, b.TransferredToNext);
         Assert.Equal(5m, b.PaidOutDays);
         Assert.Equal(5m, b.AtDeadline.PaidOutFifthWeekDays);
         Assert.Equal(5m, b.LostDays);
         Assert.Equal(10m, b.ExpiringDays);
-        Assert.Equal(5m, b.Settings.TransferLimitDays);
-        Assert.Equal(PayoutMode.None, b.Settings.PayoutMode);
+        Assert.Equal(0m, b.Settings.TransferLimitDays);
+        Assert.Equal(0m, Balance(data, Hy2026, "2027-01-15").TransferredIn);
+        Assert.False(Balance(data, Hy2026, "2026-10-24").TransferredInIsProjected);
+    }
+
+    [Fact]
+    public void Deadline_LimitZero_IsInheritedByLaterYears_UntilOneSetsItsOwn()
+    {
+        // 2025 sets 0; 2026 and 2027 inherit it; 2028 sets 5 again. Nothing booked; today Mon 2031-01-06.
+        var data = Data(firstTracked: 2025).NoTransferFrom(2025).WithLimit(2028, 5);
+        const string today = "2031-01-06";
+
+        foreach (var y in new[] { 2025, 2026, 2027 })
+        {
+            var b = Balance(data, new HolidayYear(y), today);
+            Assert.Equal(0m, b.Settings.TransferLimitDays);
+            Assert.Equal(0m, b.TransferredToNext);
+            Assert.Equal(5m, b.PaidOutDays); // the unused 5th week is paid out
+            Assert.Equal(20m, b.LostDays);
+            Assert.Equal(0m, Balance(data, new HolidayYear(y + 1), today).TransferredIn);
+        }
+        Assert.Equal(5m, Balance(data, new HolidayYear(2028), today).TransferredToNext);
+        Assert.Equal(5m, Balance(data, new HolidayYear(2029), today).TransferredIn);
+    }
+
+    [Fact]
+    public void Deadline_LimitZeroOnOneYearOnly_StopsOnlyThatYearsTransfer()
+    {
+        // 2025 default 5, 2026 set 0, 2027 set 5. Nothing booked; today Mon 2030-01-07.
+        var data = Data(firstTracked: 2025).NoTransferFrom(2026).WithLimit(2027, 5);
+        const string today = "2030-01-07";
+
+        Assert.Equal(5m, Balance(data, Hy2025, today).TransferredToNext);
+        var b2026 = Balance(data, Hy2026, today);
+        Assert.Equal(5m, b2026.TransferredIn);
+        Assert.Equal(5m, b2026.UnusedTransferredInDays); // lost
+        Assert.Equal(0m, b2026.TransferredToNext);
+        Assert.Equal(5m, b2026.PaidOutDays);
+        Assert.Equal(0m, Balance(data, new HolidayYear(2027), today).TransferredIn);
+        Assert.Equal(5m, Balance(data, new HolidayYear(2027), today).TransferredToNext);
     }
 
     [Theory]
@@ -248,10 +326,10 @@ public class BalanceCalculatorTests
     [InlineData(PayoutMode.Some, "5", "10", "0")]  // exactly them
     [InlineData(PayoutMode.Some, "12", "10", "0")] // more: only the unused are paid
     [InlineData(PayoutMode.All, "0", "10", "0")]
-    public void Deadline_TransferOff_PayoutSetting(PayoutMode mode, string n, string paidOut, string lost)
+    public void Deadline_LimitZero_PayoutSetting(PayoutMode mode, string n, string paidOut, string lost)
     {
         // 15 used -> 10 unused: 5 5th week + 5 of the first 20, none transferred
-        var b = Balance(Data(Fill(15)).WithPayout(2025, mode, M(n)), Hy2025, "2027-01-15");
+        var b = Balance(Data(Fill(15), firstTracked: 2025).NoTransferFrom(2025).WithPayout(2025, mode, M(n)), Hy2025, "2027-01-15");
 
         Assert.Equal(0m, b.TransferredToNext);
         Assert.Equal(M(paidOut), b.PaidOutDays);
@@ -259,9 +337,9 @@ public class BalanceCalculatorTests
     }
 
     [Fact]
-    public void Deadline_TransferOff_LimitIsIgnored()
+    public void Deadline_LimitZero_NothingMovesToTheNextYear()
     {
-        var data = Data(Fill(15)).WithLimit(2025, 10m);
+        var data = Data(Fill(15)).WithLimit(2025, 0m); // 2c: was "switch off, limit 10 ignored"; today picks first tracked 2025
 
         Assert.Equal(0m, Balance(data, Hy2025, "2026-11-02").TransferredToNext);
         Assert.Equal(25m, Balance(data, Hy2026, "2026-11-02").TotalDays);
@@ -271,7 +349,7 @@ public class BalanceCalculatorTests
     public void Deadline_HalfDaysSplitCorrectly()
     {
         // 19.5 used -> 5.5 unused; transfer 5, payout some 0.25 of the remaining 0.5
-        var data = Data(Fill(19.5m), transferAllowed: true, firstTracked: 2025).WithPayout(2025, PayoutMode.Some, 0.25m);
+        var data = Data(Fill(19.5m), firstTracked: 2025).WithPayout(2025, PayoutMode.Some, 0.25m);
         var b = Balance(data, Hy2025, "2027-01-15");
 
         Assert.Equal(5m, b.TransferredToNext);
@@ -294,7 +372,7 @@ public class BalanceCalculatorTests
     [Fact]
     public void Deadline_EverythingUsed_NothingTransferredPaidOrLost()
     {
-        var b = Balance(Data(Fill(25), transferAllowed: true, firstTracked: 2025).WithPayout(2025, PayoutMode.All), Hy2025, "2027-01-15");
+        var b = Balance(Data(Fill(25), firstTracked: 2025).WithPayout(2025, PayoutMode.All), Hy2025, "2027-01-15");
 
         Assert.Equal(0m, b.UnbookedDays);
         Assert.Equal(0m, b.TransferredToNext);
@@ -305,14 +383,14 @@ public class BalanceCalculatorTests
     [Fact]
     public void Deadline_OverBooked_NothingTransferredPaidOrLost()
     {
-        var b = Balance(Data(Fill(26), transferAllowed: true, firstTracked: 2025).WithPayout(2025, PayoutMode.All), Hy2025, "2027-01-15");
+        var b = Balance(Data(Fill(26), firstTracked: 2025).WithPayout(2025, PayoutMode.All), Hy2025, "2027-01-15");
 
         Assert.Equal(-1m, b.UnbookedDays);
         Assert.Equal(0m, b.UnusedFifthWeekDays);
         Assert.Equal(0m, b.TransferredToNext);
         Assert.Equal(0m, b.PaidOutDays);
         Assert.Equal(0m, b.LostDays);
-        Assert.Equal(0m, Balance(Data(Fill(26), transferAllowed: true, firstTracked: 2025), Hy2026, "2027-01-15").TransferredIn);
+        Assert.Equal(0m, Balance(Data(Fill(26), firstTracked: 2025), Hy2026, "2027-01-15").TransferredIn);
     }
 
     // ---- Deadline split, transfer on ----
@@ -325,7 +403,7 @@ public class BalanceCalculatorTests
     public void Transfer_DefaultLimit5_TransfersUnusedDaysUpTo5(string used, string transferred, string lost)
     {
         // Today Mon 2026-11-02, before the deadline: a projection
-        var data = Data(Fill(M(used)), transferAllowed: true, firstTracked: 2025);
+        var data = Data(Fill(M(used)), firstTracked: 2025);
 
         var b2025 = Balance(data, Hy2025, "2026-11-02");
         var b2026 = Balance(data, Hy2026, "2026-11-02");
@@ -348,7 +426,7 @@ public class BalanceCalculatorTests
     public void Transfer_PersonalLimit_TakesFirst20DaysAfterThe5thWeek(string limit, string transferred, string lost)
     {
         // 15 used -> 10 unused, 5 of them 5th week
-        var data = Data(Fill(15), transferAllowed: true, firstTracked: 2025).WithLimit(2025, M(limit));
+        var data = Data(Fill(15), firstTracked: 2025).WithLimit(2025, M(limit));
 
         var b = Balance(data, Hy2025, "2026-11-02");
 
@@ -366,7 +444,7 @@ public class BalanceCalculatorTests
     public void Transfer_ThenPayout_ThenLost(PayoutMode mode, string n, string paidOut, string lost)
     {
         // 10 used -> 15 unused: 5 transferred, 10 left for payout
-        var data = Data(Fill(10), transferAllowed: true, firstTracked: 2025).WithPayout(2025, mode, M(n));
+        var data = Data(Fill(10), firstTracked: 2025).WithPayout(2025, mode, M(n));
 
         var b = Balance(data, Hy2025, "2027-01-15");
 
@@ -382,7 +460,7 @@ public class BalanceCalculatorTests
     public void Transfer_PartialYearOf20OrLess_OnlyTheLimitAbove5Transfers(string limit, string transferred, string lost)
     {
         // Employed from Thu 2026-01-01: 16.67 earnable, no 5th week. Today Fri 2026-12-18.
-        var data = Data(employedSince: D("2026-01-01"), transferAllowed: true, firstTracked: 2025).WithLimit(2025, M(limit));
+        var data = Data(employedSince: D("2026-01-01"), firstTracked: 2025).WithLimit(2025, M(limit));
 
         var b = Balance(data, Hy2025, "2026-12-18");
 
@@ -396,7 +474,7 @@ public class BalanceCalculatorTests
     {
         // 20 used in Jan 2026, then Mon 2026-10-19 .. Wed 2026-10-21 (3): oldest first, so they go to 2025,
         // leaving 2 to transfer
-        var data = Data(Fill(20).Concat(Range("2026-10-19", "2026-10-21")), transferAllowed: true, firstTracked: 2025);
+        var data = Data(Fill(20).Concat(Range("2026-10-19", "2026-10-21")), firstTracked: 2025);
 
         Assert.Equal(
             [(D("2026-10-19"), 2025, 1m), (D("2026-10-20"), 2025, 1m), (D("2026-10-21"), 2025, 1m)],
@@ -410,7 +488,7 @@ public class BalanceCalculatorTests
     {
         // 20 used, then Mon 2026-12-28 .. Fri 2027-01-08: Mon 28 .. Thu 31 Dec (4) to 2025 -> 1 unused, transferred.
         // Fri 1 Jan + Mon 4 .. Fri 8 Jan (6) to 2026.
-        var data = Data(Fill(20).Concat(Range("2026-12-28", "2027-01-08")), transferAllowed: true, firstTracked: 2025);
+        var data = Data(Fill(20).Concat(Range("2026-12-28", "2027-01-08")), firstTracked: 2025);
 
         var b2025 = Balance(data, Hy2025, "2026-10-24");
         var b2026 = Balance(data, Hy2026, "2026-10-24");
@@ -426,7 +504,7 @@ public class BalanceCalculatorTests
     {
         // 2025 -> 2026: 5. 2026 has 30, nothing booked: the 5 transferred in are lost (never transferred twice);
         // of its own 25, the 5th week goes to 2027 and the other 20 are lost.
-        var data = Data(Fill(15), transferAllowed: true, firstTracked: 2025);
+        var data = Data(Fill(15), firstTracked: 2025);
 
         var b2026 = Balance(data, Hy2026, "2027-11-01");
         var b2027 = Balance(data, new HolidayYear(2027), "2027-11-01");
@@ -445,7 +523,7 @@ public class BalanceCalculatorTests
     public void TransferredIn_IsLostEvenWithPayoutAll()
     {
         // 2026 pays out all, transfer off for its deadline (limit 0): transferred-in 5 lost, own 25 paid out
-        var data = Data(Fill(15), transferAllowed: true, firstTracked: 2025).WithLimit(2026, 0m).WithPayout(2026, PayoutMode.All);
+        var data = Data(Fill(15), firstTracked: 2025).WithLimit(2026, 0m).WithPayout(2026, PayoutMode.All);
 
         var b = Balance(data, Hy2026, "2028-01-15");
 
@@ -459,7 +537,7 @@ public class BalanceCalculatorTests
     {
         // 2026: 5 transferred in + 25 own. 4 booked Mon 2027-01-04 .. Thu 2027-01-07 use 4 of the transferred-in days,
         // so 1 transferred-in day is lost and all 25 own days are unused: 5 transferred, 20 lost.
-        var data = Data(Fill(15).Concat(Range("2027-01-04", "2027-01-07")), transferAllowed: true, firstTracked: 2025);
+        var data = Data(Fill(15).Concat(Range("2027-01-04", "2027-01-07")), firstTracked: 2025);
 
         var b = Balance(data, Hy2026, "2027-11-01");
 
@@ -474,7 +552,7 @@ public class BalanceCalculatorTests
     public void TransferredIn_WithAHigherLimitNextYear_OnlyOwnDaysMoveOn()
     {
         // 2026's own limit 10: 10 of its own 25 move to 2027 (5th week + 5 others); the 5 transferred in are lost
-        var data = Data(Fill(15), transferAllowed: true, firstTracked: 2025).WithLimit(2026, 10m);
+        var data = Data(Fill(15), firstTracked: 2025).WithLimit(2026, 10m);
 
         var b2026 = Balance(data, Hy2026, "2027-11-01");
 
@@ -490,7 +568,7 @@ public class BalanceCalculatorTests
         // 2026 total 30 (5 transferred in). 28 used Mon 2027-01-04 .. Wed 2027-02-10.
         // Mon 2027-09-06 .. Fri 2027-09-10: 6th and 7th to 2026, 8th to 10th to 2027.
         var days = Fill(15).Concat(Range("2027-01-04", "2027-02-10")).Concat(Range("2027-09-06", "2027-09-10"));
-        var data = Data(days, transferAllowed: true, firstTracked: 2025);
+        var data = Data(days, firstTracked: 2025);
 
         Assert.Equal(
             [
@@ -506,7 +584,7 @@ public class BalanceCalculatorTests
     public void Transfer_InheritedLimitAppliesToLaterYears_OwnLimitOverrides()
     {
         // 2025 limit 8 (2026 inherits it); 15 used -> 2025 transfers 8. 2026: 33, nothing booked -> 8.
-        var data = Data(Fill(15), transferAllowed: true, firstTracked: 2025).WithLimit(2025, 8m);
+        var data = Data(Fill(15), firstTracked: 2025).WithLimit(2025, 8m);
         Assert.Equal(8m, Balance(data, Hy2025, "2027-11-01").TransferredToNext);
         Assert.Equal(33m, Balance(data, Hy2026, "2027-11-01").TotalDays);
         Assert.Equal(8m, Balance(data, Hy2026, "2027-11-01").TransferredToNext);
@@ -523,7 +601,7 @@ public class BalanceCalculatorTests
     {
         // 2025 pays all, 2026 sets none again. 15 used in 2025: 5 transferred, 5 paid out.
         // 2026: 30, nothing booked: 5 transferred, 25 lost.
-        var data = Data(Fill(15), transferAllowed: true, firstTracked: 2025)
+        var data = Data(Fill(15), firstTracked: 2025)
             .WithPayout(2025, PayoutMode.All)
             .WithPayout(2026, PayoutMode.None);
 
@@ -541,7 +619,7 @@ public class BalanceCalculatorTests
     {
         // 2025 -> 2026: 5; 2026 nothing booked -> 5 of its own to 2027. 2027: 30, Mon 2028-02-28 .. Wed 2028-03-01
         // incl. Tue 29 Feb (3) use 3 of the 5 transferred in: 2 of those lost; own 25: 5 transferred, 20 lost.
-        var data = Data(Fill(15).Concat(Range("2028-02-28", "2028-03-01")), transferAllowed: true, firstTracked: 2025);
+        var data = Data(Fill(15).Concat(Range("2028-02-28", "2028-03-01")), firstTracked: 2025);
 
         var b = Balance(data, new HolidayYear(2027), "2028-03-02");
 
@@ -558,7 +636,7 @@ public class BalanceCalculatorTests
     {
         // Employed from Wed 2025-10-01: 11 months = 22.92 earnable, so 2.92 5th-week days. Nothing booked, limit 10:
         // 2.92 5th week + 5 (10 - 5) of the first 20 = 7.92 transferred; the other 15 of the first 20 are lost.
-        var data = Data(employedSince: D("2025-10-01"), transferAllowed: true, firstTracked: 2025).WithLimit(2025, 10m);
+        var data = Data(employedSince: D("2025-10-01"), firstTracked: 2025).WithLimit(2025, 10m);
 
         var b = Balance(data, Hy2025, "2026-12-18");
 
@@ -573,7 +651,7 @@ public class BalanceCalculatorTests
     public void Transfer_DefaultLimit_FullYearNothingBooked_OnlyThe5thWeekMoves()
     {
         // 25 unused: 5 5th week transferred, all 20 of the first 20 lost
-        var b = Balance(Data(transferAllowed: true, firstTracked: 2025), Hy2025, "2026-12-18");
+        var b = Balance(Data(firstTracked: 2025), Hy2025, "2026-12-18");
 
         Assert.Equal(5m, b.TransferredToNext);
         Assert.Equal(20m, b.LostDays);
@@ -585,7 +663,7 @@ public class BalanceCalculatorTests
     public void OpeningBalance_Default0_FirstTrackedYearHasNothingTransferredIn()
     {
         // First tracked 2025, no opening balance: 2025 has 25, transfers 5 of them to 2026. 2024 transfers nothing.
-        var data = Data(transferAllowed: true, firstTracked: 2025);
+        var data = Data(firstTracked: 2025);
 
         var b2024 = Balance(data, new HolidayYear(2024), "2026-10-24");
         var b2025 = Balance(data, Hy2025, "2026-10-24");
@@ -605,7 +683,7 @@ public class BalanceCalculatorTests
     {
         // 2025 opens with 3. 15 booked = the 3 transferred in + 12 own, so own unused 13 = 5 5th week + 8 first-20:
         // 5 transferred, 8 lost, nothing of the opening balance lost.
-        var data = Data(Fill(15), transferAllowed: true, firstTracked: 2025, openingBalance: 3);
+        var data = Data(Fill(15), firstTracked: 2025, openingBalance: 3);
 
         var b = Balance(data, Hy2025, "2027-01-15");
 
@@ -625,7 +703,7 @@ public class BalanceCalculatorTests
     {
         // 2025 opens with 4, nothing booked, limit 30, payout All: the 4 are lost; own 25 all move (5 + 20).
         // 2026 gets 25, not 29.
-        var data = Data(transferAllowed: true, firstTracked: 2025, openingBalance: 4)
+        var data = Data(firstTracked: 2025, openingBalance: 4)
             .WithLimit(2025, 30m)
             .WithPayout(2025, PayoutMode.All);
 
@@ -639,11 +717,11 @@ public class BalanceCalculatorTests
     }
 
     [Fact]
-    public void OpeningBalance_AppliesWithTransferOff()
+    public void OpeningBalance_AppliesWithLimitZero()
     {
-        // Transfer off, 2025 opens with 2. 1 booked uses 1 of the 2; the other is lost. Own 25: 5th week paid out,
+        // Limit 0 (2c), 2025 opens with 2. 1 booked uses 1 of the 2; the other is lost. Own 25: 5th week paid out,
         // 20 lost. Nothing moves to 2026.
-        var data = Data(Fill(1), firstTracked: 2025, openingBalance: 2);
+        var data = Data(Fill(1), firstTracked: 2025, openingBalance: 2).NoTransferFrom(2025);
 
         var b = Balance(data, Hy2025, "2027-01-15");
 
@@ -660,7 +738,7 @@ public class BalanceCalculatorTests
     {
         // 2025 opens with 5; 20 booked = 5 in + 15 own -> own unused 10: 5 transferred, 5 lost.
         // 2026: 5 in, nothing booked: in lost, own 5th week transferred, 20 lost. 2027: 5 in.
-        var data = Data(Fill(20), transferAllowed: true, firstTracked: 2025, openingBalance: 5);
+        var data = Data(Fill(20), firstTracked: 2025, openingBalance: 5);
 
         var b2025 = Balance(data, Hy2025, "2029-01-02");
         var b2026 = Balance(data, Hy2026, "2029-01-02");
@@ -697,9 +775,9 @@ public class BalanceCalculatorTests
     [Fact]
     public void OpeningBalance_UnusedAfterTheDeadline_IsExpired()
     {
-        // Calendar year 2026 (holiday year 2025), transfer off, 2025 opens with 3; 1 booked. Today Mon 2027-01-04:
+        // Calendar year 2026 (holiday year 2025), limit 0 (2c), 2025 opens with 3; 1 booked. Today Mon 2027-01-04:
         // 2 of the opening balance lost, own 5th week paid out, own 20 lost.
-        var s = BalanceCalculator.CalculateCalendarYear(Data(Fill(1), firstTracked: 2025, openingBalance: 3), 2026, D("2027-01-04"));
+        var s = BalanceCalculator.CalculateCalendarYear(Data(Fill(1), firstTracked: 2025, openingBalance: 3).NoTransferFrom(2025), 2026, D("2027-01-04"));
 
         Assert.Equal(BalanceStatus.Expired, s.Status);
         Assert.Equal(2m, s.HolidayYear.AtDeadline.LostTransferredInDays);
@@ -712,7 +790,7 @@ public class BalanceCalculatorTests
     {
         // First tracked 2026, transfer on. 2025 has 15 booked and 10 unused (5 5th week + 5 first-20): no transfer,
         // the 5th week is paid out and the rest lost. 2026 starts at the opening balance (0), not 2025's 5.
-        var data = Data(Fill(15), transferAllowed: true, firstTracked: 2026);
+        var data = Data(Fill(15), firstTracked: 2026);
 
         var b2025 = Balance(data, Hy2025, "2027-01-15");
         var b2026 = Balance(data, Hy2026, "2027-01-15");
@@ -731,7 +809,7 @@ public class BalanceCalculatorTests
     public void FirstTrackedYearAfterTheBookings_GetsTheOpeningBalance_NotACalculatedTransfer()
     {
         // As above with an opening balance of 3: 2026 has exactly 3 transferred in.
-        var data = Data(Fill(15), transferAllowed: true, firstTracked: 2026, openingBalance: 3);
+        var data = Data(Fill(15), firstTracked: 2026, openingBalance: 3);
 
         Assert.Equal(3m, Balance(data, Hy2026, "2027-01-15").TransferredIn);
         Assert.Equal(0m, Balance(data, Hy2025, "2027-01-15").TransferredIn); // the opening balance is not 2025's
@@ -743,7 +821,7 @@ public class BalanceCalculatorTests
         // Mon 2025-12-01 booked, transfer on, no first year stored, today Sat 2026-10-24: the first tracked year is
         // 2025/26 (oldest open today). The December day uses 2024/25 (older open year), which transfers nothing,
         // so 2025/26 has 25, not 30.
-        var data = Data([Day("2025-12-01")], transferAllowed: true);
+        var data = Data([Day("2025-12-01")]);
 
         var b2024 = Balance(data, new HolidayYear(2024), "2026-10-24");
         var b2025 = Balance(data, Hy2025, "2026-10-24");
@@ -782,7 +860,7 @@ public class BalanceCalculatorTests
     public void FirstTrackedYear_NotStored_MovesWithToday_TheOpeningBalanceGoesWithIt()
     {
         // No first year stored, opening balance 2, 15 booked in 2025, transfer on.
-        var data = Data(Fill(15), transferAllowed: true, openingBalance: 2);
+        var data = Data(Fill(15), openingBalance: 2);
 
         // Sat 2026-10-24: first tracked 2025 gets the 2.
         Assert.Equal(2m, Balance(data, Hy2025, "2026-10-24").TransferredIn);
@@ -798,7 +876,7 @@ public class BalanceCalculatorTests
     public void FirstTrackedYear_Changing_ChangesWhereTheOpeningBalanceGoesAndTheChain()
     {
         // 20 booked in 2025, nothing else, transfer on, opening balance 1. Today Fri 2027-01-15.
-        var data = Data(Fill(20), transferAllowed: true, firstTracked: 2025, openingBalance: 1);
+        var data = Data(Fill(20), firstTracked: 2025, openingBalance: 1);
         // 2025: 1 in + 25 own, 20 booked = 1 in + 19 own -> own unused 6 = 5th week 5 + 1: 5 transferred.
         Assert.Equal(1m, Balance(data, Hy2025, "2027-01-15").TransferredIn);
         Assert.Equal(5m, Balance(data, Hy2026, "2027-01-15").TransferredIn);
@@ -844,7 +922,7 @@ public class BalanceCalculatorTests
     public void Transfer_FarFutureYear_ResolvesWithoutRecursion()
     {
         // Every year from 2025 transfers 5 with nothing booked; a year far ahead still resolves
-        var b = Balance(Data(transferAllowed: true, firstTracked: 2025), new HolidayYear(5000), "2026-10-24");
+        var b = Balance(Data(firstTracked: 2025), new HolidayYear(5000), "2026-10-24");
 
         Assert.Equal(5m, b.TransferredIn);
         Assert.Equal(30m, b.TotalDays);

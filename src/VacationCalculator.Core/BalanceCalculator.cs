@@ -46,7 +46,7 @@ public sealed record AllocatedDay(DateOnly Date, HolidayYear HolidayYear, decima
 /// Whether <paramref name="TransferredIn"/> is a projection: the year receives the previous holiday year's transfer and
 /// today is on or before that year's deadline, so those days still count (and can still be booked) in the previous
 /// year. False for the first tracked year (the opening balance is actual from the start), for untracked years and
-/// with transfer off.
+/// when the previous year's transfer limit is 0.
 /// </param>
 public sealed record HolidayYearBalance(
     HolidayYear HolidayYear,
@@ -343,8 +343,16 @@ public static class BalanceCalculator
         /// <summary>Whether <paramref name="year"/> receives the previous year's transfer (as opposed to the opening balance).</summary>
         private bool ReceivesTransfer(HolidayYear year) => year.StartYear > _firstTracked && TransfersOut(year.Previous);
 
-        /// <summary>Whether <paramref name="year"/> transfers at its deadline: transfer is on and the year is tracked.</summary>
-        public bool TransfersOut(HolidayYear year) => _data.TransferAllowed && year.StartYear >= _firstTracked;
+        /// <summary>
+        /// Whether <paramref name="year"/> can transfer at its deadline: the year is tracked and its effective
+        /// transfer limit (default 5, inherited) is above 0. Years whose dates aren't representable (outside
+        /// <see cref="HolidayYear.MinStartYear"/>..<see cref="HolidayYear.MaxStartYear"/>) never transfer, so the
+        /// transfer chain never builds them.
+        /// </summary>
+        public bool TransfersOut(HolidayYear year) =>
+            year.StartYear >= _firstTracked
+            && year.StartYear is >= HolidayYear.MinStartYear and <= HolidayYear.MaxStartYear
+            && Settings(year).TransferLimitDays > 0;
 
         private void Add(DateOnly date, HolidayYear year, decimal amount)
         {
@@ -388,7 +396,9 @@ public static class BalanceCalculator
             if (_transferredOut.TryGetValue(year.StartYear, out var cached))
                 return cached;
 
-            var from = _firstTracked;
+            // _firstTracked is already clamped (EffectiveFirstTrackedHolidayYear); clamp again so the loop can never
+            // build an unrepresentable year, and TransfersOut(year) above guarantees year.StartYear <= MaxStartYear.
+            var from = Math.Max(_firstTracked, HolidayYear.MinStartYear);
             while (from < year.StartYear && _transferredOut.ContainsKey(from))
                 from++;
 

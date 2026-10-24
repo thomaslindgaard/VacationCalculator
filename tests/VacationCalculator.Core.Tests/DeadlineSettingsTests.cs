@@ -180,7 +180,7 @@ public class DeadlineSettingsTests
     public void ChangingAYearsValue_ChangesItsOwnCalculationButNotEarlierYears()
     {
         // 15 used in 2025, transfer on. Setting 2026's limit to 0 leaves 2025's transfer at 5.
-        var data = Data(Fill(15), transferAllowed: true, firstTracked: 2025);
+        var data = Data(Fill(15), firstTracked: 2025);
         var before = BalanceCalculator.CalculateHolidayYear(data, Hy2025, D("2026-10-24"));
 
         data.SetTransferLimit(Hy2026, 0m);
@@ -228,5 +228,17 @@ public class DeadlineSettingsTests
 
         Assert.Equal(new DeadlineOutcome(M(transferred), M(paidFifth), M(paidOther), M(lostIn), M(lostOther)), outcome);
         Assert.Equal(Math.Max(0, M(transferredIn) + M(own) - M(booked)), outcome.UnusedDays);
+    }
+
+    [Fact]
+    public void Split_WithoutTheTrackedFlag_Transfers_AndLimitZeroTransfersNothing()
+    {
+        // 2c: transferAllowed defaults to true; the limit alone decides. Own 25, 10 booked -> 15 unused.
+        var limit5 = new DeadlineSettings(Hy2025, 5m, null, PayoutMode.None, 0, null);
+        var limit0 = limit5 with { TransferLimitDays = 0m };
+
+        Assert.Equal(new DeadlineOutcome(5, 0, 0, 0, 10), limit5.Split(0, 25, 10));
+        Assert.Equal(new DeadlineOutcome(0, 5, 0, 0, 10), limit0.Split(0, 25, 10));
+        Assert.Equal(limit0.Split(0, 25, 10), limit5.Split(0, 25, 10, transferAllowed: false));
     }
 }

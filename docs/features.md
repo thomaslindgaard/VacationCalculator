@@ -96,7 +96,7 @@ When implemented, the "Domain rules" section of `CLAUDE.md` must be updated to m
 
 **Status:** Done
 
-Changes feature 2: 5th-week transfers are no longer registered per holiday year. The app only knows whether transfer is allowed and how many days can be transferred, and calculates what happens to each holiday year's unused days at its deadline: transferred, paid out or lost.
+Changes feature 2: 5th-week transfers are no longer registered per holiday year. The app only knows how many days can be transferred (per holiday year; 0 = no transfer), and calculates what happens to each holiday year's unused days at its deadline: transferred, paid out or lost.
 
 Settings (in the sidebar):
 
@@ -131,7 +131,7 @@ Removed: the per-holiday-year "Days transferred to next holiday year" input and 
 
 ## 2c. Remove the transfer switch
 
-**Status:** Planned (after feature 3)
+**Status:** Done
 
 Remove the employment-wide "Unused days can be transferred" switch (`VacationData.TransferAllowed`). The per-holiday-year "Days that can be transferred" (default 5, inherited) alone decides: 0 = no transfer. Old data files with the switch still load (the value is ignored). See section 2b.
 

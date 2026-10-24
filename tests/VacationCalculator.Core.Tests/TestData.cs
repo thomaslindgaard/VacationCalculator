@@ -40,7 +40,7 @@ internal static class TestData
 
     /// <summary>
     /// <see cref="BalanceCalculator.Allocate"/> with today Sat 2026-10-24. Today only picks the default first tracked
-    /// holiday year, so it doesn't matter with transfer off and no opening balance.
+    /// holiday year, so it doesn't matter with no transfer and no opening balance.
     /// </summary>
     public static IReadOnlyList<AllocatedDay> AllocateOn2026_10_24(VacationData data) =>
         BalanceCalculator.Allocate(data, D("2026-10-24"));
@@ -48,17 +48,21 @@ internal static class TestData
     public static VacationData Data(
         IEnumerable<BookedDay>? days = null,
         DateOnly? employedSince = null,
-        bool transferAllowed = false,
         int? firstTracked = null,
         decimal openingBalance = 0) =>
         new()
         {
             Days = (days ?? []).ToList(),
             EmployedSince = employedSince,
-            TransferAllowed = transferAllowed,
             FirstTrackedHolidayYear = firstTracked,
             OpeningBalanceDays = openingBalance,
         };
+
+    /// <summary>
+    /// Sets transfer limit 0 ("no transfer") on the holiday year starting in <paramref name="startYear"/>; later years
+    /// without their own limit inherit it.
+    /// </summary>
+    public static VacationData NoTransferFrom(this VacationData data, int startYear) => data.WithLimit(startYear, 0);
 
     /// <summary>Sets the transfer limit of the holiday year starting in <paramref name="startYear"/>.</summary>
     public static VacationData WithLimit(this VacationData data, int startYear, decimal days)

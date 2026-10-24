@@ -105,7 +105,6 @@ public class DataStoreTests : IDisposable
             ],
             Years = [new() { Year = 2026, PublicHolidays = [new(2026, 12, 25)] }],
             EmployedSince = new(2025, 11, 16),
-            TransferAllowed = true,
             HolidayYears =
             [
                 new() { StartYear = 2025, TransferLimitDays = 7.5m, PayoutMode = PayoutMode.Some, PayoutDays = 2.5m },
@@ -121,7 +120,6 @@ public class DataStoreTests : IDisposable
         Assert.Equal(2026, year.Year);
         Assert.Equal([new DateOnly(2026, 12, 25)], year.PublicHolidays);
         Assert.Equal(new DateOnly(2025, 11, 16), loaded.EmployedSince);
-        Assert.True(loaded.TransferAllowed);
         Assert.Equal(2, loaded.HolidayYears.Count);
         var s2025 = loaded.GetDeadlineSettings(new HolidayYear(2025));
         Assert.Equal(7.5m, s2025.TransferLimitDays);
@@ -138,20 +136,19 @@ public class DataStoreTests : IDisposable
     public void Save_WritesTheNewNamesOnly_PayoutModeAsText()
     {
         var path = Path.Combine(_dir, "data.json");
-        var data = new VacationData { TransferAllowed = true };
+        var data = new VacationData();
         data.SetPayout(new HolidayYear(2025), PayoutMode.Some, 3m);
 
         new DataStore(path).Save(data);
         var json = File.ReadAllText(path);
 
-        Assert.Contains("\"TransferAllowed\": true", json);
         Assert.Contains("\"Some\"", json);
-        Assert.DoesNotContain("FifthWeekTransferAllowed", json);
+        Assert.DoesNotContain("TransferAllowed", json); // 2c: the switch is gone (covers FifthWeekTransferAllowed too)
         Assert.DoesNotContain("TransferredToNext", json);
     }
 
     [Fact]
-    public void Load_FileFromFeature2_KeepsTransferAllowedAndIgnoresTransferredToNext()
+    public void Load_FileFromFeature2_IgnoresTransferSwitchAndTransferredToNext()
     {
         // Format of feature 2: FifthWeekTransferAllowed and a registered TransferredToNext per holiday year
         var store = StoreWith("""
@@ -166,7 +163,6 @@ public class DataStoreTests : IDisposable
 
         var data = store.Load();
 
-        Assert.True(data.TransferAllowed);
         var entry = Assert.Single(data.HolidayYears);
         Assert.Equal(2025, entry.StartYear);
         Assert.Null(entry.TransferLimitDays);
@@ -178,10 +174,56 @@ public class DataStoreTests : IDisposable
         Assert.Equal(5m, BalanceCalculator.CalculateHolidayYear(data, new HolidayYear(2025), new(2026, 10, 24)).TransferredToNext);
     }
 
-    [Fact]
-    public void Load_LegacyTransferOff_StaysOff()
+    [Theory]
+    [InlineData("TransferAllowed")]
+    [InlineData("FifthWeekTransferAllowed")]
+    public void Load_OldTransferSwitchOff_IsIgnored_DefaultLimitApplies_AndIsNotSavedAgain(string property)
     {
-        Assert.False(StoreWith("""{ "FifthWeekTransferAllowed": false }""").Load().TransferAllowed);
+        // 2c: the switch was removed; an old "off" no longer turns transfer off (the user sets limit 0 instead)
+        Directory.CreateDirectory(_dir);
+        var path = Path.Combine(_dir, "data.json");
+        File.WriteAllText(path, $$"""
+            {
+              "Days": [ { "Date": "2026-01-05", "Type": "Vacation", "Amount": 1, "Description": "keep" } ],
+              "{{property}}": false,
+              "HolidayYears": [ { "StartYear": 2025, "PayoutMode": "All" } ],
+              "FirstTrackedHolidayYear": 2025
+            }
+            """);
+        var store = new DataStore(path);
+
+        var data = store.Load();
+
+        Assert.Equal("keep", Assert.Single(data.Days).Description); // Mon 2026-01-05
+        Assert.Null(data.FindHolidayYear(2025)!.TransferLimitDays);
+        Assert.Equal(PayoutMode.All, data.GetDeadlineSettings(new HolidayYear(2025)).PayoutMode);
+        var settings = data.GetDeadlineSettings(new HolidayYear(2025));
+        Assert.Equal(VacationData.DefaultTransferLimitDays, settings.TransferLimitDays);
+        // 1 used -> 24 unused: 5th week 5 transferred (default limit), the other 19 paid out (All)
+        var b = BalanceCalculator.CalculateHolidayYear(data, new HolidayYear(2025), new(2026, 10, 24));
+        Assert.Equal(5m, b.TransferredToNext);
+        Assert.Equal(19m, b.PaidOutDays);
+
+        store.Save(data);
+        var json = File.ReadAllText(path);
+
+        Assert.DoesNotContain("TransferAllowed", json);
+        Assert.Contains("\"FirstTrackedHolidayYear\": 2025", json);
+        Assert.Equal("keep", Assert.Single(store.Load().Days).Description);
+    }
+
+    [Fact]
+    public void SaveThenLoad_RoundTripsTransferLimitZero()
+    {
+        var store = new DataStore(Path.Combine(_dir, "data.json"));
+        var data = new VacationData();
+        data.SetTransferLimit(new HolidayYear(2025), 0);
+
+        store.Save(data);
+        var loaded = store.Load();
+
+        Assert.Equal(0m, loaded.FindHolidayYear(2025)!.TransferLimitDays);
+        Assert.Equal(0m, loaded.GetDeadlineSettings(new HolidayYear(2027)).TransferLimitDays); // inherited
     }
 
     [Fact]
@@ -201,7 +243,6 @@ public class DataStoreTests : IDisposable
         var loaded = store.Load();
 
         Assert.Null(loaded.EmployedSince);
-        Assert.False(loaded.TransferAllowed);
         Assert.Empty(loaded.HolidayYears);
     }
 
@@ -222,7 +263,6 @@ public class DataStoreTests : IDisposable
         var year = Assert.Single(data.Years);
         Assert.Equal([new DateOnly(2026, 12, 25)], year.PublicHolidays);
         Assert.Null(data.EmployedSince);
-        Assert.False(data.TransferAllowed);
         Assert.Empty(data.HolidayYears);
     }
 
@@ -232,7 +272,6 @@ public class DataStoreTests : IDisposable
         var data = StoreWith("""{ "HolidayYears": null, "FifthWeekTransferAllowed": true }""").Load();
 
         Assert.Null(data.FindHolidayYear(2025));
-        Assert.True(data.TransferAllowed);
         Assert.Equal(25m, BalanceCalculator.CalculateHolidayYear(data, new HolidayYear(2025), new(2026, 10, 24)).UnbookedDays);
         Assert.Equal(5m, data.GetDeadlineSettings(new HolidayYear(2025)).TransferLimitDays);
         data.SetTransferLimit(new HolidayYear(2025), 1);
@@ -330,7 +369,6 @@ public class DataStoreTests : IDisposable
 
         Assert.Null(data.FirstTrackedHolidayYear);
         Assert.Equal(0m, data.OpeningBalanceDays);
-        Assert.True(data.TransferAllowed);
         Assert.Equal("keep", Assert.Single(data.Days).Description);
         Assert.Equal(8m, data.GetDeadlineSettings(new HolidayYear(2025)).TransferLimitDays);
     }

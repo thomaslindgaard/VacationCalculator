@@ -50,8 +50,12 @@ public abstract class HolidayYearVmTestBase : IDisposable
         // Pass firstTracked: null for a file from before the setting existed.
         var data = new VacationData
         {
-            EmployedSince = employedSince, TransferAllowed = transferAllowed, FirstTrackedHolidayYear = firstTracked,
+            EmployedSince = employedSince, FirstTrackedHolidayYear = firstTracked,
         };
+        // 2c: the transfer switch is gone. "Transfer off" (the old default of these tests) is now a limit of 0 from the
+        // first holiday year on (inherited by later years); "transfer on" is the plain default (limit 5).
+        if (!transferAllowed)
+            data.SetTransferLimit(new HolidayYear(firstTracked ?? 2025), 0);
         var d = new DateOnly(2026, 1, 5);
         for (var left = days; left > 0; d = d.AddDays(1))
         {
@@ -152,14 +156,14 @@ public class MainViewModelStatusMessageTests : HolidayYearVmTestBase
     [Fact]
     public void DaysToPlan_FutureYear_CountsWholeYear()
     {
-        // Selected 2027 (holiday year 2026/27, nothing booked): 25 unbooked. 2027 starts on a Friday and has
+        // Selected 2027 (holiday year 2026/27, nothing booked): 30 unbooked (25 own + 5 transferred in from the unused 5th week of 2025/26, default limit 5). 2027 starts on a Friday and has
         // 365 days = 52 weeks + 1 Friday -> 261 weekdays.
         var vm = NewVm(Dec18);
         vm.SelectedYear = 2027;
 
         Assert.Equal(BalanceStatus.DaysToPlan, vm.Status.Status);
         Assert.Equal(
-            "You have 25 days not yet booked. They must be used by 31 December 2027 (261 working days are still free).",
+            "You have 30 days not yet booked. They must be used by 31 December 2027 (261 working days are still free).",
             vm.StatusMessage);
     }
 
@@ -169,7 +173,7 @@ public class MainViewModelStatusMessageTests : HolidayYearVmTestBase
     public void DaysWillBeLost_CurrentYear_SplitsLostAndPaidOut()
     {
         // Fri 2026-12-18, nothing booked: 25 unbooked, 10 free working days -> 15 can't fit.
-        // Booking all 10 uses 10 of the first 20, so the 15 left are 5 (5th week, paid out) + 10 lost.
+        // Booking all 10 uses 10 of the first 20, so the 15 left are 5 (5th week, transferred by default) + 10 lost.
         var vm = NewVm(Dec18);
 
         Assert.Equal(BalanceStatus.DaysWillBeLost, vm.Status.Status);
@@ -179,7 +183,8 @@ public class MainViewModelStatusMessageTests : HolidayYearVmTestBase
         var first = Lines(vm.StatusDetail)[0];
         Assert.StartsWith("15 days can't fit", first);
         Assert.Contains("10 days will be lost", first);
-        Assert.Contains("5 days will be paid out", first);
+        Assert.Contains("5 days will be transferred to 2026/27", first);
+        Assert.DoesNotContain("paid out", first);
     }
 
     [Fact]
@@ -247,7 +252,7 @@ public class MainViewModelStatusMessageTests : HolidayYearVmTestBase
 
         Assert.Equal(10m, vm.Status.WorkingDaysLeft);
         Assert.Equal(
-            "You have 25 days not yet booked, but only 10 working days are left in 2027 up to and including 31 December 2027.",
+            "You have 30 days not yet booked, but only 10 working days are left in 2027 up to and including 31 December 2027.",
             vm.StatusMessage);
     }
 

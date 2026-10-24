@@ -85,7 +85,7 @@ public class CalendarYearStatusTests
     public void FlagsDaysThatCannotFitBeforeTheDeadline_AndSplitsThem()
     {
         // From Fri 2026-12-18 (today, included): 18,21,22,23,24,25,28,29,30,31 = 10. 25 unbooked.
-        var s = Status(Data(), 2026, "2026-12-18");
+        var s = Status(Data().NoTransferFrom(2025), 2026, "2026-12-18"); // 2c: limit 0 (was the default "off")
 
         Assert.Equal(10m, s.WorkingDaysLeft);
         Assert.Equal(BalanceStatus.DaysWillBeLost, s.Status);
@@ -98,10 +98,26 @@ public class CalendarYearStatusTests
     }
 
     [Fact]
+    public void DefaultData_AtRiskFifthWeekIsTransferred_NotPaidOut()
+    {
+        // 2c: no limit stored -> default 5. From Fri 2026-12-18 (today): 10 free, 25 unbooked, 15 at risk.
+        var s = Status(Data(), 2026, "2026-12-18");
+
+        Assert.Equal(BalanceStatus.DaysWillBeLost, s.Status);
+        Assert.Equal(15m, s.DaysAtRisk);
+        Assert.Equal(5m, s.AtRiskTransferredDays);
+        Assert.Equal(0m, s.AtRiskPaidOutDays);
+        Assert.Equal(10m, s.AtRiskLostDays);
+        Assert.Equal(5m, s.TransferredToNext);  // if nothing more is booked
+        Assert.Equal(0m, s.PaidOutDays);
+        Assert.Equal(20m, s.LostDays);
+    }
+
+    [Fact]
     public void DaysAtRiskWithinTheFifthWeek_AreAllPaidOut()
     {
         // 12 used -> 13 unbooked; 10 free from Fri 2026-12-18 -> 3 at risk, all 5th week
-        var s = Status(Data(Fill(12)), 2026, "2026-12-18");
+        var s = Status(Data(Fill(12)).NoTransferFrom(2025), 2026, "2026-12-18"); // 2c: limit 0
 
         Assert.Equal(3m, s.DaysAtRisk);
         Assert.Equal(3m, s.AtRiskPaidOutDays);
@@ -113,7 +129,7 @@ public class CalendarYearStatusTests
     public void DaysAtRiskCanBeHalf()
     {
         // 14.5 used -> 10.5 unbooked; 10 free from Fri 2026-12-18
-        var s = Status(Data(Fill(14.5m)), 2026, "2026-12-18");
+        var s = Status(Data(Fill(14.5m)).NoTransferFrom(2025), 2026, "2026-12-18"); // 2c: limit 0
 
         Assert.Equal(BalanceStatus.DaysWillBeLost, s.Status);
         Assert.Equal(0.5m, s.DaysAtRisk);
@@ -126,7 +142,7 @@ public class CalendarYearStatusTests
         // 2025 -> 2026: 5 (Fill(20), transfer on). Calendar 2027, today Fri 2027-12-17: 2026 has 30, nothing booked.
         // Free: Fri 17, Mon 20 .. Fri 24, Mon 27 .. Fri 31 = 11. Booking them uses the 5 transferred in + 6 own,
         // leaving 19 own: 5 transferred, 14 lost.
-        var s = Status(Data(Fill(20), transferAllowed: true, firstTracked: 2025), 2027, "2027-12-17");
+        var s = Status(Data(Fill(20), firstTracked: 2025), 2027, "2027-12-17");
 
         Assert.Equal(11m, s.WorkingDaysLeft);
         Assert.Equal(19m, s.DaysAtRisk);
@@ -141,7 +157,7 @@ public class CalendarYearStatusTests
     {
         // Transfer on, payout some 4, nothing booked. 10 free from Fri 2026-12-18 -> 15 at risk:
         // 5 transferred, 4 paid out, 6 lost. If nothing is booked: 5 transferred, 4 paid out, 16 lost.
-        var s = Status(Data(transferAllowed: true, firstTracked: 2025).WithPayout(2025, PayoutMode.Some, 4m), 2026, "2026-12-18");
+        var s = Status(Data(firstTracked: 2025).WithPayout(2025, PayoutMode.Some, 4m), 2026, "2026-12-18");
 
         Assert.Equal(25m, s.UnbookedDays);
         Assert.Equal(15m, s.DaysAtRisk);
@@ -159,7 +175,7 @@ public class CalendarYearStatusTests
     {
         // 12 used -> 13 unbooked; 10 free from Fri 2026-12-18 -> 3 at risk, all within the transfer limit of 5.
         // Booking 8 more is enough, so there is still time: DaysToPlan.
-        var s = Status(Data(Fill(12), transferAllowed: true, firstTracked: 2025), 2026, "2026-12-18");
+        var s = Status(Data(Fill(12), firstTracked: 2025), 2026, "2026-12-18");
 
         Assert.Equal(3m, s.DaysAtRisk);
         Assert.Equal(3m, s.AtRiskTransferredDays);
@@ -172,7 +188,7 @@ public class CalendarYearStatusTests
     public void BannerSplit_SomeTransferredSomeLost()
     {
         // 17 used -> 8 unbooked: "if they are not booked, 5 days will be transferred to 2026/27 and 3 will be lost"
-        var s = Status(Data(Fill(17), transferAllowed: true, firstTracked: 2025), 2026, "2026-10-24");
+        var s = Status(Data(Fill(17), firstTracked: 2025), 2026, "2026-10-24");
 
         Assert.Equal(BalanceStatus.DaysToPlan, s.Status);
         Assert.Equal(8m, s.UnbookedDays);
@@ -187,7 +203,7 @@ public class CalendarYearStatusTests
     public void AfterTheDeadline_TransferredAndLost_IsExpired()
     {
         // Fri 2027-01-01: 15 used -> 5 were transferred, 5 lost
-        var s = Status(Data(Fill(15), transferAllowed: true, firstTracked: 2025), 2026, "2027-01-01");
+        var s = Status(Data(Fill(15), firstTracked: 2025), 2026, "2027-01-01");
 
         Assert.Equal(BalanceStatus.Expired, s.Status);
         Assert.Equal(5m, s.TransferredToNext);
@@ -215,7 +231,7 @@ public class CalendarYearStatusTests
     public void AllPlanned_WhenTheRestIsTransferred()
     {
         // 20 used -> 5 unbooked, all within the transfer limit: nothing will be paid out or lost
-        var data = Data(Fill(20), transferAllowed: true, firstTracked: 2025);
+        var data = Data(Fill(20), firstTracked: 2025);
         var s = Status(data, 2026, "2026-10-24");
 
         Assert.Equal(5m, s.UnbookedDays);
@@ -229,8 +245,8 @@ public class CalendarYearStatusTests
     [Fact]
     public void AllPlanned_NotWhenTheRestIsPaidOut()
     {
-        // Transfer off: the unbooked 5th week is paid out rather than taken, so there is something to plan
-        var s = Status(Data(Fill(20)), 2026, "2026-10-24");
+        // Limit 0 (2c): the unbooked 5th week is paid out rather than taken, so there is something to plan
+        var s = Status(Data(Fill(20)).NoTransferFrom(2025), 2026, "2026-10-24");
 
         Assert.Equal(5m, s.PaidOutDays);
         Assert.Equal(BalanceStatus.DaysToPlan, s.Status);
@@ -325,7 +341,7 @@ public class CalendarYearStatusTests
     public void OnLastDayOfYear_TodayIsStillFree()
     {
         // Thu 2026-12-31 is today and unbooked: one free working day, so one unbooked day still fits
-        var s = Status(Data(Fill(24)), 2026, "2026-12-31");
+        var s = Status(Data(Fill(24)).NoTransferFrom(2025), 2026, "2026-12-31"); // 2c: limit 0, else the 1 day is transferred
 
         Assert.Equal(1m, s.WorkingDaysLeft);
         Assert.Equal(0m, s.DaysAtRisk);
@@ -335,7 +351,7 @@ public class CalendarYearStatusTests
     [Fact]
     public void OnLastDayOfYear_MoreThanOneUnbookedWillBeLost()
     {
-        var s = Status(Data(Fill(23.5m)), 2026, "2026-12-31"); // 1.5 unbooked
+        var s = Status(Data(Fill(23.5m)).NoTransferFrom(2025), 2026, "2026-12-31"); // 1.5 unbooked; 2c: limit 0
 
         Assert.Equal(1m, s.WorkingDaysLeft);
         Assert.Equal(0.5m, s.DaysAtRisk);
@@ -345,7 +361,7 @@ public class CalendarYearStatusTests
     [Fact]
     public void OnLastDayOfYear_AsHoliday_NothingIsFree()
     {
-        var s = Status(Data(Fill(24)).WithHolidays("2026-12-31"), 2026, "2026-12-31");
+        var s = Status(Data(Fill(24)).NoTransferFrom(2025).WithHolidays("2026-12-31"), 2026, "2026-12-31"); // 2c: limit 0
 
         Assert.Equal(0m, s.WorkingDaysLeft);
         Assert.Equal(BalanceStatus.DaysWillBeLost, s.Status);

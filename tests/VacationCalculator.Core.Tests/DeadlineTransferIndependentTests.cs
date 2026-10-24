@@ -34,7 +34,7 @@ public class DeadlineTransferIndependentTests : IDisposable
     {
         // 10 used -> 15 unused = 10 of the first 20 + the 5 5th-week days. Limit 5: the 5th week moves (5).
         // The 10 other days: payout Some 4 -> 4 paid out, 6 lost.
-        var b = Bal(Data(Fill(10), transferAllowed: true, firstTracked: 2025).WithPayout(2025, PayoutMode.Some, 4), 2025);
+        var b = Bal(Data(Fill(10), firstTracked: 2025).WithPayout(2025, PayoutMode.Some, 4), 2025);
 
         Assert.Equal(5m, b.AtDeadline.TransferredDays);
         Assert.Equal(0m, b.AtDeadline.PaidOutFifthWeekDays);
@@ -47,12 +47,12 @@ public class DeadlineTransferIndependentTests : IDisposable
     public void Order_LimitAbove5_MovesOtherDaysAfterTheFifthWeek()
     {
         // Same 15 unused, limit 12: 5 (5th week) + 7 other = 12 transferred; 3 other days left, payout All -> 3 paid.
-        var b = Bal(Data(Fill(10), transferAllowed: true, firstTracked: 2025).WithLimit(2025, 12).WithPayout(2025, PayoutMode.All), 2025);
+        var b = Bal(Data(Fill(10), firstTracked: 2025).WithLimit(2025, 12).WithPayout(2025, PayoutMode.All), 2025);
 
         Assert.Equal(12m, b.TransferredToNext);
         Assert.Equal(3m, b.PaidOutDays);
         Assert.Equal(0m, b.LostDays);
-        Assert.Equal(12m, Bal(Data(Fill(10), transferAllowed: true, firstTracked: 2025).WithLimit(2025, 12), 2026).TransferredIn);
+        Assert.Equal(12m, Bal(Data(Fill(10), firstTracked: 2025).WithLimit(2025, 12), 2026).TransferredIn);
     }
 
     [Theory]
@@ -70,7 +70,7 @@ public class DeadlineTransferIndependentTests : IDisposable
     [InlineData("4", "2", PayoutMode.Some, "100", "2", "19", "0")]   // unused 21: 2 moved, 3 5th-week paid, 16 other paid (N larger than the rest)
     public void Outcome_Grid(string used, string limit, PayoutMode mode, string payoutDays, string transferred, string paid, string lost)
     {
-        var data = Data(Fill(M(used)), transferAllowed: true, firstTracked: 2025).WithLimit(2025, M(limit)).WithPayout(2025, mode, M(payoutDays));
+        var data = Data(Fill(M(used)), firstTracked: 2025).WithLimit(2025, M(limit)).WithPayout(2025, mode, M(payoutDays));
 
         var b = Bal(data, 2025);
 
@@ -81,9 +81,10 @@ public class DeadlineTransferIndependentTests : IDisposable
     }
 
     [Fact]
-    public void TransferOff_LimitIsIgnored_FifthWeekPaid_OthersLost()
+    public void LimitZero_FifthWeekPaid_OthersLost()
     {
-        var b = Bal(Data(Fill(10)).WithLimit(2025, 12), 2025);
+        // 2c: was "switch off, limit 12 ignored"; now limit 0 is how transfer is off (2025 tracked)
+        var b = Bal(Data(Fill(10), firstTracked: 2025).WithLimit(2025, 0), 2025);
 
         Assert.Equal(0m, b.TransferredToNext);
         Assert.Equal(5m, b.PaidOutDays);
@@ -93,20 +94,20 @@ public class DeadlineTransferIndependentTests : IDisposable
     [Fact]
     public void OverBooked_NothingIsTransferredPaidOrLost()
     {
-        var b = Bal(Data(Fill(26), transferAllowed: true, firstTracked: 2025), 2025);
+        var b = Bal(Data(Fill(26), firstTracked: 2025), 2025);
 
         Assert.Equal(0m, b.TransferredToNext);
         Assert.Equal(0m, b.PaidOutDays);
         Assert.Equal(0m, b.LostDays);
         Assert.Equal(-1m, b.UnbookedDays);
-        Assert.Equal(0m, Bal(Data(Fill(26), transferAllowed: true, firstTracked: 2025), 2026).TransferredIn);
+        Assert.Equal(0m, Bal(Data(Fill(26), firstTracked: 2025), 2026).TransferredIn);
     }
 
     [Fact]
     public void HalfDay_Remainder_IsTransferred()
     {
         // 24.5 used -> 0.5 unused 5th-week day, transferred.
-        var data = Data(Fill(24.5m), transferAllowed: true, firstTracked: 2025);
+        var data = Data(Fill(24.5m), firstTracked: 2025);
 
         Assert.Equal(0.5m, Bal(data, 2025).TransferredToNext);
         Assert.Equal(0.5m, Bal(data, 2026).TransferredIn);
@@ -118,7 +119,7 @@ public class DeadlineTransferIndependentTests : IDisposable
         // Employed since 2026-03-01: Mar..Aug = 6 months = 12.5 days, so no 5th week at all (FifthWeekDays 0).
         // Section 2b step 2: days from the first 20 only move through the part of the limit above 5, so the
         // default limit 5 moves nothing (Holiday Act: only days beyond 4 weeks move). Limit 8 would move 3.
-        var data = Data([Day("2026-03-02")], D("2026-03-01"), transferAllowed: true, firstTracked: 2025); // 1 used
+        var data = Data([Day("2026-03-02")], D("2026-03-01"), firstTracked: 2025); // 1 used
 
         var b = Bal(data, 2025, "2026-12-18");
 
@@ -137,7 +138,7 @@ public class DeadlineTransferIndependentTests : IDisposable
     {
         // 2025: 20 used -> 5 transferred into 2026 (30 available). 3 booked in 2026: the 5 transferred-in days go
         // first, so 2 of them are left and lost; own 25 are all unused: 5 moved on, 20 lost. Lost = 2 + 20 = 22.
-        var data = Data(Fill(20).Concat(Fill(3, "2027-01-04")), transferAllowed: true, firstTracked: 2025);
+        var data = Data(Fill(20).Concat(Fill(3, "2027-01-04")), firstTracked: 2025);
 
         var b = Bal(data, 2026);
 
@@ -154,7 +155,7 @@ public class DeadlineTransferIndependentTests : IDisposable
     public void TransferredIn_FullyUsed_NothingLostFromThem_OwnFifthWeekMovesOn()
     {
         // 7 booked in 2026: 5 transferred-in + 2 own. Own unused 23 = 18 + the 5th week 5: 5 moved, 18 lost.
-        var data = Data(Fill(20).Concat(Fill(7, "2027-01-04")), transferAllowed: true, firstTracked: 2025);
+        var data = Data(Fill(20).Concat(Fill(7, "2027-01-04")), firstTracked: 2025);
 
         var b = Bal(data, 2026);
 
@@ -167,7 +168,7 @@ public class DeadlineTransferIndependentTests : IDisposable
     public void TransferredIn_NotPaidOut_EvenWhenPayoutIsAll()
     {
         // 2026 nothing booked, payout All: transferred-in 5 lost (never paid out); own: 5th week moved, 20 other paid.
-        var data = Data(Fill(20), transferAllowed: true, firstTracked: 2025).WithPayout(2026, PayoutMode.All);
+        var data = Data(Fill(20), firstTracked: 2025).WithPayout(2026, PayoutMode.All);
 
         var b = Bal(data, 2026);
 
@@ -182,7 +183,7 @@ public class DeadlineTransferIndependentTests : IDisposable
     {
         // 2025 -> 5 into 2026. 2026 has nothing booked and a huge limit: it can move only its own 25 days, never the
         // 5 from 2025, so 2027 gets 25 (not 30) and the 5 are lost in 2026.
-        var data = Data(Fill(20), transferAllowed: true, firstTracked: 2025).WithLimit(2026, 100);
+        var data = Data(Fill(20), firstTracked: 2025).WithLimit(2026, 100);
 
         var y2026 = Bal(data, 2026);
         var y2027 = Bal(data, 2027);
@@ -198,7 +199,7 @@ public class DeadlineTransferIndependentTests : IDisposable
     public void TransferredIn_AreNotFifthWeekDays()
     {
         // 2026 has 5 transferred in; FifthWeekDays stays its own 5 and the 30 days are not "35".
-        var b = Bal(Data(Fill(20), transferAllowed: true, firstTracked: 2025), 2026);
+        var b = Bal(Data(Fill(20), firstTracked: 2025), 2026);
 
         Assert.Equal(5m, b.FifthWeekDays);
         Assert.Equal(30m, b.TotalDays);
@@ -210,7 +211,7 @@ public class DeadlineTransferIndependentTests : IDisposable
         // 2025: 20 used -> 5 moved. 2026: 20 booked = 5 transferred-in + 15 own; own unused 10 = 5 first-20 + 5th week:
         // 5 moved, 5 lost. 2027: 5 in; 25 booked = 5 in + 20 own; own unused 5 (5th week) -> 5 moved to 2028.
         var data = Data(
-            Fill(20).Concat(Fill(20, "2027-01-04")).Concat(Fill(25, "2028-01-03")), transferAllowed: true, firstTracked: 2025);
+            Fill(20).Concat(Fill(20, "2027-01-04")).Concat(Fill(25, "2028-01-03")), firstTracked: 2025);
 
         Assert.Equal(5m, Bal(data, 2025).TransferredToNext);
         var y2026 = Bal(data, 2026);
@@ -231,7 +232,7 @@ public class DeadlineTransferIndependentTests : IDisposable
     {
         // 2025: limit 2 -> of 5 unused, 2 move, 3 paid out. 2026 inherits limit 2 (nothing booked: 25 own unused, 2 move).
         // 2026 has its own payout All: other 18 + ... own unused 25: 2 moved (5th week), 3 5th-week paid, 20 other paid; in 2 lost.
-        var data = Data(Fill(20), transferAllowed: true, firstTracked: 2025).WithLimit(2025, 2).WithPayout(2026, PayoutMode.All);
+        var data = Data(Fill(20), firstTracked: 2025).WithLimit(2025, 2).WithPayout(2026, PayoutMode.All);
 
         var y2025 = Bal(data, 2025);
         Assert.Equal(2m, y2025.TransferredToNext);
@@ -249,7 +250,7 @@ public class DeadlineTransferIndependentTests : IDisposable
     [Fact]
     public void PerYear_ChangingALaterYearsLimit_DoesNotChangeEarlierOnes()
     {
-        var data = Data(Fill(20), transferAllowed: true, firstTracked: 2025).WithLimit(2026, 0);
+        var data = Data(Fill(20), firstTracked: 2025).WithLimit(2026, 0);
 
         Assert.Equal(5m, Bal(data, 2025).TransferredToNext);
         Assert.Equal(0m, Bal(data, 2026).TransferredToNext);
@@ -263,7 +264,7 @@ public class DeadlineTransferIndependentTests : IDisposable
     {
         // 2025: 20 used in January -> 5 left. Mon 2026-10-05 and Tue 10-06 go to 2025 (older, oldest-first):
         // 3 unused -> 3 transferred, none to 2026's used count.
-        var data = Data(Fill(20).Concat([Day("2026-10-05"), Day("2026-10-06")]), transferAllowed: true, firstTracked: 2025);
+        var data = Data(Fill(20).Concat([Day("2026-10-05"), Day("2026-10-06")]), firstTracked: 2025);
 
         var old = Bal(data, 2025, "2026-12-18");
         var next = Bal(data, 2026, "2026-12-18");
@@ -279,7 +280,7 @@ public class DeadlineTransferIndependentTests : IDisposable
     {
         // Oct 5-9 (5 days) fill 2025 to 25; Mon Oct 12 goes to 2026.
         var data = Data(
-            Fill(20).Concat(Range("2026-10-05", "2026-10-09")).Concat([Day("2026-10-12")]), transferAllowed: true, firstTracked: 2025);
+            Fill(20).Concat(Range("2026-10-05", "2026-10-09")).Concat([Day("2026-10-12")]), firstTracked: 2025);
 
         var old = Bal(data, 2025, "2026-12-18");
         var next = Bal(data, 2026, "2026-12-18");
@@ -294,7 +295,7 @@ public class DeadlineTransferIndependentTests : IDisposable
     public void SeptToDec_OlderYearWithTransferredIn_HasMoreRoom()
     {
         // 2026 has 30 available (5 transferred in). 5 days booked from Mon 2027-10-04 are all older-year (2026) days.
-        var data = Data(Fill(20).Concat(Range("2027-10-04", "2027-10-08")), transferAllowed: true, firstTracked: 2025);
+        var data = Data(Fill(20).Concat(Range("2027-10-04", "2027-10-08")), firstTracked: 2025);
 
         var y2026 = Bal(data, 2026, "2028-01-03");
 
@@ -309,25 +310,25 @@ public class DeadlineTransferIndependentTests : IDisposable
     public void Status_AllPlanned_WhenTheUnbookedRestIsAllTransferred_NotWhenPaidOrLost()
     {
         // 20 used, 5 unbooked 5th-week days at Fri 2026-12-18.
-        Assert.Equal(BalanceStatus.AllPlanned, Cal(Data(Fill(20), transferAllowed: true, firstTracked: 2025), 2026, "2026-12-18").Status);
-        Assert.Equal(BalanceStatus.DaysToPlan, Cal(Data(Fill(20), transferAllowed: true, firstTracked: 2025).WithLimit(2025, 3), 2026, "2026-12-18").Status); // 2 paid out
-        Assert.Equal(BalanceStatus.DaysToPlan, Cal(Data(Fill(20), transferAllowed: true, firstTracked: 2025).WithLimit(2025, 0), 2026, "2026-12-18").Status);
-        Assert.Equal(BalanceStatus.DaysToPlan, Cal(Data(Fill(20)), 2026, "2026-12-18").Status); // paid out
+        Assert.Equal(BalanceStatus.AllPlanned, Cal(Data(Fill(20), firstTracked: 2025), 2026, "2026-12-18").Status);
+        Assert.Equal(BalanceStatus.DaysToPlan, Cal(Data(Fill(20), firstTracked: 2025).WithLimit(2025, 3), 2026, "2026-12-18").Status); // 2 paid out
+        Assert.Equal(BalanceStatus.DaysToPlan, Cal(Data(Fill(20), firstTracked: 2025).WithLimit(2025, 0), 2026, "2026-12-18").Status);
+        Assert.Equal(BalanceStatus.AllPlanned, Cal(Data(Fill(20)), 2026, "2026-12-18").Status); // 2c: default limit 5 (was: switch off, paid out)
     }
 
     [Fact]
     public void Status_AfterTheDeadline_AllTransferred_IsAllPlanned_PaidOrLost_IsExpired()
     {
-        Assert.Equal(BalanceStatus.AllPlanned, Cal(Data(Fill(20), transferAllowed: true, firstTracked: 2025), 2026, "2027-01-04").Status);
-        Assert.Equal(BalanceStatus.Expired, Cal(Data(Fill(20), transferAllowed: true, firstTracked: 2025).WithLimit(2025, 3), 2026, "2027-01-04").Status);
-        Assert.Equal(BalanceStatus.Expired, Cal(Data(Fill(15), transferAllowed: true, firstTracked: 2025), 2026, "2027-01-04").Status); // 5 first-20 lost
+        Assert.Equal(BalanceStatus.AllPlanned, Cal(Data(Fill(20), firstTracked: 2025), 2026, "2027-01-04").Status);
+        Assert.Equal(BalanceStatus.Expired, Cal(Data(Fill(20), firstTracked: 2025).WithLimit(2025, 3), 2026, "2027-01-04").Status);
+        Assert.Equal(BalanceStatus.Expired, Cal(Data(Fill(15), firstTracked: 2025), 2026, "2027-01-04").Status); // 5 first-20 lost
     }
 
     [Fact]
     public void Status_TransferredInDaysUnused_AfterTheDeadline_AreExpired()
     {
         // 2026/27 (deadline 2027-12-31): 5 transferred in and unused -> lost -> Expired even though all own days move on.
-        var s = Cal(Data(Fill(20).Concat(Fill(20, "2027-01-04")), transferAllowed: true, firstTracked: 2025), 2027, "2028-01-03");
+        var s = Cal(Data(Fill(20).Concat(Fill(20, "2027-01-04")), firstTracked: 2025), 2027, "2028-01-03");
 
         // 20 booked in 2026: 5 in + 15 own -> in used; own unused 10: 5 moved, 5 lost -> Expired.
         Assert.Equal(BalanceStatus.Expired, s.Status);
@@ -341,7 +342,7 @@ public class DeadlineTransferIndependentTests : IDisposable
     {
         // Fri 2026-12-18, 10 used: 15 unbooked, 10 free working days (18, 21-25, 28-31) -> 5 at risk.
         // Booking all 10 free days leaves 5 unused (the 5th week) -> transferred: nothing paid out or lost.
-        var s = Cal(Data(Fill(10), transferAllowed: true, firstTracked: 2025), 2026, "2026-12-18");
+        var s = Cal(Data(Fill(10), firstTracked: 2025), 2026, "2026-12-18");
 
         Assert.Equal(10m, s.WorkingDaysLeft);
         Assert.Equal(5m, s.DaysAtRisk);
@@ -357,7 +358,7 @@ public class DeadlineTransferIndependentTests : IDisposable
     [Fact]
     public void AtRisk_Split_WithLimit3_TwoOfTheFifthWeekArePaidOut()
     {
-        var s = Cal(Data(Fill(10), transferAllowed: true, firstTracked: 2025).WithLimit(2025, 3), 2026, "2026-12-18");
+        var s = Cal(Data(Fill(10), firstTracked: 2025).WithLimit(2025, 3), 2026, "2026-12-18");
 
         Assert.Equal(3m, s.AtRiskTransferredDays);
         Assert.Equal(2m, s.AtRiskPaidOutDays);
@@ -369,7 +370,7 @@ public class DeadlineTransferIndependentTests : IDisposable
     public void AtRisk_Split_NothingBookedBefore_TransferredAndLost()
     {
         // 5 used: 20 unbooked, 10 free -> book 10 -> 15 booked, 10 unused (5 first-20 + 5th week): 5 moved, 5 lost.
-        var s = Cal(Data(Fill(5), transferAllowed: true, firstTracked: 2025), 2026, "2026-12-18");
+        var s = Cal(Data(Fill(5), firstTracked: 2025), 2026, "2026-12-18");
 
         Assert.Equal(10m, s.DaysAtRisk);
         Assert.Equal(5m, s.AtRiskTransferredDays);
@@ -381,7 +382,7 @@ public class DeadlineTransferIndependentTests : IDisposable
     [Fact]
     public void BeforeAndAfterTheDeadline_ShowTheSameNumbers_OnlyStatusDiffers()
     {
-        var data = Data(Fill(15), transferAllowed: true, firstTracked: 2025);
+        var data = Data(Fill(15), firstTracked: 2025);
 
         var before = Cal(data, 2026, "2026-12-31");
         var after = Cal(data, 2026, "2027-01-04");
@@ -412,15 +413,13 @@ public class DeadlineTransferIndependentTests : IDisposable
         var store = new DataStore(path);
 
         var loaded = store.Load();
-        Assert.True(loaded.TransferAllowed);
         Assert.Equal(5m, loaded.GetDeadlineSettings(new HolidayYear(2025)).TransferLimitDays);
         store.Save(loaded);
 
         var json = File.ReadAllText(path);
-        Assert.Contains("\"TransferAllowed\": true", json.Replace("\r", ""));
-        Assert.DoesNotContain("FifthWeekTransferAllowed", json);
+        Assert.DoesNotContain("TransferAllowed", json); // 2c: the switch is gone, in either spelling
+        Assert.DoesNotContain("TransferredToNext", json);
         var again = store.Load();
-        Assert.True(again.TransferAllowed);
         Assert.Equal("keep me", Assert.Single(again.Days).Description);
         Assert.Equal(D("2025-03-01"), again.EmployedSince);
         Assert.Equal(D("2026-12-24"), Assert.Single(Assert.Single(again.Years).PublicHolidays));
@@ -431,7 +430,7 @@ public class DeadlineTransferIndependentTests : IDisposable
     {
         var path = Path.Combine(_dir, "data.json");
         var store = new DataStore(path);
-        var data = Data(Fill(3), transferAllowed: true, firstTracked: 2025).WithLimit(2025, 7.5m).WithPayout(2025, PayoutMode.Some, 2.5m).WithPayout(2026, PayoutMode.All);
+        var data = Data(Fill(3), firstTracked: 2025).WithLimit(2025, 7.5m).WithPayout(2025, PayoutMode.Some, 2.5m).WithPayout(2026, PayoutMode.All);
         data.SetTransferLimit(new HolidayYear(2027), 0);
 
         store.Save(data);
@@ -458,7 +457,6 @@ public class DeadlineTransferIndependentTests : IDisposable
         var loaded = new DataStore(path).Load();
         var s = loaded.GetDeadlineSettings(new HolidayYear(2025));
 
-        Assert.False(loaded.TransferAllowed);
         Assert.Equal(5m, s.TransferLimitDays);
         Assert.Equal(PayoutMode.None, s.PayoutMode);
         Assert.Empty(loaded.HolidayYears);

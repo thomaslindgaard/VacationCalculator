@@ -43,7 +43,7 @@ public class MainViewModelFailedSaveTests : HolidayYearVmTestBase, IDisposable
         "holidays: " + string.Join(",", vm.Holidays),
         $"employed={vm.EmployedSince:yyyy-MM-dd} first={vm.FirstTrackedHolidayYear.StartYear} opening={vm.OpeningBalanceDays}",
         "choices: " + string.Join(",", vm.FirstTrackedChoices.Select(c => c.StartYear)),
-        $"transfer={vm.TransferAllowed} limit={vm.TransferLimitDays} src={vm.TransferLimitSource} own={vm.TransferLimitIsOwn}",
+        $"limit={vm.TransferLimitDays} src={vm.TransferLimitSource} own={vm.TransferLimitIsOwn}",
         $"payout none={vm.PayoutNone} some={vm.PayoutSome} all={vm.PayoutAll} days={vm.PayoutDays} src={vm.PayoutSource} own={vm.PayoutIsOwn}",
         "rows: " + string.Join(" | ", vm.HolidayYearRows),
         "status: " + vm.Status,
@@ -93,7 +93,7 @@ public class MainViewModelFailedSaveTests : HolidayYearVmTestBase, IDisposable
         new("employed since", vm => vm.EmployedSince = new DateTime(2026, 6, 16), nameof(MainViewModel.EmployedSince)),
         new("first tracked year", vm => vm.FirstTrackedHolidayYear = new HolidayYear(2024), nameof(MainViewModel.FirstTrackedHolidayYear)),
         new("opening balance", vm => vm.OpeningBalanceDays = 4, nameof(MainViewModel.OpeningBalanceDays)),
-        new("transfer switch", vm => vm.TransferAllowed = false, nameof(MainViewModel.TransferAllowed)),
+        new("transfer limit 0 (formerly the switch)", vm => vm.TransferLimitDays = 0, nameof(MainViewModel.TransferLimitDays)),
         new("transfer limit", vm => vm.TransferLimitDays = 12, nameof(MainViewModel.TransferLimitDays)),
         new("reset transfer limit", vm => vm.ResetTransferLimitCommand.Execute(null), null),
         new("payout all", vm => vm.PayoutAll = true, nameof(MainViewModel.PayoutAll)),
@@ -218,9 +218,9 @@ public class MainViewModelFailedSaveTests : HolidayYearVmTestBase, IDisposable
         Assert.Equal(2m, vm.OpeningBalanceDays);
 
         ReadOnly(false);
-        vm.TransferAllowed = false; // a different action succeeds
+        vm.TransferLimitDays = 0; // a different action succeeds
         Assert.Equal("", vm.ErrorMessage);
-        Assert.False(new DataStore(DataFile).Load().TransferAllowed);
+        Assert.Equal(0m, new DataStore(DataFile).Load().FindHolidayYear(2025)!.TransferLimitDays);
         Assert.Equal(2m, new DataStore(DataFile).Load().OpeningBalanceDays); // the failed changes never came back
     }
 
@@ -321,9 +321,10 @@ public class MainViewModelFailedSaveTests : HolidayYearVmTestBase, IDisposable
         var path = BlockedPath();
         var vm = new MainViewModel(new DataStore(path), () => Dec18);
 
-        vm.TransferAllowed = true;
+        vm.TransferLimitDays = 3;
 
-        Assert.False(vm.TransferAllowed);
+        Assert.Equal(5m, vm.TransferLimitDays); // rolled back to the default
+        Assert.False(vm.TransferLimitIsOwn);
         Assert.Null(StoredFirstTracked(vm));
         Assert.StartsWith("Could not save: ", vm.ErrorMessage);
     }

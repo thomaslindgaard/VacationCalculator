@@ -234,10 +234,10 @@ public class MainViewModelHolidayYearTests : HolidayYearVmTestBase
         Assert.Single(vm.Entries);
         Assert.Equal(new DateOnly(2026, 12, 24), Assert.Single(vm.Holidays));
         Assert.Null(vm.EmployedSince);
-        Assert.False(vm.TransferAllowed);
+        Assert.Equal(5m, vm.TransferLimitDays); // default
 
         // An edit saves, and the bookings and holidays are still there afterwards.
-        vm.TransferAllowed = true;
+        vm.TransferLimitDays = 3;
         var saved = Saved();
         Assert.Single(saved.Days);
         Assert.Contains(new DateOnly(2026, 12, 24), saved.Years.Single(y => y.Year == 2026).PublicHolidays);

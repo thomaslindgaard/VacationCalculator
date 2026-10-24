@@ -308,7 +308,7 @@ public class ThemeServiceTests : IDisposable
         // validation; the first edit then must not throw an unhandled exception.
         var bad = Path.Combine(_dir, "a|b?.json");
         var vm = new MainViewModel(new DataStore(bad), () => new DateOnly(2030, 7, 10));
-        var ex = Record.Exception(() => vm.TransferAllowed = true);
+        var ex = Record.Exception(() => vm.TransferLimitDays = 3);
         Assert.Null(ex);
         Assert.Empty(Directory.GetFiles(_dir));
     }

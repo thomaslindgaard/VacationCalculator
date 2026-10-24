@@ -14,11 +14,10 @@ public class MainViewModelDeadlineSettingsTests : HolidayYearVmTestBase
     // ---- Defaults ----
 
     [Fact]
-    public void Defaults_Limit5_PayoutNone_SourceDefault_TransferOff()
+    public void Defaults_Limit5_PayoutNone_SourceDefault()
     {
         var vm = NewVm(Dec18);
 
-        Assert.False(vm.TransferAllowed);
         Assert.Equal(5m, vm.TransferLimitDays);
         Assert.False(vm.TransferLimitIsOwn);
         Assert.Contains("Default", vm.TransferLimitSource, StringComparison.OrdinalIgnoreCase);
@@ -44,7 +43,7 @@ public class MainViewModelDeadlineSettingsTests : HolidayYearVmTestBase
     [Fact]
     public void ReadingSettings_AndBrowsingYears_NeverAddsHolidayYearEntries()
     {
-        var vm = NewVm(Dec18, Seed(20));
+        var vm = NewVm(Dec18, Seed(20, transferAllowed: true));
         foreach (var year in new[] { 2026, 2027, 2025, 2030, 2026 })
         {
             vm.SelectedYear = year;
@@ -53,7 +52,7 @@ public class MainViewModelDeadlineSettingsTests : HolidayYearVmTestBase
         }
 
         // Force a save through an unrelated edit and look at the file.
-        vm.TransferAllowed = true;
+        vm.ResetTransferLimitCommand.Execute(null); // saves without adding an entry
         Assert.Empty(Saved().HolidayYears);
     }
 
@@ -215,24 +214,21 @@ public class MainViewModelDeadlineSettingsTests : HolidayYearVmTestBase
 
         var reloaded = NewVm(Dec18);
 
-        Assert.True(reloaded.TransferAllowed);
         Assert.Equal(4m, reloaded.TransferLimitDays);
         Assert.True(reloaded.TransferLimitIsOwn);
         Assert.Equal(4m, reloaded.HolidayYearRows[0].TransferredOut);
     }
 
     [Fact]
-    public void SwitchingTransferOff_KeepsTheStoredSettings()
+    public void LimitZero_ThenBackToNonZero_TransfersAgain()
     {
+        // 2c: "transfer off" is just limit 0 on the year. 20 used -> 5 unused 5th-week days.
         var vm = NewVm(Dec18, Seed(20, transferAllowed: true));
-        vm.TransferLimitDays = 4;
-
-        vm.TransferAllowed = false;
-
-        Assert.Equal(4m, Saved().FindHolidayYear(2025)!.TransferLimitDays);
+        vm.TransferLimitDays = 0;
         Assert.Equal(0m, vm.HolidayYearRows[0].TransferredOut);
         Assert.Equal("If they are not booked, 5 days will be paid out.", vm.StatusDetail);
-        vm.TransferAllowed = true;
+
+        vm.TransferLimitDays = 4;
         Assert.Equal(4m, vm.HolidayYearRows[0].TransferredOut);
     }
 
@@ -255,7 +251,7 @@ public class MainViewModelDeadlineSettingsTests : HolidayYearVmTestBase
         var entry = Assert.Single(Saved().HolidayYears);
         Assert.Equal(PayoutMode.Some, entry.PayoutMode);
         Assert.Equal(3m, entry.PayoutDays);
-        Assert.Null(entry.TransferLimitDays);
+        Assert.Equal(0m, entry.TransferLimitDays); // the seeded "transfer off" (limit 0), untouched by the payout edit
         Assert.Equal("If they are not booked, 8 days will be paid out and 2 days will be lost.", vm.StatusDetail);
     }
 
@@ -321,7 +317,7 @@ public class MainViewModelDeadlineSettingsTests : HolidayYearVmTestBase
         vm.PayoutDays = 3;
 
         Assert.Equal(0m, vm.PayoutDays);
-        Assert.Empty(Saved().HolidayYears);
+        Assert.All(Saved().HolidayYears, e => Assert.Null(e.PayoutMode)); // only the seeded limit 0 entry, no payout setting
     }
 
     [Fact]
@@ -392,7 +388,7 @@ public class MainViewModelDeadlineSettingsTests : HolidayYearVmTestBase
     // ---- Previous version's file ----
 
     [Fact]
-    public void OldFile_FifthWeekTransferAllowed_AndStoredTransfer_LoadsAsTransferOn_IgnoringTheOldTransfer()
+    public void OldFile_FifthWeekTransferAllowed_AndStoredTransfer_Loads_DefaultLimitApplies_IgnoringTheOldTransfer()
     {
         Directory.CreateDirectory(Dir);
         File.WriteAllText(DataFile, """
@@ -405,7 +401,6 @@ public class MainViewModelDeadlineSettingsTests : HolidayYearVmTestBase
 
         var vm = NewVm(Dec18);
 
-        Assert.True(vm.TransferAllowed);
         Assert.Equal(5m, vm.TransferLimitDays);
         Assert.False(vm.TransferLimitIsOwn);
         // 1 used, 24 unused: default limit 5 -> 5 transferred, not the old 3.
@@ -415,6 +410,6 @@ public class MainViewModelDeadlineSettingsTests : HolidayYearVmTestBase
         vm.TransferLimitDays = 6;
         var saved = Saved();
         Assert.Single(saved.Days);
-        Assert.True(saved.TransferAllowed);
+        Assert.DoesNotContain("TransferAllowed", File.ReadAllText(DataFile)); // the old switch is dropped on save
     }
 }
