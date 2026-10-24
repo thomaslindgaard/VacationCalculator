@@ -80,6 +80,7 @@ Agreed so far:
 
 - **Period:** the allowance follows the calendar year (1 January to 31 December).
 - Default allowance is 5 days per year, configurable per calendar year.
+- **Partial years:** no automatic pro-rating. If employment starts or ends mid-year, the user sets that year's allowance by hand.
 - Has its own balance: total / used / booked / remaining.
 - Can be booked as full or half days.
 - Shown separately from vacation in the summary, the list and the calendar.
@@ -88,9 +89,8 @@ Open questions:
 
 1. **Expiry:** do unused Feriefri days expire on 31 December, carry over, or get paid out? Should the app warn about them the same way it warns about vacation?
 2. **Carry-over:** should Feriefri have a "carried over from last year" field?
-3. **Pro-rating:** if employment starts or ends mid-year, is the allowance reduced (e.g. 5 × months/12), or always the full number?
-4. **Order of use:** does it matter which is used first? For example, should the app suggest using Feriefri before regular vacation?
-5. **Deadline warning:** when working out whether days will be lost, should vacation and Feriefri compete for the same free working days left in the year? (Proposed: yes, combined.)
+3. **Order of use:** does it matter which is used first? For example, should the app suggest using Feriefri before regular vacation?
+4. **Deadline warning:** when working out whether days will be lost, should vacation and Feriefri compete for the same free working days left in the year? (Proposed: yes, combined.)
 
 **Agents:** `domain-logic` (day type, allowance, balance rules), then `wpf-ui` (settings field, summary, list).
 
