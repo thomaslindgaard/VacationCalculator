@@ -340,25 +340,26 @@ public class DeadlineTransferIndependentTests : IDisposable
     [Fact]
     public void AtRisk_Split_RestThatCannotFitButCanBeTransferred_IsNotLost()
     {
-        // Fri 2026-12-18, 10 used: 15 unbooked, 10 free working days (18, 21-25, 28-31) -> 5 at risk.
-        // Booking all 10 free days leaves 5 unused (the 5th week) -> transferred: nothing paid out or lost.
-        var s = Cal(Data(Fill(10), firstTracked: 2025), 2026, "2026-12-18");
+        // Fri 2026-12-18, 13 used: 12 unbooked, 7 free working days (18, 21-23, 28-30; 24, 25, 31 are Danish holidays)
+        // -> 5 at risk. Booking all 7 free days leaves 5 unused (the 5th week) -> transferred: nothing paid out or lost.
+        var s = Cal(Data(Fill(13), firstTracked: 2025), 2026, "2026-12-18");
 
-        Assert.Equal(10m, s.WorkingDaysLeft);
+        Assert.Equal(7m, s.WorkingDaysLeft);
         Assert.Equal(5m, s.DaysAtRisk);
         Assert.Equal(5m, s.AtRiskTransferredDays);
         Assert.Equal(0m, s.AtRiskPaidOutDays);
         Assert.Equal(0m, s.AtRiskLostDays);
         Assert.Equal(BalanceStatus.DaysToPlan, s.Status); // not DaysWillBeLost: nothing would be lost even if all free days are booked
-        // Projection if nothing more is booked: 15 unused = 5 moved + 10 lost.
+        // Projection if nothing more is booked: 12 unused = 5 moved + 7 lost.
         Assert.Equal(5m, s.TransferredToNext);
-        Assert.Equal(10m, s.LostDays);
+        Assert.Equal(7m, s.LostDays);
     }
 
     [Fact]
     public void AtRisk_Split_WithLimit3_TwoOfTheFifthWeekArePaidOut()
     {
-        var s = Cal(Data(Fill(10), firstTracked: 2025).WithLimit(2025, 3), 2026, "2026-12-18");
+        // 13 used, 7 free from Fri 2026-12-18 -> the 5 at risk are the 5th week: 3 transferred, 2 paid out
+        var s = Cal(Data(Fill(13), firstTracked: 2025).WithLimit(2025, 3), 2026, "2026-12-18");
 
         Assert.Equal(3m, s.AtRiskTransferredDays);
         Assert.Equal(2m, s.AtRiskPaidOutDays);
@@ -369,8 +370,9 @@ public class DeadlineTransferIndependentTests : IDisposable
     [Fact]
     public void AtRisk_Split_NothingBookedBefore_TransferredAndLost()
     {
-        // 5 used: 20 unbooked, 10 free -> book 10 -> 15 booked, 10 unused (5 first-20 + 5th week): 5 moved, 5 lost.
-        var s = Cal(Data(Fill(5), firstTracked: 2025), 2026, "2026-12-18");
+        // 8 used: 17 unbooked, 7 free (24, 25, 31 are holidays) -> book 7 -> 15 booked, 10 unused (5 first-20 + 5th week):
+        // 5 moved, 5 lost.
+        var s = Cal(Data(Fill(8), firstTracked: 2025), 2026, "2026-12-18");
 
         Assert.Equal(10m, s.DaysAtRisk);
         Assert.Equal(5m, s.AtRiskTransferredDays);

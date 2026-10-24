@@ -8,7 +8,8 @@ namespace VacationCalculator.Core.Tests;
 /// Independent tests for feature 3 (Feriefri), with expected values counted by hand from docs/features.md section 3.
 /// Calendar: 2026-01-01 is a Thursday, so Mon 2026-01-05/12/19, Mon 2026-10-05/12/19, Sat 2026-10-24,
 /// Mon 2026-12-28, Thu 2026-12-31, Fri 2027-01-01, Mon 2027-01-04/11. Holiday year 2025 = 1 Sep 2025 .. 31 Aug 2026
-/// (deadline 31 Dec 2026), holiday year 2026 = 1 Sep 2026 .. 31 Aug 2027. No public holidays unless stated.
+/// (deadline 31 Dec 2026), holiday year 2026 = 1 Sep 2026 .. 31 Aug 2027. No manual public holidays unless stated; the
+/// automatic Danish holidays (e.g. Thu 2026-12-24, Fri 2026-12-25, Thu 2026-12-31, Fri 2027-01-01) always apply.
 /// </summary>
 public class FeriefriIndependentTests
 {
@@ -153,8 +154,9 @@ public class FeriefriIndependentTests
     [Fact]
     public void AfterNewYear_OldYearIsGone_JanBookingIsNewYears()
     {
-        // Fri 2027-01-01 is holiday year 2026 even though HY2025 has 5 unused days.
-        var data = WithFF([FF("2027-01-01")]);
+        // Mon 2027-01-04 (the first working day; Fri 01-01 is Nytårsdag) is holiday year 2026 even though HY2025 has
+        // 5 unused days.
+        var data = WithFF([FF("2027-01-04")]);
         Assert.Equal(0m, Bal(data, Hy2025, D("2027-02-01")).UsedDays);
         Assert.Equal(1m, Bal(data, Hy2026, D("2027-02-01")).UsedDays);
     }
@@ -271,17 +273,22 @@ public class FeriefriIndependentTests
     }
 
     [Fact]
-    public void YearEnd_BookingOnThe31stCounts_BookingOnJan1DoesNot()
+    public void YearEnd_BookingOnLastWorkingDayCounts_BookingInJanuaryDoesNot()
     {
-        // Thu 12-31 goes to HY2025 (leftover 5 -> 4): open 9, paid 4. Fri 2027-01-01 is HY2026 and not counted: paid 5.
-        var on31 = YE(WithFF([FF("2026-12-31")]), 2026, Oct24);
-        Assert.Equal(4m, on31.PreviousLeftoverDays);
-        Assert.Equal(4m, on31.PaidOutDays);
+        // Wed 12-30 goes to HY2025 (leftover 5 -> 4): open 9, paid 4. Mon 2027-01-04 is HY2026 and not counted: paid 5.
+        var on30 = YE(WithFF([FF("2026-12-30")]), 2026, Oct24);
+        Assert.Equal(4m, on30.PreviousLeftoverDays);
+        Assert.Equal(4m, on30.PaidOutDays);
 
-        var jan1 = YE(WithFF([FF("2027-01-01")]), 2026, Oct24);
-        Assert.Equal(5m, jan1.PreviousLeftoverDays);
-        Assert.Equal(5m, jan1.CurrentRemainingDays);
-        Assert.Equal(5m, jan1.PaidOutDays);
+        var jan4 = YE(WithFF([FF("2027-01-04")]), 2026, Oct24);
+        Assert.Equal(5m, jan4.PreviousLeftoverDays);
+        Assert.Equal(5m, jan4.CurrentRemainingDays);
+        Assert.Equal(5m, jan4.PaidOutDays);
+
+        // A stored record on Thu 12-31 (Nytårsaftensdag) is not counted at all: paid 5.
+        var on31 = YE(WithFF([FF("2026-12-31")]), 2026, Oct24);
+        Assert.Equal(5m, on31.PreviousLeftoverDays);
+        Assert.Equal(5m, on31.PaidOutDays);
     }
 
     [Fact]
@@ -297,9 +304,10 @@ public class FeriefriIndependentTests
     [Fact]
     public void YearEnd_DecemberBookingsBeyondPrevious_ReduceCurrentRemaining()
     {
-        // 5 used in Jan (prev leftover 0). Mon 12-21..Wed 12-30 = 8 weekdays go to HY2026 (allowance 8): rem 0 at 31 Dec.
+        // 5 used in Jan (prev leftover 0). Mon 12-21..Wed 12-30 = 8 weekdays, less Thu 24 and Fri 25 (holidays) = 6,
+        // go to HY2026 (allowance 6): rem 0 at 31 Dec.
         var data = WithFF(FFRange("2026-01-05", "2026-01-09"), FFRange("2026-12-21", "2026-12-30"));
-        data.SetFeriefriAllowance(Hy2026, 8m);
+        data.SetFeriefriAllowance(Hy2026, 6m);
         var e = YE(data, 2026, Oct24);
         Assert.Equal(0m, e.CurrentRemainingDays);
         Assert.Equal(0m, e.PaidOutDays);

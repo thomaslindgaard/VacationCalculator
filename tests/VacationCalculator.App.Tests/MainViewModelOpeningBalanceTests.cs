@@ -1,4 +1,4 @@
-using VacationCalculator.App.ViewModels;
+﻿using VacationCalculator.App.ViewModels;
 using VacationCalculator.Core;
 
 namespace VacationCalculator.App.Tests;
@@ -333,7 +333,8 @@ public class MainViewModelOpeningBalanceTests : HolidayYearVmTestBase
     public void OpeningBalance_UsedUp_NoTransferredInLineInTheBanner()
     {
         // 20 booked: 3 opening + 17 own. Unused: own 8 (5th week 5 paid out, 3 lost); no transferred-in left.
-        var vm = NewVm(Dec18, Seed(20));
+        // Fri 2026-12-11 has 12 free working days (11, 14-18, 21-23, 28-30), so 8 unbooked still fit (from 12-18 only 7 do).
+        var vm = NewVm(Dec11, Seed(20));
         vm.OpeningBalanceDays = 3;
 
         Assert.Equal(0m, vm.Status.HolidayYear.UnusedTransferredInDays);

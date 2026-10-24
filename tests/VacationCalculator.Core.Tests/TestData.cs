@@ -3,7 +3,10 @@ using VacationCalculator.Core;
 
 namespace VacationCalculator.Core.Tests;
 
-/// <summary>Builders shared by the holiday-year tests. No public holidays unless given.</summary>
+/// <summary>
+/// Builders shared by the holiday-year tests. No manual public holidays unless given; the automatic Danish holidays
+/// (<see cref="DanishHolidays"/>) always apply.
+/// </summary>
 internal static class TestData
 {
     public static DateOnly D(string date) => DateOnly.Parse(date, CultureInfo.InvariantCulture);
@@ -21,7 +24,8 @@ internal static class TestData
     /// <paramref name="days"/> full vacation days on consecutive weekdays from Mon 2026-01-05, plus a half day
     /// after them if <paramref name="days"/> has a .5. All in holiday year 2025, and all before any
     /// <c>today</c> after February 2026. E.g. 15 = Mon 01-05 .. Fri 01-23, 20 = .. Fri 01-30,
-    /// 23 = .. Wed 02-04, 25 = .. Fri 02-06.
+    /// 23 = .. Wed 02-04, 25 = .. Fri 02-06. Only weekends are skipped, so a <paramref name="from"/> near a Danish
+    /// holiday would put records on it (which then don't count); the default range has none.
     /// </summary>
     public static List<BookedDay> Fill(decimal days, string from = "2026-01-05")
     {

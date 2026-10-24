@@ -17,14 +17,16 @@ public class CalendarYearStatusTests
     [Fact]
     public void JanuaryToAugust_ConcernsTheYearStartedLastSeptember()
     {
-        // Today Mon 2026-03-02. 2026 has 261 weekdays; Jan (22) + Feb (20) are gone -> 219 left.
+        // Today Mon 2026-03-02. 2026 has 261 weekdays; Jan (22) + Feb (20) are gone -> 219 left, less the 8 Danish
+        // holidays on weekdays after it (Thu 04-02, Fri 04-03, Mon 04-06, Thu 05-14, Mon 05-25, Thu 12-24, Fri 12-25,
+        // Thu 12-31) -> 211.
         var s = Status(Data(), 2026, "2026-03-02");
 
         Assert.Equal(new HolidayYear(2025), s.HolidayYear.HolidayYear);
         Assert.Equal(D("2026-12-31"), s.Deadline);
         Assert.Equal(M("12.5"), s.HolidayYear.EarnedSoFar); // Sep .. Feb
         Assert.Equal(25m, s.UnbookedDays);
-        Assert.Equal(219m, s.WorkingDaysLeft);
+        Assert.Equal(211m, s.WorkingDaysLeft);
         Assert.Equal(BalanceStatus.DaysToPlan, s.Status);
     }
 
@@ -39,7 +41,9 @@ public class CalendarYearStatusTests
         Assert.Equal(new HolidayYear(2026), next.HolidayYear.HolidayYear);
         Assert.Equal(D("2027-12-31"), next.Deadline);
         Assert.Equal(M("2.08"), next.HolidayYear.EarnedSoFar);
-        Assert.Equal(261m, next.WorkingDaysLeft); // whole of 2027
+        // Whole of 2027: 261 weekdays less 8 Danish holidays on weekdays (Fri 01-01, Thu 03-25, Fri 03-26, Mon 03-29,
+        // Thu 05-06, Mon 05-17, Fri 12-24, Fri 12-31)
+        Assert.Equal(253m, next.WorkingDaysLeft);
         Assert.Equal(BalanceStatus.DaysToPlan, next.Status);
     }
 
@@ -70,12 +74,13 @@ public class CalendarYearStatusTests
     [Fact]
     public void FutureYear_CountsTheWholeCalendarYear()
     {
-        // 2028 is a leap year with 260 weekdays (Sat 2028-01-01 .. Sun 2028-12-31)
+        // 2028 is a leap year with 260 weekdays (Sat 2028-01-01 .. Sun 2028-12-31), less 7 Danish holidays on weekdays
+        // (Thu 04-13, Fri 04-14, Mon 04-17, Thu 05-25, Mon 06-05, Mon 12-25, Tue 12-26) -> 253
         var s = Status(Data(), 2028, "2026-10-24");
 
         Assert.Equal(new HolidayYear(2027), s.HolidayYear.HolidayYear);
         Assert.Equal(0m, s.HolidayYear.EarnedSoFar);
-        Assert.Equal(260m, s.WorkingDaysLeft);
+        Assert.Equal(253m, s.WorkingDaysLeft);
         Assert.Equal(BalanceStatus.DaysToPlan, s.Status);
     }
 
@@ -84,15 +89,16 @@ public class CalendarYearStatusTests
     [Fact]
     public void FlagsDaysThatCannotFitBeforeTheDeadline_AndSplitsThem()
     {
-        // From Fri 2026-12-18 (today, included): 18,21,22,23,24,25,28,29,30,31 = 10. 25 unbooked.
+        // From Fri 2026-12-18 (today, included): 18,21,22,23,28,29,30 = 7 (Thu 24, Fri 25, Thu 31 are Danish holidays).
+        // 25 unbooked.
         var s = Status(Data().NoTransferFrom(2025), 2026, "2026-12-18"); // 2c: limit 0 (was the default "off")
 
-        Assert.Equal(10m, s.WorkingDaysLeft);
+        Assert.Equal(7m, s.WorkingDaysLeft);
         Assert.Equal(BalanceStatus.DaysWillBeLost, s.Status);
-        Assert.Equal(15m, s.DaysAtRisk);
+        Assert.Equal(18m, s.DaysAtRisk);
         Assert.Equal(0m, s.AtRiskTransferredDays);
-        Assert.Equal(5m, s.AtRiskPaidOutDays);  // booking all 10 uses the first 20, the 5th week stays
-        Assert.Equal(10m, s.AtRiskLostDays);
+        Assert.Equal(5m, s.AtRiskPaidOutDays);  // booking all 7 uses the first 20, the 5th week stays
+        Assert.Equal(13m, s.AtRiskLostDays);
         Assert.Equal(5m, s.PaidOutDays);        // if nothing more is booked
         Assert.Equal(20m, s.LostDays);
     }
@@ -100,14 +106,15 @@ public class CalendarYearStatusTests
     [Fact]
     public void DefaultData_AtRiskFifthWeekIsTransferred_NotPaidOut()
     {
-        // 2c: no limit stored -> default 5. From Fri 2026-12-18 (today): 10 free, 25 unbooked, 15 at risk.
+        // 2c: no limit stored -> default 5. From Fri 2026-12-18 (today): 7 free (24, 25, 31 are holidays),
+        // 25 unbooked, 18 at risk.
         var s = Status(Data(), 2026, "2026-12-18");
 
         Assert.Equal(BalanceStatus.DaysWillBeLost, s.Status);
-        Assert.Equal(15m, s.DaysAtRisk);
+        Assert.Equal(18m, s.DaysAtRisk);
         Assert.Equal(5m, s.AtRiskTransferredDays);
         Assert.Equal(0m, s.AtRiskPaidOutDays);
-        Assert.Equal(10m, s.AtRiskLostDays);
+        Assert.Equal(13m, s.AtRiskLostDays);
         Assert.Equal(5m, s.TransferredToNext);  // if nothing more is booked
         Assert.Equal(0m, s.PaidOutDays);
         Assert.Equal(20m, s.LostDays);
@@ -116,8 +123,8 @@ public class CalendarYearStatusTests
     [Fact]
     public void DaysAtRiskWithinTheFifthWeek_AreAllPaidOut()
     {
-        // 12 used -> 13 unbooked; 10 free from Fri 2026-12-18 -> 3 at risk, all 5th week
-        var s = Status(Data(Fill(12)).NoTransferFrom(2025), 2026, "2026-12-18"); // 2c: limit 0
+        // 15 used -> 10 unbooked; 7 free from Fri 2026-12-18 (24, 25, 31 are holidays) -> 3 at risk, all 5th week
+        var s = Status(Data(Fill(15)).NoTransferFrom(2025), 2026, "2026-12-18"); // 2c: limit 0
 
         Assert.Equal(3m, s.DaysAtRisk);
         Assert.Equal(3m, s.AtRiskPaidOutDays);
@@ -128,8 +135,8 @@ public class CalendarYearStatusTests
     [Fact]
     public void DaysAtRiskCanBeHalf()
     {
-        // 14.5 used -> 10.5 unbooked; 10 free from Fri 2026-12-18
-        var s = Status(Data(Fill(14.5m)).NoTransferFrom(2025), 2026, "2026-12-18"); // 2c: limit 0
+        // 17.5 used -> 7.5 unbooked; 7 free from Fri 2026-12-18 (24, 25, 31 are holidays)
+        var s = Status(Data(Fill(17.5m)).NoTransferFrom(2025), 2026, "2026-12-18"); // 2c: limit 0
 
         Assert.Equal(BalanceStatus.DaysWillBeLost, s.Status);
         Assert.Equal(0.5m, s.DaysAtRisk);
@@ -140,30 +147,30 @@ public class CalendarYearStatusTests
     public void AtRisk_TransferredInDaysAreUsedFirst_TheRestIsLost()
     {
         // 2025 -> 2026: 5 (Fill(20), transfer on). Calendar 2027, today Fri 2027-12-17: 2026 has 30, nothing booked.
-        // Free: Fri 17, Mon 20 .. Fri 24, Mon 27 .. Fri 31 = 11. Booking them uses the 5 transferred in + 6 own,
-        // leaving 19 own: 5 transferred, 14 lost.
+        // Free: Fri 17, Mon 20 .. Thu 23, Mon 27 .. Thu 30 = 9 (Fri 24 and Fri 31 are holidays). Booking them uses the
+        // 5 transferred in + 4 own, leaving 21 own: 5 transferred, 16 lost.
         var s = Status(Data(Fill(20), firstTracked: 2025), 2027, "2027-12-17");
 
-        Assert.Equal(11m, s.WorkingDaysLeft);
-        Assert.Equal(19m, s.DaysAtRisk);
+        Assert.Equal(9m, s.WorkingDaysLeft);
+        Assert.Equal(21m, s.DaysAtRisk);
         Assert.Equal(5m, s.AtRiskTransferredDays);
         Assert.Equal(0m, s.AtRiskPaidOutDays);
-        Assert.Equal(14m, s.AtRiskLostDays);
+        Assert.Equal(16m, s.AtRiskLostDays);
         Assert.Equal(25m, s.LostDays); // if nothing more is booked: 5 transferred in + 20 own
     }
 
     [Fact]
     public void AtRiskSplit_TransferThenPayoutThenLost()
     {
-        // Transfer on, payout some 4, nothing booked. 10 free from Fri 2026-12-18 -> 15 at risk:
-        // 5 transferred, 4 paid out, 6 lost. If nothing is booked: 5 transferred, 4 paid out, 16 lost.
+        // Transfer on, payout some 4, nothing booked. 7 free from Fri 2026-12-18 (24, 25, 31 are holidays) -> 18 at risk:
+        // 5 transferred, 4 paid out, 9 lost. If nothing is booked: 5 transferred, 4 paid out, 16 lost.
         var s = Status(Data(firstTracked: 2025).WithPayout(2025, PayoutMode.Some, 4m), 2026, "2026-12-18");
 
         Assert.Equal(25m, s.UnbookedDays);
-        Assert.Equal(15m, s.DaysAtRisk);
+        Assert.Equal(18m, s.DaysAtRisk);
         Assert.Equal(5m, s.AtRiskTransferredDays);
         Assert.Equal(4m, s.AtRiskPaidOutDays);
-        Assert.Equal(6m, s.AtRiskLostDays);
+        Assert.Equal(9m, s.AtRiskLostDays);
         Assert.Equal(5m, s.TransferredToNext);
         Assert.Equal(4m, s.PaidOutDays);
         Assert.Equal(16m, s.LostDays);
@@ -173,9 +180,9 @@ public class CalendarYearStatusTests
     [Fact]
     public void DaysAtRiskThatAreAllTransferred_AreNotWillBeLost()
     {
-        // 12 used -> 13 unbooked; 10 free from Fri 2026-12-18 -> 3 at risk, all within the transfer limit of 5.
-        // Booking 8 more is enough, so there is still time: DaysToPlan.
-        var s = Status(Data(Fill(12), firstTracked: 2025), 2026, "2026-12-18");
+        // 15 used -> 10 unbooked; 7 free from Fri 2026-12-18 (24, 25, 31 are holidays) -> 3 at risk, all within the
+        // transfer limit of 5. Booking 5 more is enough, so there is still time: DaysToPlan.
+        var s = Status(Data(Fill(15), firstTracked: 2025), 2026, "2026-12-18");
 
         Assert.Equal(3m, s.DaysAtRisk);
         Assert.Equal(3m, s.AtRiskTransferredDays);
@@ -332,16 +339,17 @@ public class CalendarYearStatusTests
 
         var s = Status(data, 2026, "2026-12-25"); // Fri
 
-        // Fri 25 (today) = 1, 28 = 0, 29 = 0.5, Wed 30 = 1, Thu 31 = 1
-        Assert.Equal(3.5m, s.WorkingDaysLeft);
+        // Fri 25 (today, Juledag) = 0, 28 = 0, 29 = 0.5, Wed 30 = 1, Thu 31 (Nytårsaftensdag) = 0
+        Assert.Equal(1.5m, s.WorkingDaysLeft);
         Assert.Equal(0m, s.HolidayYear.BookedDays);
     }
 
     [Fact]
-    public void OnLastDayOfYear_TodayIsStillFree()
+    public void OnLastWorkingDayOfYear_TodayIsStillFree()
     {
-        // Thu 2026-12-31 is today and unbooked: one free working day, so one unbooked day still fits
-        var s = Status(Data(Fill(24)).NoTransferFrom(2025), 2026, "2026-12-31"); // 2c: limit 0, else the 1 day is transferred
+        // Wed 2026-12-30 is today and unbooked (Thu 31 is Nytårsaftensdag): one free working day, so one unbooked day
+        // still fits
+        var s = Status(Data(Fill(24)).NoTransferFrom(2025), 2026, "2026-12-30"); // 2c: limit 0, else the 1 day is transferred
 
         Assert.Equal(1m, s.WorkingDaysLeft);
         Assert.Equal(0m, s.DaysAtRisk);
@@ -349,9 +357,20 @@ public class CalendarYearStatusTests
     }
 
     [Fact]
-    public void OnLastDayOfYear_MoreThanOneUnbookedWillBeLost()
+    public void OnLastDayOfYear_NytaarsaftensdagIsNotFree()
     {
-        var s = Status(Data(Fill(23.5m)).NoTransferFrom(2025), 2026, "2026-12-31"); // 1.5 unbooked; 2c: limit 0
+        // Thu 2026-12-31 is today but an automatic holiday: nothing is free, the one unbooked day can't be taken
+        var s = Status(Data(Fill(24)).NoTransferFrom(2025), 2026, "2026-12-31"); // 2c: limit 0
+
+        Assert.Equal(0m, s.WorkingDaysLeft);
+        Assert.Equal(1m, s.DaysAtRisk);
+        Assert.Equal(BalanceStatus.DaysWillBeLost, s.Status);
+    }
+
+    [Fact]
+    public void OnLastWorkingDayOfYear_MoreThanOneUnbookedWillBeLost()
+    {
+        var s = Status(Data(Fill(23.5m)).NoTransferFrom(2025), 2026, "2026-12-30"); // Wed; 1.5 unbooked; 2c: limit 0
 
         Assert.Equal(1m, s.WorkingDaysLeft);
         Assert.Equal(0.5m, s.DaysAtRisk);
@@ -370,10 +389,10 @@ public class CalendarYearStatusTests
     [Fact]
     public void TodayHalfBookedCountsHalf()
     {
-        // Today Tue 2026-12-29 half booked (used): 0.5 + Wed 30 + Thu 31 = 2.5
+        // Today Tue 2026-12-29 half booked (used): 0.5 + Wed 30 = 1.5 (Thu 31 is a holiday)
         var s = Status(Data([Day("2026-12-29", 0.5m)]), 2026, "2026-12-29");
 
-        Assert.Equal(2.5m, s.WorkingDaysLeft);
+        Assert.Equal(1.5m, s.WorkingDaysLeft);
         Assert.Equal(0.5m, s.HolidayYear.UsedDays);
         Assert.Equal(0m, s.HolidayYear.BookedAheadDays);
     }
@@ -383,16 +402,19 @@ public class CalendarYearStatusTests
     [InlineData(DayType.Feriefri)]
     public void TodayFullyBookedIsNotFree(DayType type)
     {
-        // Today Tue 2026-12-29 fully booked: only Wed 30 + Thu 31 = 2
-        Assert.Equal(2m, Status(Data([Day("2026-12-29", type: type)]), 2026, "2026-12-29").WorkingDaysLeft);
+        // Today Tue 2026-12-29 fully booked: only Wed 30 = 1 (Thu 31 is a holiday)
+        Assert.Equal(1m, Status(Data([Day("2026-12-29", type: type)]), 2026, "2026-12-29").WorkingDaysLeft);
     }
 
     [Fact]
     public void TodayOnWeekendOrHolidayIsNotCounted()
     {
-        // Sat 2026-12-26: Mon 28 .. Thu 31 = 4. Thu 2026-12-24 with 24 and 25 as holidays: also 28 .. 31 = 4.
-        Assert.Equal(4m, Status(Data(), 2026, "2026-12-26").WorkingDaysLeft);
-        Assert.Equal(4m, Status(Data().WithHolidays("2026-12-24", "2026-12-25"), 2026, "2026-12-24").WorkingDaysLeft);
+        // Sat 2026-12-26: Mon 28 .. Wed 30 = 3 (Thu 31 is a holiday). Thu 2026-12-24 (automatic, also entered by hand):
+        // also 28 .. 30 = 3. Mon 2026-12-28 as a manual holiday: Tue 29, Wed 30 = 2.
+        Assert.Equal(3m, Status(Data(), 2026, "2026-12-26").WorkingDaysLeft);
+        Assert.Equal(3m, Status(Data(), 2026, "2026-12-24").WorkingDaysLeft);
+        Assert.Equal(3m, Status(Data().WithHolidays("2026-12-24", "2026-12-25"), 2026, "2026-12-24").WorkingDaysLeft);
+        Assert.Equal(2m, Status(Data().WithHolidays("2026-12-28"), 2026, "2026-12-28").WorkingDaysLeft);
     }
 
     [Fact]
@@ -408,35 +430,37 @@ public class CalendarYearStatusTests
     [Fact]
     public void TodayOnLastDayOfPreviousYear_CountsTheWholeYear()
     {
-        // Wed 2025-12-31; 2026 has 261 weekdays
-        Assert.Equal(261m, Status(Data(), 2026, "2025-12-31").WorkingDaysLeft);
+        // Wed 2025-12-31; 2026 has 261 weekdays less 9 Danish holidays on weekdays = 252
+        Assert.Equal(252m, Status(Data(), 2026, "2025-12-31").WorkingDaysLeft);
     }
 
     [Fact]
-    public void TodayOnFirstDayOfYear_IncludesIt()
+    public void TodayOnFirstWorkingDayOfYear_IncludesIt()
     {
-        // Fri 2027-01-01; 2027 has 261 weekdays
-        Assert.Equal(261m, Status(Data(), 2027, "2027-01-01").WorkingDaysLeft);
-        Assert.Equal(260m, Status(Data().WithHolidays("2027-01-01"), 2027, "2027-01-01").WorkingDaysLeft);
+        // Mon 2027-01-04 (Fri 01-01 is Nytårsdag): all 253 working days of 2027 are left, today included
+        Assert.Equal(253m, Status(Data(), 2027, "2027-01-04").WorkingDaysLeft);
+        Assert.Equal(252m, Status(Data().WithHolidays("2027-01-04"), 2027, "2027-01-04").WorkingDaysLeft);
+        // Fri 2027-01-01 itself is not a working day
+        Assert.Equal(253m, Status(Data(), 2027, "2027-01-01").WorkingDaysLeft);
     }
 
     [Fact]
     public void LeapYear_CountsFebruary29()
     {
-        // 2028: 260 weekdays; Tue 2028-02-29 half booked, for holiday year 2027
+        // 2028: 253 working days (see FutureYear_CountsTheWholeCalendarYear); Tue 2028-02-29 half booked, for holiday year 2027
         var s = Status(Data([Day("2028-02-29", 0.5m)]), 2028, "2027-12-31");
 
         Assert.Equal(0.5m, s.HolidayYear.BookedAheadDays);
-        Assert.Equal(259.5m, s.WorkingDaysLeft);
+        Assert.Equal(252.5m, s.WorkingDaysLeft);
     }
 
     [Fact]
     public void HolidaysOfOtherYearsDoNotLeakIn()
     {
-        // A stray 2026 date stored under 2027's settings is ignored, so Thu 2026-12-24 stays a working day
+        // A stray 2026 date stored under 2027's settings is ignored, so Mon 2026-12-28 stays a working day
         var data = Data();
-        data.Years.Add(new YearSettings { Year = 2027, PublicHolidays = [D("2026-12-24")] });
+        data.Years.Add(new YearSettings { Year = 2027, PublicHolidays = [D("2026-12-28")] });
 
-        Assert.Equal(6m, Status(data, 2026, "2026-12-24").WorkingDaysLeft); // 24, 25, 28, 29, 30, 31
+        Assert.Equal(3m, Status(data, 2026, "2026-12-28").WorkingDaysLeft); // 28, 29, 30
     }
 }

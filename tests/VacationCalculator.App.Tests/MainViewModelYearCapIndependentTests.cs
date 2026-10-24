@@ -74,7 +74,9 @@ public class MainViewModelYearCapIndependentTests : IDisposable
         Set(vm, new DateTime(9999, 1, 1), new DateTime(9999, 12, 31));
         vm.AddEntryCommand.Execute(null);
         Assert.Equal("", vm.ErrorMessage);
-        Assert.Equal(261, new DataStore(FilePath).Load().Days.Count);
+        // 9999 starts and ends on a Friday: 261 weekdays. Minus 8 weekday holidays: Fri 1 Jan, Fri 24 Dec, Fri 31 Dec
+        // (25/26 Dec are Sat/Sun) and the 5 weekday Easter holidays (Thu, Fri, Mon, Thu, Mon) = 253.
+        Assert.Equal(253, new DataStore(FilePath).Load().Days.Count);
     }
 
     [Fact]

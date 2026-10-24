@@ -1,4 +1,4 @@
-﻿using VacationCalculator.Core;
+using VacationCalculator.Core;
 using static VacationCalculator.Core.Tests.TestData;
 
 namespace VacationCalculator.Core.Tests;
@@ -94,12 +94,13 @@ public class BalanceCalculatorTests
     }
 
     [Fact]
-    public void Allocate_31DecemberStillGoesToTheExpiringYear()
+    public void Allocate_LastWorkingDayOfDecemberStillGoesToTheExpiringYear()
     {
-        // Thu 2026-12-31 is holiday year 2025's last day; Fri 2027-01-01 is not
-        var data = Data([Day("2026-12-31"), Day("2027-01-01")]);
+        // Wed 2026-12-30 is holiday year 2025's last working day (Thu 12-31 is Nytårsaftensdag); Mon 2027-01-04 is the
+        // first of 2027 (Fri 01-01 is Nytårsdag). Stored records on the two holidays aren't allocated.
+        var data = Data([Day("2026-12-30"), Day("2026-12-31"), Day("2027-01-01"), Day("2027-01-04")]);
 
-        Assert.Equal([(D("2026-12-31"), 2025, 1m), (D("2027-01-01"), 2026, 1m)], AllocationsFrom(data, "2026-01-01"));
+        Assert.Equal([(D("2026-12-30"), 2025, 1m), (D("2027-01-04"), 2026, 1m)], AllocationsFrom(data, "2026-01-01"));
     }
 
     [Fact]
@@ -136,15 +137,15 @@ public class BalanceCalculatorTests
     [Fact]
     public void Allocate_RangeAcrossNewYear_SplitsByHolidayYear()
     {
-        // Mon 2026-12-28 .. Fri 2027-01-08, no holidays: Mon 28 .. Thu 31 Dec (4) to 2025,
-        // Fri 1 Jan + Mon 4 .. Fri 8 Jan (6) to 2026
+        // Mon 2026-12-28 .. Fri 2027-01-08, no manual holidays: Mon 28 .. Wed 30 Dec (3) to 2025,
+        // Mon 4 .. Fri 8 Jan (5) to 2026 (Thu 31 Dec and Fri 1 Jan are Danish holidays)
         var data = Data(Range("2026-12-28", "2027-01-08"));
 
         var balance2025 = Balance(data, Hy2025, "2026-10-24");
         var balance2026 = Balance(data, Hy2026, "2026-10-24");
 
-        Assert.Equal(4m, balance2025.BookedAheadDays);
-        Assert.Equal(6m, balance2026.BookedAheadDays);
+        Assert.Equal(3m, balance2025.BookedAheadDays);
+        Assert.Equal(5m, balance2026.BookedAheadDays);
     }
 
     // ---- Holiday-year balance ----
@@ -486,17 +487,17 @@ public class BalanceCalculatorTests
     [Fact]
     public void Transfer_RangeAcrossNewYear()
     {
-        // 20 used, then Mon 2026-12-28 .. Fri 2027-01-08: Mon 28 .. Thu 31 Dec (4) to 2025 -> 1 unused, transferred.
-        // Fri 1 Jan + Mon 4 .. Fri 8 Jan (6) to 2026.
+        // 20 used, then Mon 2026-12-28 .. Fri 2027-01-08: Mon 28 .. Wed 30 Dec (3) to 2025 -> 2 unused, transferred.
+        // Mon 4 .. Fri 8 Jan (5) to 2026 (Thu 31 Dec and Fri 1 Jan are Danish holidays).
         var data = Data(Fill(20).Concat(Range("2026-12-28", "2027-01-08")), firstTracked: 2025);
 
         var b2025 = Balance(data, Hy2025, "2026-10-24");
         var b2026 = Balance(data, Hy2026, "2026-10-24");
 
-        Assert.Equal(1m, b2025.TransferredToNext);
-        Assert.Equal(1m, b2026.TransferredIn);
-        Assert.Equal(26m, b2026.TotalDays);
-        Assert.Equal(6m, b2026.BookedAheadDays);
+        Assert.Equal(2m, b2025.TransferredToNext);
+        Assert.Equal(2m, b2026.TransferredIn);
+        Assert.Equal(27m, b2026.TotalDays);
+        Assert.Equal(5m, b2026.BookedAheadDays);
     }
 
     [Fact]

@@ -11,6 +11,28 @@ namespace VacationCalculator.App.ViewModels;
 public sealed record EntryRow(BookedPeriod Period, bool IsPast)
 {
     public bool IsFeriefri => Period.Type == DayType.Feriefri;
+
+    /// <summary>A stored period entirely on public holidays: it is listed but counts for nothing.</summary>
+    public bool IsNotCounted => Period.Amount == 0;
+
+    public const string NotCountedTag = "public holiday – not counted";
+
+    /// <summary>Muted tag after the description of a not-counted period; empty for normal rows.</summary>
+    public string NotCountedSuffix => !IsNotCounted ? "" : Period.Description.Length > 0 ? $"  ({NotCountedTag})" : NotCountedTag;
+}
+
+/// <summary>One line of the sidebar's public-holiday list.</summary>
+public sealed record HolidayRow(PublicHoliday Holiday)
+{
+    public DateOnly Date => Holiday.Date;
+    public bool IsAutomatic => Holiday.IsAutomatic;
+
+    /// <summary>Only the user's own entries can be removed; the Danish holidays are always there.</summary>
+    public bool CanRemove => Holiday.IsManual;
+
+    public string Name => Holiday.Name ?? "";
+    public bool HasName => Name.Length > 0;
+    public string RemoveTooltip => Holiday.IsAutomatic ? "Remove your extra entry (the public holiday stays)" : "Remove";
 }
 
 /// <summary>One line of the Feriefri card.</summary>
@@ -144,6 +166,7 @@ public sealed class MainViewModel : ObservableObject
         DeleteEntryCommand = new RelayCommand(p => DeleteEntry((EntryRow)p!));
         AddHolidayCommand = new RelayCommand(_ => AddHoliday());
         RemoveHolidayCommand = new RelayCommand(p => RemoveHoliday((DateOnly)p!));
+        RemoveConflictDaysCommand = new RelayCommand(_ => RemoveConflictDays());
         ResetTransferLimitCommand = new RelayCommand(_ => Apply(() => _data.ClearTransferLimit(DeadlineYear)));
         ResetPayoutCommand = new RelayCommand(_ => Apply(() => _data.ClearPayout(DeadlineYear)));
 
@@ -193,11 +216,41 @@ public sealed class MainViewModel : ObservableObject
     public RelayCommand DeleteEntryCommand { get; }
     public RelayCommand AddHolidayCommand { get; }
     public RelayCommand RemoveHolidayCommand { get; }
+    public RelayCommand RemoveConflictDaysCommand { get; }
     public RelayCommand ResetTransferLimitCommand { get; }
     public RelayCommand ResetPayoutCommand { get; }
 
     public ObservableCollection<EntryRow> Entries { get; } = [];
+    /// <summary>The user's own (manual) holiday dates of the selected year.</summary>
     public ObservableCollection<DateOnly> Holidays { get; } = [];
+
+    /// <summary>All public holidays of the selected year for the sidebar list: Danish (automatic) and manual.</summary>
+    public ObservableCollection<HolidayRow> PublicHolidays { get; } = [];
+
+    /// <summary>The user's own holidays of the selected year (including ones that coincide with a Danish holiday), shown first.</summary>
+    public ObservableCollection<HolidayRow> ManualHolidayRows { get; } = [];
+
+    /// <summary>The Danish (automatic) holidays of the selected year.</summary>
+    public ObservableCollection<HolidayRow> AutomaticHolidayRows { get; } = [];
+
+    public bool HasNoManualHolidays => ManualHolidayRows.Count == 0;
+
+    /// <summary>Note about booked days that fall on public holidays of the selected year and are not counted; empty when none.</summary>
+    public string ConflictNote
+    {
+        get
+        {
+            var days = _data.BookedDaysOnHolidays(_settings.Year);
+            if (days.Count == 0)
+                return "";
+
+            var dates = string.Join(", ", days.Select(d => DateText.Long(d.Date)));
+            return $"{(days.Count == 1 ? "1 booked day falls" : $"{days.Count} booked days fall")} on public holidays " +
+                $"and {(days.Count == 1 ? "is" : "are")} not counted: {dates}.";
+        }
+    }
+
+    public bool HasConflictNote => ConflictNote.Length > 0;
 
     /// <summary>Earliest selectable calendar year: it involves holiday years Y-1 and Y, both of which Core must support.</summary>
     public const int MinYear = HolidayYear.MinStartYear + 1;
@@ -665,7 +718,9 @@ public sealed class MainViewModel : ObservableObject
         }
         if (CountWorkingDays(start, end) == 0)
         {
-            ErrorMessage = "That period has no working days in it.";
+            ErrorMessage = start == end && _data.FindPublicHoliday(start) is { } holiday
+                ? $"{DateText.WithWeekday(start)} is a public holiday{(holiday.Name is { } name ? $" ({name})" : "")}."
+                : "That period has no working days in it.";
             return;
         }
 
@@ -764,6 +819,14 @@ public sealed class MainViewModel : ObservableObject
         }
 
         var date = DateOnly.FromDateTime(value);
+        if (DanishHolidays.NameOf(date) is { } existing)
+        {
+            // Already a public holiday: nothing to store.
+            NewHoliday = null;
+            InfoMessage = $"{DateText.Long(date)} is already a public holiday ({existing}).";
+            return;
+        }
+
         if (!Apply(() =>
             {
                 var settings = GetOrCreateSettings(date.Year);
@@ -778,6 +841,19 @@ public sealed class MainViewModel : ObservableObject
         NewHoliday = null;
         if (date.Year != SelectedYear)
             InfoMessage = $"Added to {date.Year}'s holidays.";
+    }
+
+    /// <summary>Deletes the stored records on public holidays of the selected year; they were never counted, so balances stay.</summary>
+    private void RemoveConflictDays()
+    {
+        var dates = _data.BookedDaysOnHolidays(_settings.Year).Select(d => d.Date).ToList();
+        if (dates.Count == 0)
+            return;
+
+        if (Apply(() => _data.Days = Bookings.RemoveDays(_data.Days, dates)))
+            InfoMessage = dates.Count == 1
+                ? "Removed 1 booked day on a public holiday."
+                : $"Removed {dates.Count} booked days on public holidays.";
     }
 
     private void RemoveHoliday(DateOnly date)
@@ -839,6 +915,19 @@ public sealed class MainViewModel : ObservableObject
         Holidays.Clear();
         foreach (var holiday in _settings.PublicHolidays.Order())
             Holidays.Add(holiday);
+
+        PublicHolidays.Clear();
+        foreach (var holiday in _data.PublicHolidaysIn(_settings.Year))
+            PublicHolidays.Add(new HolidayRow(holiday));
+        ManualHolidayRows.Clear();
+        foreach (var row in PublicHolidays.Where(r => r.CanRemove))
+            ManualHolidayRows.Add(row);
+        AutomaticHolidayRows.Clear();
+        foreach (var row in PublicHolidays.Where(r => r.IsAutomatic))
+            AutomaticHolidayRows.Add(row);
+        OnPropertyChanged(nameof(HasNoManualHolidays));
+        OnPropertyChanged(nameof(ConflictNote));
+        OnPropertyChanged(nameof(HasConflictNote));
 
         Status = BalanceCalculator.CalculateCalendarYear(_data, _settings.Year, Today);
         HolidayYearRows = BalanceCalculator.CalculateHolidayYears(_data, HolidayYear.InCalendarYear(_settings.Year), Today)

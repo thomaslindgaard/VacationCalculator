@@ -163,10 +163,18 @@ public sealed record CalendarYearStatus(
 
 public static class BalanceCalculator
 {
+    /// <summary>
+    /// Whether <paramref name="date"/> is a working day: a weekday that is neither a Danish public holiday
+    /// (<see cref="DanishHolidays"/>, always applied) nor in <paramref name="holidays"/> (the user's manual public
+    /// holidays, see <see cref="VacationData.AllPublicHolidays"/>). Every Core path that decides whether a date counts or
+    /// can be booked goes through this method, so the automatic holidays can't be left out by a caller.
+    /// </summary>
     public static bool IsWorkingDay(DateOnly date, ISet<DateOnly> holidays) =>
-        date.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday) && !holidays.Contains(date);
+        date.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday)
+        && !holidays.Contains(date)
+        && !DanishHolidays.IsHoliday(date);
 
-    /// <summary>Counts working days in the inclusive range [start, end].</summary>
+    /// <summary>Counts working days in the inclusive range [start, end] (see <see cref="IsWorkingDay"/>).</summary>
     public static int CountWorkingDays(DateOnly start, DateOnly end, ISet<DateOnly> holidays)
     {
         var count = 0;

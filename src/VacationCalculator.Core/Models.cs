@@ -147,11 +147,68 @@ public sealed class VacationData
     }
 
     /// <summary>
-    /// Every public holiday across all years, each taken only from the settings of the year it
-    /// falls in. Suitable for booking ranges that cross New Year.
+    /// Every manual (user-entered) public holiday across all years, each taken only from the settings of the year it
+    /// falls in. Suitable for booking ranges that cross New Year. The automatic Danish holidays are not in this set:
+    /// <see cref="BalanceCalculator.IsWorkingDay"/> always applies them on top of it. To ask whether a date is any kind
+    /// of holiday use <see cref="IsPublicHoliday"/> or <see cref="FindPublicHoliday"/>.
     /// </summary>
     public HashSet<DateOnly> AllPublicHolidays() =>
         (Years ?? []).SelectMany(y => (y.PublicHolidays ?? []).Where(h => h.Year == y.Year)).ToHashSet();
+
+    /// <summary>Whether <paramref name="date"/> is in the manual public holidays of its own calendar year.</summary>
+    public bool IsManualPublicHoliday(DateOnly date) =>
+        (Years ?? []).Any(y => y is not null && y.Year == date.Year && (y.PublicHolidays ?? []).Contains(date));
+
+    /// <summary>Whether <paramref name="date"/> is a public holiday, automatic (Danish) or manual.</summary>
+    public bool IsPublicHoliday(DateOnly date) => DanishHolidays.IsHoliday(date) || IsManualPublicHoliday(date);
+
+    /// <summary>
+    /// The public holiday on <paramref name="date"/> with its name and kind, or null if the date is neither an
+    /// automatic Danish holiday nor a manual one. A date that is both gives one entry with both flags set.
+    /// </summary>
+    public PublicHoliday? FindPublicHoliday(DateOnly date)
+    {
+        var name = DanishHolidays.NameOf(date);
+        var manual = IsManualPublicHoliday(date);
+        return name is null && !manual ? null : new PublicHoliday(date, name, name is not null, manual);
+    }
+
+    /// <summary>
+    /// All public holidays of calendar year <paramref name="year"/> (1..9999), automatic and manual, one entry per date in
+    /// date order. Manual dates stored under a year they don't fall in are ignored, as everywhere else.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="year"/> is outside 1..9999.</exception>
+    public IReadOnlyList<PublicHoliday> PublicHolidaysIn(int year)
+    {
+        var manual = (Years ?? [])
+            .Where(y => y is not null && y.Year == year)
+            .SelectMany(y => y.PublicHolidays ?? [])
+            .Where(d => d.Year == year)
+            .ToHashSet();
+        var result = new Dictionary<DateOnly, PublicHoliday>();
+        foreach (var h in DanishHolidays.For(year))
+            result[h.Date] = new PublicHoliday(h.Date, h.Name, IsAutomatic: true, IsManual: manual.Contains(h.Date));
+        foreach (var d in manual)
+            result.TryAdd(d, new PublicHoliday(d, null, IsAutomatic: false, IsManual: true));
+        return result.Values.OrderBy(h => h.Date).ToList();
+    }
+
+    /// <summary>
+    /// Booked records that fall on a public holiday (automatic or manual), e.g. a day booked before a manual holiday was
+    /// added on it; they are not counted as vacation or Feriefri. Only the first record per date is considered (as in
+    /// the calculators); sorted by date. With <paramref name="year"/>, only records in that calendar year.
+    /// </summary>
+    public IReadOnlyList<BookedDay> BookedDaysOnHolidays(int? year = null)
+    {
+        var manual = AllPublicHolidays();
+        var seen = new HashSet<DateOnly>();
+        return (Days ?? [])
+            .Where(d => d is not null && seen.Add(d.Date))
+            .Where(d => year is null || d.Date.Year == year)
+            .Where(d => manual.Contains(d.Date) || DanishHolidays.IsHoliday(d.Date))
+            .OrderBy(d => d.Date)
+            .ToList();
+    }
 
     /// <summary>The settings for the holiday year starting in <paramref name="startYear"/>, or null if none are stored.</summary>
     public HolidayYearSettings? FindHolidayYear(int startYear) =>

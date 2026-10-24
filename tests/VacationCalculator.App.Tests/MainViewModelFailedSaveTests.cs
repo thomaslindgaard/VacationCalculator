@@ -198,7 +198,7 @@ public class MainViewModelFailedSaveTests : HolidayYearVmTestBase, IDisposable
         var vm = NewVm(Dec18, Rich());
         var before = State(vm);
         ReadOnly(true);
-        vm.NewHoliday = new DateTime(2027, 1, 1);
+        vm.NewHoliday = new DateTime(2027, 6, 5);
         vm.AddHolidayCommand.Execute(null);
 
         Assert.Equal(before, State(vm));
@@ -246,11 +246,11 @@ public class MainViewModelFailedSaveTests : HolidayYearVmTestBase, IDisposable
         ReadOnly(false);
 
         vm.SelectedYear = 2027;
-        vm.NewHoliday = new DateTime(2027, 1, 1);
+        vm.NewHoliday = new DateTime(2027, 6, 5);
         vm.AddHolidayCommand.Execute(null);
 
         Assert.Equal("", vm.ErrorMessage);
-        Assert.Contains(new DateOnly(2027, 1, 1), vm.Holidays);
+        Assert.Contains(new DateOnly(2027, 6, 5), vm.Holidays);
         var saved = new DataStore(DataFile).Load();
         Assert.Equal([new DateOnly(2026, 12, 24), new DateOnly(2026, 12, 25)], saved.Years.Single(y => y.Year == 2026).PublicHolidays);
     }

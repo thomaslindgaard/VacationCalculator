@@ -121,10 +121,12 @@ public class MainViewModelHolidayYearTests : HolidayYearVmTestBase
     [Fact]
     public void Rows_AdvanceHoliday_IsFlaggedAndNegative()
     {
-        // 7 December days (21-25, 28, 29) all land in 2026/27: 6.25 earned so far - 7 = -0.75.
+        // Mon-Wed 12-21..23 and Mon-Wed 12-28..30 (6 days; 24, 25 and 31 Dec are public holidays and 26-27 a weekend)
+        // plus Mon 2027-01-04 = 7 working days, all in 2026/27: 6.25 earned so far - 7 = -0.75.
         var data = Seed(25);
-        foreach (var day in new[] { 21, 22, 23, 24, 25, 28, 29 })
+        foreach (var day in new[] { 21, 22, 23, 28, 29, 30 })
             data.Days.Add(new BookedDay { Date = new DateOnly(2026, 12, day) });
+        data.Days.Add(new BookedDay { Date = new DateOnly(2027, 1, 4) });
         var vm = NewVm(Dec18, data);
 
         var next = vm.HolidayYearRows[1];

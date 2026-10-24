@@ -558,15 +558,15 @@ public class FeriefriTests
     [Fact]
     public void Book_RangeOverNewYear_UsesTheCurrentYearOnBothSides()
     {
-        // 2025/26 used up. Mon 2026-12-28 .. Fri 2027-01-08 with Fri 2027-01-01 a holiday: 9 working days.
-        // 2026/27 has 5: Mon..Thu 12-28..31 and Mon 2027-01-04.
-        var data = Ff(FFRange("2026-01-05", "2026-01-09")).WithHolidays("2027-01-01");
+        // 2025/26 used up. Mon 2026-12-28 .. Fri 2027-01-08 with Thu 2026-12-31 and Fri 2027-01-01 Danish holidays:
+        // 8 working days. 2026/27 has 5: Mon..Wed 12-28..30 and Mon, Tue 2027-01-04..05.
+        var data = Ff(FFRange("2026-01-05", "2026-01-09"));
 
         var r = Bookings.BookFeriefri(data, D("2026-12-28"), D("2027-01-08"), 1, "");
 
-        Assert.Equal(9m, r.RequestedDays);
+        Assert.Equal(8m, r.RequestedDays);
         Assert.Equal(5m, r.BookedDays);
-        Assert.Equal([D("2027-01-05"), D("2027-01-06"), D("2027-01-07"), D("2027-01-08")], r.LeftOutDates);
+        Assert.Equal([D("2027-01-06"), D("2027-01-07"), D("2027-01-08")], r.LeftOutDates);
         Assert.Equal(Hy2026, r.Limit!.HolidayYear);
     }
 

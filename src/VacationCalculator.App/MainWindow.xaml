@@ -116,30 +116,70 @@
                     <TextBlock Text="Covers days beyond the 5th week. 5th-week days are always paid out unless transferred."
                                TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,2,0,0" />
                 </StackPanel>
-                <!-- Public holidays fill the remaining height -->
-                <DockPanel>
-                    <TextBlock DockPanel.Dock="Top" Text="Public holidays" Style="{StaticResource SectionTitle}" />
-                    <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" Style="{StaticResource FieldLabel}" Margin="0,0,0,10"
-                               Text="Weekends and these dates don't count as vacation days." />
-                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                <!-- Public holidays: the whole list scrolls with the sidebar -->
+                <StackPanel>
+                    <TextBlock Text="Public holidays" Style="{StaticResource SectionTitle}" />
+                    <TextBlock TextWrapping="Wrap" Style="{StaticResource FieldLabel}" Margin="0,0,0,10"
+                               Text="Danish public holidays are included automatically. Add extra days off, such as Grundlovsdag or company days. Weekends and holidays don't count as vacation days." />
+                    <DockPanel Margin="0,0,0,10">
                         <Button DockPanel.Dock="Right" Content="Add" Command="{Binding AddHolidayCommand}" Margin="8,0,0,0" />
                         <DatePicker SelectedDate="{Binding NewHoliday}" />
                     </DockPanel>
-                    <ListBox ItemsSource="{Binding Holidays}" HorizontalContentAlignment="Stretch" MaxHeight="150">
-                        <ListBox.ItemTemplate>
+
+                    <TextBlock Text="Your extra days off" FontWeight="SemiBold" Margin="0,2,0,4" />
+                    <TextBlock Text="None added." Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,6">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding HasNoManualHolidays}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <ItemsControl ItemsSource="{Binding ManualHolidayRows}" Margin="0,0,0,10" Focusable="False">
+                        <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <DockPanel>
+                                <DockPanel Margin="0,2">
                                     <Button DockPanel.Dock="Right" Content="✕" Style="{StaticResource IconButton}"
-                                            Padding="6,0" MinWidth="0" MinHeight="0" ToolTip="Remove"
-                                            Command="{Binding DataContext.RemoveHolidayCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                            CommandParameter="{Binding}" />
-                                    <TextBlock Text="{Binding Converter={StaticResource DateText}, ConverterParameter=Weekday}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                            Padding="6,0" MinWidth="0" MinHeight="0" ToolTip="{Binding RemoveTooltip}"
+                                            VerticalAlignment="Center"
+                                            Command="{Binding DataContext.RemoveHolidayCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            CommandParameter="{Binding Date}" />
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Date, Converter={StaticResource DateText}, ConverterParameter=Weekday}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding Name}" FontSize="11" Foreground="{DynamicResource MutedBrush}" TextTrimming="CharacterEllipsis">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding HasName}" Value="False">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </StackPanel>
                                 </DockPanel>
                             </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-                </DockPanel>
-                </StackPanel>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <TextBlock Text="Danish public holidays" FontWeight="SemiBold" Margin="0,2,0,4" />
+                    <ItemsControl ItemsSource="{Binding AutomaticHolidayRows}" Focusable="False">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Margin="0,2">
+                                    <TextBlock Text="{Binding Date, Converter={StaticResource DateText}, ConverterParameter=Weekday}"
+                                               Foreground="{DynamicResource MutedBrush}" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{Binding Name}" FontSize="11" Foreground="{DynamicResource MutedBrush}" TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>                </StackPanel>
                 </ScrollViewer>
             </DockPanel>
         </Border>
@@ -479,6 +519,21 @@
                                 </Style>
                             </TextBlock.Style>
                         </TextBlock>
+                        <DockPanel Margin="0,0,0,8">
+                            <DockPanel.Style>
+                                <Style TargetType="DockPanel">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HasConflictNote}" Value="False">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DockPanel.Style>
+                            <Button DockPanel.Dock="Right" Content="Remove these days" Command="{Binding RemoveConflictDaysCommand}"
+                                    Style="{StaticResource LinkButton}" VerticalAlignment="Top" Margin="12,0,0,0"
+                                    ToolTip="Deletes these stored days. Your balances don't change; they were not counted." />
+                            <TextBlock Text="{Binding ConflictNote}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
+                        </DockPanel>
                     </StackPanel>
 
                     <DataGrid ItemsSource="{Binding Entries}" AutoGenerateColumns="False" IsReadOnly="True"
@@ -495,7 +550,23 @@
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="From" Binding="{Binding Period.Start, StringFormat=d}" Width="110" />
                             <DataGridTextColumn Header="To" Binding="{Binding Period.End, StringFormat=d}" Width="110" />
-                            <DataGridTextColumn Header="Days" Binding="{Binding Period.Amount, StringFormat={}{0:0.##}}" Width="80" />
+                            <DataGridTemplateColumn Header="Days" Width="80" SortMemberPath="Period.Amount">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Period.Amount, StringFormat={}{0:0.##}}" VerticalAlignment="Center">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsNotCounted}" Value="True">
+                                                            <Setter Property="ToolTip" Value="This period is only on public holidays, so it is not counted." />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
                             <DataGridTemplateColumn Header="Type" Width="90">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
@@ -529,7 +600,17 @@
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
-                            <DataGridTextColumn Header="Description" Binding="{Binding Period.Description}" Width="*" />
+                            <DataGridTemplateColumn Header="Description" Width="*" SortMemberPath="Period.Description">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
+                                            <Run Text="{Binding Period.Description, Mode=OneWay}" />
+                                            <Run Text="{Binding NotCountedSuffix, Mode=OneWay}" FontSize="11" FontStyle="Italic"
+                                                 Foreground="{DynamicResource MutedBrush}" />
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
                             <DataGridTemplateColumn Width="90">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>

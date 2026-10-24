@@ -52,10 +52,10 @@ public class HalfDayIndependentTests : IDisposable
     }
 
     [Fact]
-    public void HalfDayOn31December_IsUsedWhenTodayIs31December()
+    public void HalfDayOnLastWorkingDayOfDecember_IsUsedWhenTodayIsThatDay()
     {
-        // Thu 2026-12-31
-        var s = Status([B("2026-12-31", 0.5m)], 2026, "2026-12-31");
+        // Wed 2026-12-30 (Thu 12-31 is Nytårsaftensdag, so a stored half day on it isn't counted)
+        var s = Status([B("2026-12-30", 0.5m), B("2026-12-31", 0.5m)], 2026, "2026-12-30");
         Assert.Equal(0.5m, s.HolidayYear.UsedDays);
         Assert.Equal(0.5m, s.WorkingDaysLeft); // today counts; its other half is still free
     }
@@ -63,24 +63,25 @@ public class HalfDayIndependentTests : IDisposable
     [Fact]
     public void HalfBookedDay_ReducesWorkingDaysLeftByHalf_AndFlagsLoss()
     {
-        // today Mon 2026-12-28 (included); left: Mon 28, Tue 29, Wed 30 (half booked), Thu 31 = 3.5
+        // today Mon 2026-12-28 (included); left: Mon 28, Tue 29, Wed 30 (half booked) = 2.5 (Thu 31 is a holiday)
         var s = Status([B("2026-12-30", 0.5m)], 2026, "2026-12-28");
-        Assert.Equal(3.5m, s.WorkingDaysLeft);
+        Assert.Equal(2.5m, s.WorkingDaysLeft);
         Assert.Equal(24.5m, s.UnbookedDays);
-        Assert.Equal(21m, s.DaysAtRisk);
+        Assert.Equal(22m, s.DaysAtRisk);
         Assert.Equal(BalanceStatus.DaysWillBeLost, s.Status);
     }
 
     [Fact]
     public void RemainingEqualToFreeHalfDays_IsNotLost()
     {
-        // 21 days used in Jan/Feb leave 4; half on Tue 29 -> 3.5 unbooked; free left = 1 + 0.5 + 1 + 1 = 3.5 (Mon today, Tue half, Wed, Thu)
-        // 2c: limit 0 on 2025, else the 3.5 (all 5th week) are transferred and the status is AllPlanned
-        var data = new VacationData { Days = Past(21).Append(B("2026-12-29", 0.5m)).ToList() };
+        // 22 days used in Jan/Feb leave 3; half on Tue 29 -> 2.5 unbooked; free left = 1 + 0.5 + 1 = 2.5 (Mon today,
+        // Tue half, Wed; Thu 31 is a holiday)
+        // 2c: limit 0 on 2025, else the 2.5 (all 5th week) are transferred and the status is AllPlanned
+        var data = new VacationData { Days = Past(22).Append(B("2026-12-29", 0.5m)).ToList() };
         data.SetTransferLimit(new HolidayYear(2025), 0);
         var s = BalanceCalculator.CalculateCalendarYear(data, 2026, D("2026-12-28"));
-        Assert.Equal(3.5m, s.UnbookedDays);
-        Assert.Equal(3.5m, s.WorkingDaysLeft);
+        Assert.Equal(2.5m, s.UnbookedDays);
+        Assert.Equal(2.5m, s.WorkingDaysLeft);
         Assert.Equal(0m, s.DaysAtRisk);
         Assert.Equal(BalanceStatus.DaysToPlan, s.Status);
     }
@@ -88,11 +89,11 @@ public class HalfDayIndependentTests : IDisposable
     [Fact]
     public void FeriefriHalfDay_DoesNotCountButTakesHalfAFreeDay()
     {
-        // today Mon 2026-12-28 (included); Wed 30 Feriefri half -> 1 + 1 + 0.5 + 1
+        // today Mon 2026-12-28 (included); Wed 30 Feriefri half -> 1 + 1 + 0.5 (Thu 31 is a holiday)
         var s = Status([B("2026-12-30", 0.5m, DayType.Feriefri)], 2026, "2026-12-28");
         Assert.Equal(0m, s.HolidayYear.BookedDays);
         Assert.Equal(25m, s.UnbookedDays);
-        Assert.Equal(3.5m, s.WorkingDaysLeft);
+        Assert.Equal(2.5m, s.WorkingDaysLeft);
     }
 
     [Fact]

@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using VacationCalculator.App.Services;
 using VacationCalculator.App.ViewModels;
 using VacationCalculator.Core;
@@ -15,10 +15,10 @@ public class MainViewModelDateTextCultureTests : HolidayYearVmTestBase
     public void StatusMessage_DateEnglish_NumberFollowsCulture(string culture, string number)
     {
         CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo(culture);
-        // 22.5 used of 25 -> 2.5 unbooked; Fri 2026-12-18 has 10 free working days.
+        // 22.5 used of 25 -> 2.5 unbooked; Fri 2026-12-18 has 7 free working days (24, 25, 31 Dec are holidays).
         var vm = NewVm(Dec18, Seed(22.5m));
         Assert.Equal(
-            $"You have {number} days not yet booked. They must be used by 31 December 2026 (10 working days are still free).",
+            $"You have {number} days not yet booked. They must be used by 31 December 2026 (7 working days are still free).",
             vm.StatusMessage);
     }
 

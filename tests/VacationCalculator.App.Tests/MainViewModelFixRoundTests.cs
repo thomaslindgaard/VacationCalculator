@@ -9,19 +9,19 @@ namespace VacationCalculator.App.Tests;
 /// </summary>
 public class MainViewModelFixRoundTests : HolidayYearVmTestBase
 {
-    // Today Fri 2026-12-18: 10 free working days (Dec 18, 21-25, 28-31). Holiday year 2025/26 earns 25.
+    // Today Fri 2026-12-18: 7 free working days (Dec 18, 21, 22, 23, 28, 29, 30; 24, 25 and 31 Dec are holidays). Holiday year 2025/26 earns 25.
 
     [Fact]
     public void DaysWillBeLost_SettingOff_ListsLostAndPaidOut()
     {
-        // 5 used -> 20 unbooked, 10 free -> 10 cannot fit. Booking 10 more leaves 10 unused: 5 first-20 days (lost)
+        // 5 used -> 20 unbooked, 7 free -> 13 cannot fit. Booking 7 more leaves 13 unused: 8 first-20 days (lost)
         // and the 5 5th-week days (always paid out).
         var vm = NewVm(Dec18, Seed(5));
 
         Assert.Equal(BalanceStatus.DaysWillBeLost, vm.Status.Status);
         var d = vm.StatusDetail;
-        Assert.Contains("10 days can't fit even if you book every free working day", d);
-        Assert.Contains("5 days will be lost", d);
+        Assert.Contains("13 days can't fit even if you book every free working day", d);
+        Assert.Contains("8 days will be lost", d);
         Assert.Contains("5 days will be paid out", d);
         Assert.DoesNotContain("5th-week", d);
         Assert.DoesNotContain("transferred", d);

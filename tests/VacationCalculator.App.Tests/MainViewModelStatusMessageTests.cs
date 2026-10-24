@@ -30,6 +30,10 @@ public abstract class HolidayYearVmTestBase : IDisposable
 
     protected static readonly DateOnly Dec18 = new(2026, 12, 18);
     protected static readonly DateOnly Dec31 = new(2026, 12, 31);
+    // Thu 2026-12-30: the last working day of 2026 (31 Dec is Nytaarsaftensdag, a public holiday since feature 4).
+    protected static readonly DateOnly Dec30 = new(2026, 12, 30);
+    // Fri 2026-12-11: 12 free working days left in 2026 (11, 14-18, 21-23, 28-30).
+    protected static readonly DateOnly Dec11 = new(2026, 12, 11);
 
     protected MainViewModel NewVm(DateOnly today, VacationData? data = null)
     {
@@ -79,13 +83,13 @@ public class MainViewModelStatusMessageTests : HolidayYearVmTestBase
     [Fact]
     public void DaysToPlan_PaidOutOnly_SettingOff()
     {
-        // Fri 2026-12-18; 20 of the 25 days used in January. 5 unbooked <= 10 free working days
-        // (Dec 18, 21-25, 28-31 = 10). The 5 unused are 5th-week days -> paid out, none lost.
+        // Fri 2026-12-18; 20 of the 25 days used in January. 5 unbooked <= 7 free working days
+        // (Dec 18, 21, 22, 23, 28, 29, 30 = 7; 24, 25, 31 Dec are public holidays, 26 is a Saturday). The 5 unused are 5th-week days -> paid out, none lost.
         var vm = NewVm(Dec18, Seed(20));
 
         Assert.Equal(BalanceStatus.DaysToPlan, vm.Status.Status);
         Assert.Equal(
-            "You have 5 days not yet booked. They must be used by 31 December 2026 (10 working days are still free).",
+            "You have 5 days not yet booked. They must be used by 31 December 2026 (7 working days are still free).",
             vm.StatusMessage);
         Assert.Contains("5 days will be paid out", vm.StatusDetail);
         Assert.DoesNotContain("lost", vm.StatusDetail);
@@ -94,27 +98,27 @@ public class MainViewModelStatusMessageTests : HolidayYearVmTestBase
     [Fact]
     public void DaysToPlan_PaidOutAndLost_BothAreStated()
     {
-        // 15 used -> 10 unbooked: 5 of them 5th-week (paid out), 5 within the first 20 (lost).
-        var vm = NewVm(Dec18, Seed(15));
+        // 18 used -> 7 unbooked (== 7 free days): 5 of them 5th-week (paid out), 2 within the first 20 (lost).
+        var vm = NewVm(Dec18, Seed(18));
 
         Assert.Equal(BalanceStatus.DaysToPlan, vm.Status.Status);
-        Assert.Contains("You have 10 days not yet booked", vm.StatusMessage);
+        Assert.Contains("You have 7 days not yet booked", vm.StatusMessage);
         var detail = Lines(vm.StatusDetail)[0];
         Assert.Contains("5 days will be paid out", detail);
-        Assert.Contains("5 days will be lost", detail);
+        Assert.Contains("2 days will be lost", detail);
     }
 
     [Fact]
     public void DaysToPlan_OnlyLost_WhenEarnedIsAtMost20()
     {
-        // Employed since 2026-03-01: Mar..Aug = 6 months = 12.5 earned, so no 5th week. 5 booked -> 7.5 unbooked,
-        // and 7.5 <= 10 free days -> DaysToPlan; all 7.5 would be lost.
-        var vm = NewVm(Dec18, Seed(5, employedSince: new DateOnly(2026, 3, 1)));
+        // Employed since 2026-03-01: Mar..Aug = 6 months = 12.5 earned, so no 5th week. 6 booked -> 6.5 unbooked,
+        // and 6.5 <= 7 free days -> DaysToPlan; all 6.5 would be lost.
+        var vm = NewVm(Dec18, Seed(6, employedSince: new DateOnly(2026, 3, 1)));
 
-        Assert.Equal(7.5m, vm.Status.UnbookedDays);
+        Assert.Equal(6.5m, vm.Status.UnbookedDays);
         Assert.Equal(BalanceStatus.DaysToPlan, vm.Status.Status);
         var detail = vm.StatusDetail;
-        Assert.Contains("7.5 days will be lost", detail);
+        Assert.Contains("6.5 days will be lost", detail);
         Assert.DoesNotContain("paid out", detail);
         Assert.DoesNotContain("5th-week", detail);
     }
@@ -122,11 +126,11 @@ public class MainViewModelStatusMessageTests : HolidayYearVmTestBase
     [Fact]
     public void DaysToPlan_OneUnbookedDay_UsesSingular()
     {
-        // 24 used -> 1 unbooked; 10 free.
+        // 24 used -> 1 unbooked; 7 free (see DaysToPlan_PaidOutOnly_SettingOff).
         var vm = NewVm(Dec18, Seed(24));
 
         Assert.Equal(
-            "You have 1 day not yet booked. It must be used by 31 December 2026 (10 working days are still free).",
+            "You have 1 day not yet booked. It must be used by 31 December 2026 (7 working days are still free).",
             vm.StatusMessage);
         Assert.Contains("1 day will be paid out", vm.StatusDetail);
     }
@@ -134,8 +138,8 @@ public class MainViewModelStatusMessageTests : HolidayYearVmTestBase
     [Fact]
     public void DaysToPlan_OneFreeWorkingDay_UsesSingular()
     {
-        // Thu 2026-12-31 is the only free working day; 24 used -> 1 unbooked.
-        var vm = NewVm(Dec31, Seed(24));
+        // Wed 2026-12-30 is the only free working day (31 Dec is a holiday); 24 used -> 1 unbooked.
+        var vm = NewVm(Dec30, Seed(24));
 
         Assert.Equal(
             "You have 1 day not yet booked. It must be used by 31 December 2026 (1 working day is still free).",
@@ -146,7 +150,7 @@ public class MainViewModelStatusMessageTests : HolidayYearVmTestBase
     public void DaysToPlan_HalfDay_UsesPluralWithDecimal()
     {
         // 24.5 used -> 0.5 unbooked.
-        var vm = NewVm(Dec31, Seed(24.5m));
+        var vm = NewVm(Dec30, Seed(24.5m));
 
         Assert.Equal(
             "You have 0.5 days not yet booked. They must be used by 31 December 2026 (1 working day is still free).",
@@ -157,13 +161,14 @@ public class MainViewModelStatusMessageTests : HolidayYearVmTestBase
     public void DaysToPlan_FutureYear_CountsWholeYear()
     {
         // Selected 2027 (holiday year 2026/27, nothing booked): 30 unbooked (25 own + 5 transferred in from the unused 5th week of 2025/26, default limit 5). 2027 starts on a Friday and has
-        // 365 days = 52 weeks + 1 Friday -> 261 weekdays.
+        // 365 days = 52 weeks + 1 Friday -> 261 weekdays, minus 8 weekday holidays (Fri 1 Jan, Thu 25 Mar, Fri 26 Mar,
+        // Mon 29 Mar, Thu 6 May, Mon 17 May, Fri 24 Dec, Fri 31 Dec; Easter is 28 Mar 2027) = 253.
         var vm = NewVm(Dec18);
         vm.SelectedYear = 2027;
 
         Assert.Equal(BalanceStatus.DaysToPlan, vm.Status.Status);
         Assert.Equal(
-            "You have 30 days not yet booked. They must be used by 31 December 2027 (261 working days are still free).",
+            "You have 30 days not yet booked. They must be used by 31 December 2027 (253 working days are still free).",
             vm.StatusMessage);
     }
 
@@ -172,17 +177,17 @@ public class MainViewModelStatusMessageTests : HolidayYearVmTestBase
     [Fact]
     public void DaysWillBeLost_CurrentYear_SplitsLostAndPaidOut()
     {
-        // Fri 2026-12-18, nothing booked: 25 unbooked, 10 free working days -> 15 can't fit.
-        // Booking all 10 uses 10 of the first 20, so the 15 left are 5 (5th week, transferred by default) + 10 lost.
+        // Fri 2026-12-18, nothing booked: 25 unbooked, 7 free working days -> 18 can't fit.
+        // Booking all 7 uses 7 of the first 20, so the 18 left are 5 (5th week, transferred by default) + 13 lost.
         var vm = NewVm(Dec18);
 
         Assert.Equal(BalanceStatus.DaysWillBeLost, vm.Status.Status);
         Assert.Equal(
-            "You have 25 days not yet booked, but only 10 working days are left from today through 31 December 2026.",
+            "You have 25 days not yet booked, but only 7 working days are left from today through 31 December 2026.",
             vm.StatusMessage);
         var first = Lines(vm.StatusDetail)[0];
-        Assert.StartsWith("15 days can't fit", first);
-        Assert.Contains("10 days will be lost", first);
+        Assert.StartsWith("18 days can't fit", first);
+        Assert.Contains("13 days will be lost", first);
         Assert.Contains("5 days will be transferred to 2026/27", first);
         Assert.DoesNotContain("paid out", first);
     }
@@ -190,18 +195,18 @@ public class MainViewModelStatusMessageTests : HolidayYearVmTestBase
     [Fact]
     public void DaysWillBeLost_UsesInjectedToday_NotTheRealClock()
     {
-        // Fri 2027-12-17 .. Fri 12-31 : free 17, 20-24, 27-31 = 11. The holiday year with deadline 2027 is 2026/27.
+        // Fri 2027-12-17 .. Fri 12-31 : free 17, 20-23, 27-30 = 9 (Fri 24 and Fri 31 Dec are holidays). The holiday year with deadline 2027 is 2026/27.
         var vm = NewVm(new DateOnly(2027, 12, 17));
 
         Assert.Contains("from today through 31 December 2027", vm.StatusMessage);
-        Assert.Contains("only 11 working days are left", vm.StatusMessage);
+        Assert.Contains("only 9 working days are left", vm.StatusMessage);
     }
 
     [Fact]
     public void DaysWillBeLost_OneWorkingDayLeft_UsesSingular()
     {
-        // Thu 2026-12-31: 1 free day, 25 unbooked, 24 can't fit.
-        var vm = NewVm(Dec31);
+        // Wed 2026-12-30: 1 free day, 25 unbooked, 24 can't fit.
+        var vm = NewVm(Dec30);
 
         Assert.Equal(1m, vm.Status.WorkingDaysLeft);
         Assert.Contains("only 1 working day is left from today", vm.StatusMessage);
@@ -212,8 +217,8 @@ public class MainViewModelStatusMessageTests : HolidayYearVmTestBase
     [Fact]
     public void DaysWillBeLost_OneDayCantFit_UsesSingular()
     {
-        // 23 used on Dec 31 -> 2 unbooked, 1 free -> 1 can't fit; it is a 5th-week day (unused 2 <= 5).
-        var vm = NewVm(Dec31, Seed(23));
+        // 23 used on Dec 30 -> 2 unbooked, 1 free -> 1 can't fit; it is a 5th-week day (unused 2 <= 5).
+        var vm = NewVm(Dec30, Seed(23));
 
         Assert.Equal(BalanceStatus.DaysWillBeLost, vm.Status.Status);
         var first = Lines(vm.StatusDetail)[0];
@@ -225,10 +230,10 @@ public class MainViewModelStatusMessageTests : HolidayYearVmTestBase
     [Fact]
     public void DaysWillBeLost_HalfWorkingDayLeft()
     {
-        // Half of Thu 12-31 booked as well: 23 + 0.5 booked via data. Unbooked 1.5, free 0.5 -> 1 can't fit.
+        // Half of Wed 12-30 booked as well: 23 + 0.5 booked via data. Unbooked 1.5, free 0.5 -> 1 can't fit.
         var data = Seed(23);
-        data.Days.Add(new BookedDay { Date = Dec31, Amount = 0.5m });
-        var vm = NewVm(Dec31, data);
+        data.Days.Add(new BookedDay { Date = Dec30, Amount = 0.5m });
+        var vm = NewVm(Dec30, data);
 
         Assert.Equal(
             "You have 1.5 days not yet booked, but only 0.5 working days are left from today through 31 December 2026.",
@@ -239,8 +244,8 @@ public class MainViewModelStatusMessageTests : HolidayYearVmTestBase
     [Fact]
     public void DaysWillBeLost_FutureYear_SaysWholeYear()
     {
-        // Selected 2027 with every weekday up to Fri 2027-12-17 a public holiday: free Dec 20-24, 27-31 = 10.
-        // Holiday year 2026/27 has 25 unbooked -> 15 can't fit.
+        // Selected 2027 with every weekday up to Fri 2027-12-17 a public holiday: free Dec 20-23, 27-30 = 8 (24 and 31 Dec are automatic holidays).
+        // Holiday year 2026/27 has 30 unbooked (25 + 5 transferred in).
         var data = new VacationData();
         var year = new YearSettings { Year = 2027 };
         for (var d = new DateOnly(2027, 1, 1); d <= new DateOnly(2027, 12, 17); d = d.AddDays(1))
@@ -250,9 +255,9 @@ public class MainViewModelStatusMessageTests : HolidayYearVmTestBase
         var vm = NewVm(Dec18, data);
         vm.SelectedYear = 2027;
 
-        Assert.Equal(10m, vm.Status.WorkingDaysLeft);
+        Assert.Equal(8m, vm.Status.WorkingDaysLeft);
         Assert.Equal(
-            "You have 30 days not yet booked, but only 10 working days are left in 2027 up to and including 31 December 2027.",
+            "You have 30 days not yet booked, but only 8 working days are left in 2027 up to and including 31 December 2027.",
             vm.StatusMessage);
     }
 
@@ -497,24 +502,24 @@ public class MainViewModelStatusMessageTests : HolidayYearVmTestBase
     [Fact]
     public void DaysToPlan_TransferOn_TransferredAndLost()
     {
-        // 15 used -> 10 unbooked == 10 free: DaysToPlan. Unused: 5 first-20 + 5 5th week. Transfer 5 (5th week), lose 5.
-        var vm = NewVm(Dec18, Seed(15, transferAllowed: true));
+        // 18 used -> 7 unbooked == 7 free: DaysToPlan. Unused: 2 first-20 + 5 5th week. Transfer 5 (5th week), lose 2.
+        var vm = NewVm(Dec18, Seed(18, transferAllowed: true));
 
         Assert.Equal(BalanceStatus.DaysToPlan, vm.Status.Status);
         Assert.Equal(
-            new[] { "If they are not booked, 5 days will be transferred to 2026/27 and 5 days will be lost." },
+            new[] { "If they are not booked, 5 days will be transferred to 2026/27 and 2 days will be lost." },
             Lines(vm.StatusDetail));
     }
 
     [Fact]
     public void DaysToPlan_TransferOn_AllThreeParts()
     {
-        // 15 used, limit 7, payout Some 1: unused 10 = 5 first-20 + 5 5th week. Transfer 7 (5 + 2 others),
+        // Fri 2026-12-11 (12 free days: 11, 14-18, 21-23, 28-30). 15 used, limit 7, payout Some 1: unused 10 = 5 first-20 + 5 5th week. Transfer 7 (5 + 2 others),
         // remaining 3 other: 1 paid out, 2 lost. Fifth week is all transferred.
         var data = Seed(15, transferAllowed: true);
         data.SetTransferLimit(new HolidayYear(2025), 7);
         data.SetPayout(new HolidayYear(2025), PayoutMode.Some, 1);
-        var vm = NewVm(Dec18, data);
+        var vm = NewVm(new DateOnly(2026, 12, 11), data);
 
         Assert.Equal(BalanceStatus.DaysToPlan, vm.Status.Status);
         Assert.Equal(
@@ -539,55 +544,55 @@ public class MainViewModelStatusMessageTests : HolidayYearVmTestBase
     [Fact]
     public void DaysToPlan_PayoutAll_NothingLost()
     {
-        // Transfer off, 15 used: 5 5th-week + 5 other unused. Payout All -> 10 paid out, 0 lost.
-        var data = Seed(15);
+        // Transfer off, 18 used: 5 5th-week + 2 other unused (7 == 7 free days). Payout All -> 7 paid out, 0 lost.
+        var data = Seed(18);
         data.SetPayout(new HolidayYear(2025), PayoutMode.All);
         var vm = NewVm(Dec18, data);
 
         Assert.Equal(
-            "If they are not booked, 10 days will be paid out.",
+            "If they are not booked, 7 days will be paid out.",
             Assert.Single(Lines(vm.StatusDetail)));
     }
 
     [Fact]
     public void DaysToPlan_UnbookedRestLargerThanFreeDays_ButTransferable_IsNotDaysWillBeLost()
     {
-        // 10 used, transfer on: 15 unbooked, 10 free, 5 can't fit - but they are the 5 transferable days,
+        // 13 used, transfer on: 12 unbooked, 7 free, 5 can't fit - but they are the 5 transferable days,
         // so nothing is paid out or lost even if every free day is booked: DaysToPlan, not DaysWillBeLost.
-        var vm = NewVm(Dec18, Seed(10, transferAllowed: true));
+        var vm = NewVm(Dec18, Seed(13, transferAllowed: true));
 
         Assert.Equal(BalanceStatus.DaysToPlan, vm.Status.Status);
         Assert.Equal(5m, vm.Status.DaysAtRisk);
         Assert.Equal(
-            "You have 15 days not yet booked. They must be used by 31 December 2026 (10 working days are still free).",
+            "You have 12 days not yet booked. They must be used by 31 December 2026 (7 working days are still free).",
             vm.StatusMessage);
-        // Unused if nothing more is booked: 5 transferred, 10 lost.
+        // Unused if nothing more is booked: 12 = 5 transferred, 7 lost (20 - 13 booked).
         Assert.Equal(
-            "If they are not booked, 5 days will be transferred to 2026/27 and 10 days will be lost.",
+            "If they are not booked, 5 days will be transferred to 2026/27 and 7 days will be lost.",
             Assert.Single(Lines(vm.StatusDetail)));
     }
 
     [Fact]
     public void DaysWillBeLost_TransferOn_SplitIncludesTransferPart()
     {
-        // 5 used, transfer on: 20 unbooked, 10 free, 10 can't fit. Booking 10 -> 15 booked, 10 unused
-        // (5 first-20 + 5 5th week): 5 transferred, 5 lost.
+        // 5 used, transfer on: 20 unbooked, 7 free, 13 can't fit. Booking 7 -> 12 booked, 13 unused
+        // (8 first-20 + 5 5th week): 5 transferred, 8 lost.
         var vm = NewVm(Dec18, Seed(5, transferAllowed: true));
 
         Assert.Equal(BalanceStatus.DaysWillBeLost, vm.Status.Status);
         Assert.Equal(
-            "10 days can't fit even if you book every free working day: 5 days will be transferred to 2026/27 and 5 days will be lost.",
+            "13 days can't fit even if you book every free working day: 5 days will be transferred to 2026/27 and 8 days will be lost.",
             Assert.Single(Lines(vm.StatusDetail)));
     }
 
     [Fact]
     public void DaysWillBeLost_TransferOn_Singular()
     {
-        // Thu 2026-12-31, 23 used + 1 free day: unbooked 2, 1 can't fit. Booking it -> 24 booked, 1 unused 5th-week
+        // Wed 2026-12-30, 23 used + 1 free day: unbooked 2, 1 can't fit. Booking it -> 24 booked, 1 unused 5th-week
         // day -> transferred. Not lost, so status is DaysToPlan here; use a limit of 0 to force the paid-out case.
         var data = Seed(23, transferAllowed: true);
         data.SetTransferLimit(new HolidayYear(2025), 0);
-        var vm = NewVm(Dec31, data);
+        var vm = NewVm(Dec30, data);
 
         Assert.Equal(BalanceStatus.DaysWillBeLost, vm.Status.Status);
         Assert.Equal(

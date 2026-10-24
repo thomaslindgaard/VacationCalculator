@@ -53,8 +53,9 @@ public sealed record FeriefriBookingResult(
 /// sorted by date with at most one record per date; the input is not modified.
 /// </summary>
 /// <remarks>
-/// <c>holidays</c> is the set of public holidays across all relevant years
-/// (see <see cref="VacationData.AllPublicHolidays"/>), so ranges can cross New Year.
+/// <c>holidays</c> is the set of manual public holidays across all relevant years
+/// (see <see cref="VacationData.AllPublicHolidays"/>), so ranges can cross New Year. The automatic Danish holidays
+/// (<see cref="DanishHolidays"/>) always apply on top of it, via <see cref="BalanceCalculator.IsWorkingDay"/>.
 /// </remarks>
 public static class Bookings
 {

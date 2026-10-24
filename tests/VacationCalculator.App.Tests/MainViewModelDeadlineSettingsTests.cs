@@ -9,6 +9,8 @@ namespace VacationCalculator.App.Tests;
 /// </summary>
 public class MainViewModelDeadlineSettingsTests : HolidayYearVmTestBase
 {
+    // Tests that need 10 unbooked <= free days start on Fri 2026-12-11 (12 free working days; from Fri 12-18 only 7 are left
+    // because 24, 25 and 31 December are public holidays).
     private VacationData Saved() => new DataStore(DataFile).Load();
 
     // ---- Defaults ----
@@ -136,7 +138,7 @@ public class MainViewModelDeadlineSettingsTests : HolidayYearVmTestBase
     public void TransferLimit_Above5_TransfersOtherDaysToo()
     {
         // 15 used: 5 first-20 + 5 5th-week unused; limit 8 -> 8 transferred (5th week first), 2 lost.
-        var vm = NewVm(Dec18, Seed(15, transferAllowed: true));
+        var vm = NewVm(Dec11, Seed(15, transferAllowed: true));
 
         vm.TransferLimitDays = 8;
 
@@ -238,7 +240,7 @@ public class MainViewModelDeadlineSettingsTests : HolidayYearVmTestBase
     public void Payout_SomeWithNumber_IsStored_AndShownInTheBanner()
     {
         // Transfer off, 15 used: 5 5th-week (always paid) + 5 other unused. Some 3 -> 8 paid out, 2 lost.
-        var vm = NewVm(Dec18, Seed(15));
+        var vm = NewVm(Dec11, Seed(15));
 
         vm.PayoutSome = true;
         vm.PayoutDays = 3;
@@ -259,7 +261,7 @@ public class MainViewModelDeadlineSettingsTests : HolidayYearVmTestBase
     public void Payout_SomeLargerThanTheRest_PaysOnlyWhatIsThere()
     {
         // Same data, Some 100: all 5 other days paid out too -> 10 paid out, none lost.
-        var vm = NewVm(Dec18, Seed(15));
+        var vm = NewVm(Dec11, Seed(15));
         vm.PayoutSome = true;
         vm.PayoutDays = 100;
 
@@ -269,7 +271,7 @@ public class MainViewModelDeadlineSettingsTests : HolidayYearVmTestBase
     [Fact]
     public void Payout_All_PaysEverythingBeyondTheFifthWeek()
     {
-        var vm = NewVm(Dec18, Seed(15));
+        var vm = NewVm(Dec11, Seed(15));
 
         vm.PayoutAll = true;
 
@@ -283,7 +285,7 @@ public class MainViewModelDeadlineSettingsTests : HolidayYearVmTestBase
     [Fact]
     public void Payout_BackToNone_LosesTheOtherDaysAgain()
     {
-        var vm = NewVm(Dec18, Seed(15));
+        var vm = NewVm(Dec11, Seed(15));
         vm.PayoutAll = true;
 
         vm.PayoutNone = true;
@@ -299,7 +301,7 @@ public class MainViewModelDeadlineSettingsTests : HolidayYearVmTestBase
     public void Payout_FalseWrites_DoNotChangeAnything()
     {
         // Radio buttons write false to the option being left; that must not change the mode.
-        var vm = NewVm(Dec18, Seed(15));
+        var vm = NewVm(Dec11, Seed(15));
         vm.PayoutAll = true;
 
         vm.PayoutNone = false;
@@ -312,7 +314,7 @@ public class MainViewModelDeadlineSettingsTests : HolidayYearVmTestBase
     [Fact]
     public void PayoutDays_IgnoredUnlessModeIsSome()
     {
-        var vm = NewVm(Dec18, Seed(15));
+        var vm = NewVm(Dec11, Seed(15));
 
         vm.PayoutDays = 3;
 
@@ -323,7 +325,7 @@ public class MainViewModelDeadlineSettingsTests : HolidayYearVmTestBase
     [Fact]
     public void PayoutDays_Negative_IsStoredAsZero()
     {
-        var vm = NewVm(Dec18, Seed(15));
+        var vm = NewVm(Dec11, Seed(15));
         vm.PayoutSome = true;
 
         vm.PayoutDays = -2;
@@ -335,7 +337,7 @@ public class MainViewModelDeadlineSettingsTests : HolidayYearVmTestBase
     [Fact]
     public void Payout_FollowsTheSelectedYear_Inherits_AndResets()
     {
-        var vm = NewVm(Dec18, Seed(15));
+        var vm = NewVm(Dec11, Seed(15));
         vm.PayoutAll = true; // 2025/26
 
         vm.SelectedYear = 2027;
@@ -360,7 +362,7 @@ public class MainViewModelDeadlineSettingsTests : HolidayYearVmTestBase
     [Fact]
     public void Payout_SurvivesReload()
     {
-        var vm = NewVm(Dec18, Seed(15));
+        var vm = NewVm(Dec11, Seed(15));
         vm.PayoutSome = true;
         vm.PayoutDays = 2.5m;
 

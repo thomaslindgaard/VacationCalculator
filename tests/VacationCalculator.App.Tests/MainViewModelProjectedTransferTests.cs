@@ -1,4 +1,4 @@
-using VacationCalculator.App.ViewModels;
+﻿using VacationCalculator.App.ViewModels;
 using VacationCalculator.Core;
 
 namespace VacationCalculator.App.Tests;
@@ -94,12 +94,14 @@ public class MainViewModelProjectedTransferTests : HolidayYearVmTestBase
     [Fact]
     public void AdvanceHoliday_IsVisibleInTheNewerYear()
     {
-        // 25 used in 2025/26 (Jan 5..Feb 6). Booking Mon 12-21 .. Wed 12-30 (8 weekdays: 21-25, 28-30) goes to 2026/27,
-        // which has earned 6.25 so far: 6.25 - 8 = -1.75, advance holiday 1.75.
+        // 25 used in 2025/26 (Jan 5..Feb 6). Booking Mon 12-21 .. Wed 12-30 (6 working days: 21-23, 28-30; 24 and 25 Dec are
+        // holidays) plus Mon 2027-01-04 and Tue 01-05 = 8 goes to 2026/27, which has earned 6.25 so far: 6.25 - 8 = -1.75.
         var data = Seed(25);
         for (var d = new DateOnly(2026, 12, 21); d <= new DateOnly(2026, 12, 30); d = d.AddDays(1))
             if (d.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday))
                 data.Days.Add(new BookedDay { Date = d });
+        data.Days.Add(new BookedDay { Date = new DateOnly(2027, 1, 4) });
+        data.Days.Add(new BookedDay { Date = new DateOnly(2027, 1, 5) });
         var vm = NewVm(Dec18, data);
         var row = vm.HolidayYearRows[1];
 

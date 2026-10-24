@@ -243,10 +243,12 @@ public class HolidayActIndependentTests
     }
 
     [Fact]
-    public void Allocate_31December_StillUsesOldYear()
+    public void Allocate_LastWorkingDayOfDecember_StillUsesOldYear()
     {
-        var alloc = Assert.Single(AllocateOn2026_10_24(Data([Day("2026-12-31")])));
+        // Wed 2026-12-30 (Thu 12-31 is Nytårsaftensdag, an automatic holiday, so a record on it isn't allocated)
+        var alloc = Assert.Single(AllocateOn2026_10_24(Data([Day("2026-12-30"), Day("2026-12-31")])));
         Assert.Equal(new HolidayYear(2025), alloc.HolidayYear);
+        Assert.Equal(D("2026-12-30"), alloc.Date);
     }
 
     [Fact]
@@ -553,21 +555,27 @@ public class HolidayActIndependentTests
     [Fact]
     public void Calendar_FutureYear_HasNothingEarned_AndAllWeekdaysFree()
     {
-        // 2028 starts on a Saturday and is a leap year: 366 = 52 weeks + Sat + Sun -> 260 weekdays.
+        // 2028 starts on a Saturday and is a leap year: 366 = 52 weeks + Sat + Sun -> 260 weekdays, minus 7 Danish
+        // holidays on weekdays (Easter Sun 04-16: Thu 04-13, Fri 04-14, Mon 04-17, Thu 05-25, Mon 06-05; Mon 12-25,
+        // Tue 12-26) -> 253.
         var s = Cal(Data(), 2028, "2026-03-10");
 
         Assert.Equal(new HolidayYear(2027), s.HolidayYear.HolidayYear);
         Assert.Equal(0m, s.HolidayYear.EarnedSoFar);
-        Assert.Equal(260m, s.WorkingDaysLeft);
+        Assert.Equal(253m, s.WorkingDaysLeft);
         Assert.Equal(BalanceStatus.DaysToPlan, s.Status);
     }
 
     [Fact]
     public void Calendar_FullYear_CountsWeekdaysMinusHolidays()
     {
-        // 2026 starts on Thursday, 365 days = 52 weeks + 1 Thursday -> 261 weekdays; minus Thu 01-01 and Fri 12-25.
+        // 2026 starts on Thursday, 365 days = 52 weeks + 1 Thursday -> 261 weekdays; minus the 9 Danish holidays on
+        // weekdays (Thu 01-01, Thu 04-02, Fri 04-03, Mon 04-06, Thu 05-14, Mon 05-25, Thu 12-24, Fri 12-25, Thu 12-31)
+        // = 252. Manual holidays on automatic ones (01-01, 12-25) change nothing; a manual Fri 06-05 removes one more.
+        Assert.Equal(252m, Cal(Data(), 2026, "2026-01-01").WorkingDaysLeft);
         var data = Data().WithHolidays("2026-01-01", "2026-12-25");
-        Assert.Equal(259m, Cal(data, 2026, "2026-01-01").WorkingDaysLeft);
+        Assert.Equal(252m, Cal(data, 2026, "2026-01-01").WorkingDaysLeft);
+        Assert.Equal(251m, Cal(data.WithHolidays("2026-06-05"), 2026, "2026-01-01").WorkingDaysLeft);
     }
 
     [Fact]
@@ -589,8 +597,8 @@ public class HolidayActIndependentTests
         var onDeadline = Cal(data, 2026, "2026-12-31");
         var after = Cal(data, 2026, "2027-01-01");
 
-        Assert.Equal(1m, onDeadline.WorkingDaysLeft); // Thu 12-31
-        Assert.Equal(BalanceStatus.DaysWillBeLost, onDeadline.Status); // 10 unbooked > 1 free
+        Assert.Equal(0m, onDeadline.WorkingDaysLeft); // Thu 12-31 is Nytårsaftensdag
+        Assert.Equal(BalanceStatus.DaysWillBeLost, onDeadline.Status); // 10 unbooked > 0 free
         Assert.Equal(BalanceStatus.Expired, after.Status);
         Assert.Equal(0m, after.WorkingDaysLeft);
     }
@@ -598,9 +606,10 @@ public class HolidayActIndependentTests
     [Fact]
     public void Calendar_UnbookedEqualToFreeDays_IsDaysToPlan_HalfMoreIsWillBeLost()
     {
-        // Thu 2026-12-31: one free day. 24 used -> 1 unbooked -> fits. 23.5 used -> 1.5 unbooked, 0.5 can't fit.
-        var fits = Cal(Data(Fill(24)).NoTransferFrom(2025), 2026, "2026-12-31"); // 2c: limit 0
-        var half = Cal(Data(Fill(23.5m)).NoTransferFrom(2025), 2026, "2026-12-31");
+        // Wed 2026-12-30: one free day (Thu 12-31 is Nytårsaftensdag). 24 used -> 1 unbooked -> fits.
+        // 23.5 used -> 1.5 unbooked, 0.5 can't fit.
+        var fits = Cal(Data(Fill(24)).NoTransferFrom(2025), 2026, "2026-12-30"); // 2c: limit 0
+        var half = Cal(Data(Fill(23.5m)).NoTransferFrom(2025), 2026, "2026-12-30");
 
         Assert.Equal(BalanceStatus.DaysToPlan, fits.Status);
         Assert.Equal(BalanceStatus.DaysWillBeLost, half.Status);
@@ -620,30 +629,30 @@ public class HolidayActIndependentTests
     [Fact]
     public void Calendar_AtRiskSplit_LimitZero()
     {
-        // Fri 2026-12-18, nothing booked: free 18, 21-25, 28-31 = 10; 25 - 10 = 15 can't fit.
-        // Booking all 10 leaves 15 unused: 5 of the 5th week (paid out) and 10 within the first 20 (lost).
+        // Fri 2026-12-18, nothing booked: free 18, 21-23, 28-30 = 7 (Thu 24, Fri 25, Thu 31 are Danish holidays);
+        // 25 - 7 = 18 can't fit. Booking all 7 leaves 18 unused: 5 of the 5th week (paid out) and 13 within the first 20 (lost).
         var s = Cal(Dat(null, false), 2026, "2026-12-18"); // 2c: limit 0 (was the default "off")
 
-        Assert.Equal(10m, s.WorkingDaysLeft);
-        Assert.Equal(15m, s.DaysAtRisk);
+        Assert.Equal(7m, s.WorkingDaysLeft);
+        Assert.Equal(18m, s.DaysAtRisk);
         Assert.Equal(0m, s.AtRiskTransferredDays);
         Assert.Equal(5m, s.AtRiskPaidOutDays);
-        Assert.Equal(10m, s.AtRiskLostDays);
+        Assert.Equal(13m, s.AtRiskLostDays);
     }
 
     [Fact]
     public void Calendar_AtRiskSplit_WithTransfer()
     {
-        // Default limit 5, nothing booked: 25 unbooked, 10 free -> 15 at risk. Booking 10 leaves 15 unused:
-        // 5 transferred (limit 5), 10 lost.
-        // 2b: the transfer is no longer registered up front, so unbooked is 25 (was 20) and 15 at risk (was 10).
+        // Default limit 5, nothing booked: 25 unbooked, 7 free (24, 25, 31 are holidays) -> 18 at risk. Booking 7 leaves
+        // 18 unused: 5 transferred (limit 5), 13 lost.
+        // 2b: the transfer is no longer registered up front, so unbooked is 25 (was 20).
         var s = Cal(Dat(null, true), 2026, "2026-12-18");
 
         Assert.Equal(25m, s.UnbookedDays);
-        Assert.Equal(15m, s.DaysAtRisk);
+        Assert.Equal(18m, s.DaysAtRisk);
         Assert.Equal(5m, s.AtRiskTransferredDays);
         Assert.Equal(0m, s.AtRiskPaidOutDays);
-        Assert.Equal(10m, s.AtRiskLostDays);
+        Assert.Equal(13m, s.AtRiskLostDays);
     }
 
     [Fact]

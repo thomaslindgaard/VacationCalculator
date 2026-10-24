@@ -1,4 +1,4 @@
-﻿using VacationCalculator.Core;
+using VacationCalculator.Core;
 
 namespace VacationCalculator.Core.Tests;
 
@@ -62,12 +62,13 @@ public class BookingsYearCapIndependentTests
     }
 
     [Fact]
-    public void BookRange_FullYear2026_Books261WeekdaysExactly()
+    public void BookRange_FullYear2026_Books252WorkingDaysExactly()
     {
-        // 2026-01-01 is a Thursday; 365 days = 52 weeks + 1 Thursday -> 52*5+1 = 261 weekdays.
+        // 2026-01-01 is a Thursday; 365 days = 52 weeks + 1 Thursday -> 52*5+1 = 261 weekdays, less the 9 Danish
+        // holidays on weekdays (01-01, 04-02, 04-03, 04-06, 05-14, 05-25, 12-24, 12-25, 12-31) -> 252.
         var result = Bookings.BookRange(new List<BookedDay>(), new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31),
             DayType.Vacation, "", NoHolidays);
-        Assert.Equal(261, result.Count);
+        Assert.Equal(252, result.Count);
     }
 
     [Fact]
@@ -97,9 +98,10 @@ public class BookingsYearCapIndependentTests
     [Fact]
     public void BookRange_Year9999_FullYear_Works()
     {
-        // 9999-01-01 is a Friday; 365 days -> 52*5 + 1 = 261 weekdays.
+        // 9999-01-01 is a Friday; 365 days -> 52*5 + 1 = 261 weekdays, less 8 Danish holidays on weekdays
+        // (Easter 9999 is Sun 03-28: 01-01, 03-25, 03-26, 03-29, 05-06, 05-17, 12-24, 12-31) -> 253.
         var r = Bookings.BookRange(new List<BookedDay>(), new DateOnly(9999, 1, 1), DateOnly.MaxValue,
             DayType.Vacation, "", NoHolidays);
-        Assert.Equal(261, r.Count);
+        Assert.Equal(253, r.Count);
     }
 }
