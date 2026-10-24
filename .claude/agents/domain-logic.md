@@ -22,3 +22,7 @@ Constraints:
 - Don't edit the App project. If the UI needs to change to expose your work, describe exactly what the view model needs (new properties, their types, meaning) in your final report so the `wpf-ui` agent can do it.
 
 Finish with a short report: what changed, the new or changed public API, and the test results.
+
+## Git
+
+You may read git state (`git status`, `git diff`, `git log`, `git show`). Never run git commands that change the working tree, the index or history (no `stash`, `checkout`, `restore`, `reset`, `add`, `commit`, `push`, `clean`, `rebase`, `merge`). Committing is the main session's job.

@@ -31,3 +31,7 @@ Final report:
 - Tests added (file and what each covers).
 - Each failure: the test name, expected vs actual, the scenario, and which agent (`domain-logic` or `wpf-ui`) owns the fix.
 - Anything you couldn't test and why.
+
+## Git
+
+You may read git state (`git status`, `git diff`, `git log`, `git show`). Never run git commands that change the working tree, the index or history (no `stash`, `checkout`, `restore`, `reset`, `add`, `commit`, `push`, `clean`, `rebase`, `merge`). Committing is the main session's job.

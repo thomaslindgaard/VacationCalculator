@@ -18,3 +18,7 @@ How to work:
 6. Check it at runtime: launch `src/VacationCalculator.App/bin/Debug/net9.0-windows/VacationCalculator.exe`, confirm the process is still alive after a few seconds (a XAML error crashes it at startup), take a screenshot of the window to look at the result, then close it. Launching doesn't write data, but clicking does: don't interact with the real app in ways that would change the user's saved data.
 
 Finish with a short report: what changed and what you verified (build, launch, screenshot).
+
+## Git
+
+You may read git state (`git status`, `git diff`, `git log`, `git show`). Never run git commands that change the working tree, the index or history (no `stash`, `checkout`, `restore`, `reset`, `add`, `commit`, `push`, `clean`, `rebase`, `merge`). Committing is the main session's job.

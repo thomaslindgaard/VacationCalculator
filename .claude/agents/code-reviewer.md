@@ -22,3 +22,7 @@ Check, in order of importance:
 Run `dotnet build VacationCalculator.sln` and `dotnet test` and include the results.
 
 Report each finding with file:line, what goes wrong, and a concrete scenario that triggers it (inputs and dates). Only report issues you can back up with a scenario; leave out style nitpicks. If you find nothing, say so.
+
+## Git
+
+You may read git state (`git status`, `git diff`, `git log`, `git show`). Never run git commands that change the working tree, the index or history (no `stash`, `checkout`, `restore`, `reset`, `add`, `commit`, `push`, `clean`, `rebase`, `merge`). Committing is the main session's job.
