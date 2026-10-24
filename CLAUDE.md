@@ -12,6 +12,16 @@ dotnet run --project src/VacationCalculator.App
 
 Run `dotnet build` and `dotnet test` before reporting any change as done.
 
+## Git
+
+Every completed update to the app is committed and pushed to GitHub (`origin`, https://github.com/thomaslindgaard/VacationCalculator) without asking first:
+
+- Commit once the change builds and tests pass, with a message describing what changed and why. Then `git push`.
+- One commit per logical change; don't bundle unrelated work.
+- Never commit or push a failing build or failing tests. Report the failure instead.
+- Subagents (`domain-logic`, `wpf-ui`, `code-reviewer`) don't commit. The main session commits after the work, and any review, is finished.
+- If the push fails (e.g. auth or a diverged remote), keep the local commit, report the error, and don't force-push.
+
 ## Layout
 
 - `src/VacationCalculator.Core` (net9.0): models, `BalanceCalculator` (all vacation-day arithmetic), `DataStore` (JSON persistence). No UI dependencies.
