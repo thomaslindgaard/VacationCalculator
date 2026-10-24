@@ -400,4 +400,141 @@ public class BookingsTests
         Assert.Equal(5m, period.Amount);
         Assert.Empty(Bookings.RemoveDays(days, period.Dates));
     }
+
+    // ---- Range limit: at most one year ----
+
+    [Fact]
+    public void MaxRangeYears_IsOne()
+    {
+        Assert.Equal(1, Bookings.MaxRangeYears);
+    }
+
+    [Theory]
+    [InlineData("2026-01-01", "2026-12-31")]
+    [InlineData("2026-03-15", "2027-03-14")]
+    [InlineData("2027-03-01", "2028-02-29")] // day before 2028-03-01, includes the leap day
+    [InlineData("2028-02-29", "2029-02-28")] // leap-day start: 28 Feb is the latest end
+    [InlineData("2028-03-01", "2029-02-28")]
+    [InlineData("0001-01-01", "0001-12-31")]
+    [InlineData("9998-12-31", "9999-12-30")]
+    [InlineData("9999-01-01", "9999-12-31")]
+    [InlineData("9999-12-31", "9999-12-31")]
+    public void LatestAllowedEnd_IsTheDayBeforeTheSameDateNextYear(string start, string latest)
+    {
+        Assert.Equal(D(latest), Bookings.LatestAllowedEnd(D(start)));
+    }
+
+    [Theory]
+    [InlineData("2026-01-01", "2026-12-31", true)]
+    [InlineData("2026-01-01", "2027-01-01", false)]
+    [InlineData("2026-03-15", "2027-03-14", true)]
+    [InlineData("2026-03-15", "2027-03-15", false)]
+    [InlineData("2027-03-14", "2026-03-15", true)]   // reversed
+    [InlineData("2027-03-15", "2026-03-15", false)]  // reversed
+    [InlineData("2028-02-29", "2029-02-28", true)]
+    [InlineData("2028-02-29", "2029-03-01", false)]
+    [InlineData("2026-07-06", "2026-07-06", true)]   // single day
+    [InlineData("0001-01-01", "0001-12-31", true)]
+    [InlineData("0001-01-01", "0002-01-01", false)]
+    [InlineData("9999-01-01", "9999-12-31", true)]
+    [InlineData("9998-12-31", "9999-12-31", false)]
+    [InlineData("0001-01-01", "9999-12-31", false)]
+    [InlineData("9999-12-31", "0001-01-01", false)]
+    public void IsRangeWithinLimit(string start, string end, bool expected)
+    {
+        Assert.Equal(expected, Bookings.IsRangeWithinLimit(D(start), D(end)));
+    }
+
+    [Fact]
+    public void BookRange_ExactlyOneCalendarYearIsBooked()
+    {
+        // Thu 2026-01-01 .. Thu 2026-12-31: 365 days = 52 weeks + one extra Thu -> 260 + 1 = 261 weekdays
+        var days = Bookings.BookRange([], D("2026-01-01"), D("2026-12-31"), DayType.Vacation, "", NoHolidays);
+
+        Assert.Equal(261, days.Count);
+        Assert.Equal(D("2026-01-01"), days[0].Date);
+        Assert.Equal(D("2026-12-31"), days[^1].Date);
+    }
+
+    [Fact]
+    public void BookRange_OneYearAcrossNewYearIsBooked()
+    {
+        // Sun 2026-03-15 .. Sun 2027-03-14: 365 days = 52 weeks + one extra Sun -> 260 weekdays
+        var days = Bookings.BookRange([], D("2026-03-15"), D("2027-03-14"), DayType.Vacation, "", NoHolidays);
+
+        Assert.Equal(260, days.Count);
+        Assert.Equal(D("2026-03-16"), days[0].Date);  // Mon
+        Assert.Equal(D("2027-03-12"), days[^1].Date); // Fri
+    }
+
+    [Fact]
+    public void BookRange_OneYearReversedIsBooked()
+    {
+        // Sun 2027-03-14 back to Sun 2026-03-15, same 260 weekdays
+        var days = Bookings.BookRange([], D("2027-03-14"), D("2026-03-15"), DayType.Vacation, "", NoHolidays);
+
+        Assert.Equal(260, days.Count);
+    }
+
+    [Fact]
+    public void BookRange_FromLeapDayToFeb28IsBooked()
+    {
+        // Tue 2028-02-29 .. Wed 2029-02-28: 366 days = 52 weeks + Tue, Wed -> 262 weekdays
+        var days = Bookings.BookRange([], D("2028-02-29"), D("2029-02-28"), DayType.Vacation, "", NoHolidays);
+
+        Assert.Equal(262, days.Count);
+        Assert.Equal(D("2028-02-29"), days[0].Date);
+        Assert.Equal(D("2029-02-28"), days[^1].Date);
+    }
+
+    [Theory]
+    [InlineData("2026-01-01", "2027-01-01")] // Thu .. Fri, one day too many
+    [InlineData("2027-01-01", "2026-01-01")] // reversed
+    [InlineData("2026-03-15", "2027-03-15")] // Sun .. Mon
+    [InlineData("2028-02-29", "2029-03-01")] // Tue .. Thu
+    [InlineData("0001-01-01", "0002-01-01")] // Mon .. Tue
+    [InlineData("9998-12-31", "9999-12-31")] // Fri .. Fri (DateOnly.MaxValue)
+    public void BookRange_OneDayMoreThanAYearIsRefused(string start, string end)
+    {
+        var ex = Assert.Throws<ArgumentException>(() =>
+            Bookings.BookRange([], D(start), D(end), DayType.Vacation, "", NoHolidays));
+
+        Assert.Contains("at most 1 year", ex.Message);
+    }
+
+    [Fact]
+    public void BookRange_WholeYear9999EndingOnMaxValueIsBooked()
+    {
+        // Fri 9999-01-01 .. Fri 9999-12-31 (DateOnly.MaxValue): 52 weeks + one extra Fri -> 261 weekdays
+        var days = Bookings.BookRange([], D("9999-01-01"), DateOnly.MaxValue, DayType.Vacation, "", NoHolidays);
+
+        Assert.Equal(261, days.Count);
+        Assert.Equal(DateOnly.MaxValue, days[^1].Date);
+    }
+
+    [Fact]
+    public void BookRange_WholeYear1StartingOnMinValueIsBooked()
+    {
+        // Mon 0001-01-01 (DateOnly.MinValue) .. Mon 0001-12-31: 52 weeks + one extra Mon -> 261 weekdays
+        var days = Bookings.BookRange([], DateOnly.MinValue, D("0001-12-31"), DayType.Vacation, "", NoHolidays);
+
+        Assert.Equal(261, days.Count);
+        Assert.Equal(DateOnly.MinValue, days[0].Date);
+    }
+
+    [Fact]
+    public void BookRange_WholeDateRangeIsRefusedQuicklyAndInputIsUntouched()
+    {
+        var existing = new List<BookedDay> { Day("2026-07-07") }; // Tue
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+
+        Assert.Throws<ArgumentException>(() =>
+            Bookings.BookRange(existing, DateOnly.MinValue, DateOnly.MaxValue, DayType.Vacation, "", NoHolidays));
+        Assert.Throws<ArgumentException>(() =>
+            Bookings.BookRange(existing, DateOnly.MaxValue, DateOnly.MinValue, DayType.Vacation, "", NoHolidays));
+
+        watch.Stop();
+        Assert.True(watch.ElapsedMilliseconds < 1000, $"Took {watch.ElapsedMilliseconds} ms");
+        Assert.Equal([Day("2026-07-07")], existing);
+    }
 }

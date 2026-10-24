@@ -482,10 +482,19 @@ public sealed class MainViewModel : ObservableObject
         set => SetField(ref _newDescription, value);
     }
 
-    public string NewEntryPreview =>
-        NewStart is { } start && NewEnd is { } end && end >= start
-            ? $"{PreviewDays(DateOnly.FromDateTime(start), DateOnly.FromDateTime(end))} working day(s)"
-            : "";
+    public string NewEntryPreview
+    {
+        get
+        {
+            if (NewStart is not { } startDate || NewEnd is not { } endDate || endDate < startDate)
+                return "";
+
+            var start = DateOnly.FromDateTime(startDate);
+            var end = DateOnly.FromDateTime(endDate);
+            // Check the limit first so a huge range is never counted.
+            return Bookings.IsRangeWithinLimit(start, end) ? $"{PreviewDays(start, end)} working day(s)" : "More than one year";
+        }
+    }
 
     private string PreviewDays(DateOnly start, DateOnly end)
     {
@@ -518,6 +527,12 @@ public sealed class MainViewModel : ObservableObject
         if (end < start)
         {
             ErrorMessage = "The end date must be on or after the start date.";
+            return;
+        }
+        if (!Bookings.IsRangeWithinLimit(start, end))
+        {
+            ErrorMessage = $"A booking can cover at most one year. The latest end date for a booking starting " +
+                $"{startDate:d} is {Bookings.LatestAllowedEnd(start).ToDateTime(TimeOnly.MinValue):d}.";
             return;
         }
         if (CountWorkingDays(start, end) == 0)

@@ -378,13 +378,27 @@
                         </StackPanel>
                         <CheckBox Content="Half day" IsChecked="{Binding IsHalfDay}" IsEnabled="{Binding CanBookHalfDay}"
                                   VerticalAlignment="Bottom" Margin="0,0,14,6" />
-                        <StackPanel VerticalAlignment="Bottom" Orientation="Horizontal">
-                            <Button Content="Add vacation" Command="{Binding AddEntryCommand}" IsDefault="True"
-                                    Style="{StaticResource PrimaryButton}" />
-                            <TextBlock Text="{Binding NewEntryPreview}" Foreground="{DynamicResource MutedBrush}"
-                                       VerticalAlignment="Center" Margin="12,0,0,0" />
-                        </StackPanel>
+                        <Button Content="Add vacation" Command="{Binding AddEntryCommand}" IsDefault="True"
+                                VerticalAlignment="Bottom" Style="{StaticResource PrimaryButton}" />
                     </WrapPanel>
+
+                    <!-- Preview and validation message for the form, under it so the form layout stays stable -->
+                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                        <TextBlock Text="{Binding NewEntryPreview}" Foreground="{DynamicResource MutedBrush}"
+                                   TextWrapping="Wrap" MinHeight="18" />
+                        <TextBlock Text="{Binding ErrorMessage}" Foreground="{DynamicResource ErrorBrush}"
+                                   TextWrapping="Wrap" Margin="0,2,0,0">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Style.Triggers>
+                                        <Trigger Property="Text" Value="">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </StackPanel>
 
                     <DataGrid ItemsSource="{Binding Entries}" AutoGenerateColumns="False" IsReadOnly="True"
                               RowHeight="38" CanUserResizeRows="False" SelectionMode="Single">
@@ -416,13 +430,10 @@
                 </DockPanel>
             </Border>
 
-            <!-- Footer: validation messages and data location -->
-            <DockPanel Grid.Row="4" Margin="0,8,0,0">
-                <TextBlock DockPanel.Dock="Right" Foreground="{DynamicResource MutedBrush}" FontSize="11"
-                           Text="{Binding DataPath, StringFormat=Saved to {0}}" VerticalAlignment="Center"
-                           TextTrimming="CharacterEllipsis" MaxWidth="420" />
-                <TextBlock Text="{Binding ErrorMessage}" Foreground="{DynamicResource ErrorBrush}" VerticalAlignment="Center" />
-            </DockPanel>
+            <!-- Footer: data location (validation messages are shown under the vacation form) -->
+            <TextBlock Grid.Row="4" Margin="0,8,0,0" Foreground="{DynamicResource MutedBrush}" FontSize="11"
+                       Text="{Binding DataPath, StringFormat=Saved to {0}}" TextTrimming="CharacterEllipsis"
+                       ToolTip="{Binding DataPath}" />
         </Grid>
     </Grid>
 </Window>

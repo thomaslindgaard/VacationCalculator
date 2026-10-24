@@ -22,16 +22,54 @@ public sealed record BookedPeriod(
 /// </remarks>
 public static class Bookings
 {
+    /// <summary>The longest range <see cref="BookRange"/> accepts, in years (inclusive of both ends).</summary>
+    public const int MaxRangeYears = 1;
+
+    /// <summary>
+    /// The last date a range starting on <paramref name="start"/> may end on: the day before the same
+    /// date one year later, e.g. 2026-01-01 → 2026-12-31 and 2026-03-15 → 2027-03-14.
+    /// A start on 29 February ends on 28 February the next year (e.g. 2028-02-29 → 2029-02-28),
+    /// as if the same date next year were 1 March. Clamped to <see cref="DateOnly.MaxValue"/> in year 9999.
+    /// </summary>
+    public static DateOnly LatestAllowedEnd(DateOnly start)
+    {
+        if (start.Year + MaxRangeYears > DateOnly.MaxValue.Year)
+            return DateOnly.MaxValue;
+        if (start.Month == 2 && start.Day == 29)
+            return new DateOnly(start.Year + MaxRangeYears, 2, 28);
+        return start.AddYears(MaxRangeYears).AddDays(-1);
+    }
+
+    /// <summary>
+    /// Whether the inclusive range (in either order) covers at most <see cref="MaxRangeYears"/> year,
+    /// i.e. the later date is on or before <see cref="LatestAllowedEnd"/> of the earlier one.
+    /// </summary>
+    public static bool IsRangeWithinLimit(DateOnly start, DateOnly end)
+    {
+        if (start > end)
+            (start, end) = (end, start);
+        return end <= LatestAllowedEnd(start);
+    }
+
     /// <summary>
     /// Books every working day in the inclusive range as a full day of <paramref name="type"/>.
     /// Weekends and holidays are skipped. Dates already booked are replaced. The range may be
     /// given in either order.
     /// </summary>
+    /// <exception cref="ArgumentException">
+    /// The range is longer than <see cref="MaxRangeYears"/> year (see <see cref="IsRangeWithinLimit"/>).
+    /// </exception>
     public static List<BookedDay> BookRange(
         IEnumerable<BookedDay> days, DateOnly start, DateOnly end, DayType type, string description, ISet<DateOnly> holidays)
     {
         if (start > end)
             (start, end) = (end, start);
+
+        if (!IsRangeWithinLimit(start, end))
+            throw new ArgumentException(
+                $"A booked range can cover at most {MaxRangeYears} year: {start:yyyy-MM-dd} .. {end:yyyy-MM-dd} is longer. " +
+                $"The latest allowed end for this start is {LatestAllowedEnd(start):yyyy-MM-dd}.",
+                nameof(end));
 
         var byDate = ToDictionary(days);
         // Day numbers, so that an end of 9999-12-31 doesn't step past DateOnly.MaxValue.

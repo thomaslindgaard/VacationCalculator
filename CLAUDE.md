@@ -79,7 +79,7 @@ Vacation follows the Danish Holiday Act (ferieloven, samtidighedsferie); full sp
 - **Per-holiday-year settings** (`VacationData.GetDeadlineSettings`): transfer limit (default 5, may be higher by personal agreement) and payout setting (default None); a year without its own value inherits the nearest earlier year's, otherwise the default.
 - The calendar-year status (`BalanceCalculator.CalculateCalendarYear`) is about the holiday year whose deadline is 31 December of that calendar year.
 - Only working days count: weekdays that are not in that year's `PublicHolidays`. Public holidays are entered by the user; no country's calendar is built in.
-- Bookings are stored per day (`BookedDay`: date, `DayType` Vacation/Feriefri, `Amount` 1 or 0.5, description), at most one record per date. Ranges are only an input/display concept: `Bookings.BookRange` creates one record per working day, and `Bookings.GroupPeriods` groups days back into periods for display.
+- Bookings are stored per day (`BookedDay`: date, `DayType` Vacation/Feriefri, `Amount` 1 or 0.5, description), at most one record per date. Ranges are only an input/display concept: `Bookings.BookRange` creates one record per working day, and `Bookings.GroupPeriods` groups days back into periods for display. One booked range may cover at most one year (`Bookings.MaxRangeYears`).
 - Balances count only `Vacation` days on working days, as decimals. Free working days left are counted from today (inclusive) through 31 December; a booked day of either type is not free, a half-booked day is half free.
 - "Used" = vacation dates on or before today; "booked ahead" = after today.
 
