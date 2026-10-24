@@ -18,9 +18,12 @@ The main session does not write or change app code itself. It delegates every ta
 
 - `domain-logic`: anything in `src/VacationCalculator.Core` or `tests/`, meaning rules, calculations, models and persistence.
 - `wpf-ui`: anything in `src/VacationCalculator.App`, meaning XAML, styles, view models and bindings.
+- `tester`: tests every change made by `domain-logic` and `wpf-ui`, adding its own edge-case tests. It never edits `src/`.
 - `code-reviewer`: reviews every change before it is committed.
 
 The main session's job is to plan the work, split features that touch both Core and UI into a `domain-logic` task first and then a `wpf-ui` task (passing along what Core exposes), give each agent a clear brief, check the reported results, run `dotnet build` / `dotnet test`, and commit and push (see Git).
+
+Order for every change: implementation (`domain-logic` and/or `wpf-ui`), then `tester` (given the original request, not just the implementer's summary), then `code-reviewer`, then commit. If `tester` reports FAIL or `code-reviewer` finds a problem, send it back to the owning implementation agent and repeat from `tester`.
 
 If an agent's report is wrong or incomplete, send it back to that agent with what needs fixing instead of fixing it in the main session. The only work the main session does directly is outside every agent's scope: git, `CLAUDE.md`, the agent definitions, and the solution or `.gitignore` files.
 
@@ -31,7 +34,7 @@ Every completed update to the app is committed and pushed to GitHub (`origin`, h
 - Commit once the change builds and tests pass, with a message describing what changed and why. Then `git push`.
 - One commit per logical change; don't bundle unrelated work.
 - Never commit or push a failing build or failing tests. Report the failure instead.
-- Subagents (`domain-logic`, `wpf-ui`, `code-reviewer`) don't commit. The main session commits after the work, and any review, is finished.
+- Subagents (`domain-logic`, `wpf-ui`, `tester`, `code-reviewer`) don't commit. The main session commits after the work, and any review, is finished.
 - If the push fails (e.g. auth or a diverged remote), keep the local commit, report the error, and don't force-push.
 
 ## Layout
