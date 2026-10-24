@@ -39,7 +39,7 @@ If the Agent tool says one of these agents doesn't exist, the session started be
 6. **Verify and ship.** Run `dotnet build VacationCalculator.sln` and `dotnet test` yourself, then commit and push (see Git). Tell the user what changed and what was verified.
 7. **Update the progress page** whenever a backlog feature's status or progress changes: when it starts, when an implementation step (e.g. the Core part) is done, and after the commit that finishes it. Never only edit `docs/progress.json` without publishing it to the page. The page is the Dashboard artifact https://claude.ai/artifact/Ap7ocvkS2ZMjKbNXwKN1nA; its data is `docs/progress.json`.
    - Edit `docs/progress.json`: the feature's `status` (Planned / In progress / Done), `progress` (0–1), `runsDone` (agent runs completed for the feature, counting every implementation, test, review and fix run), `runsLow`/`runsHigh` (estimated agent runs left; 0 when done) and `commit` (short hash of the feature commit). Add a row for any new backlog feature, with a size (S = 1, M = 2, L = 3 points).
-   - Upload it to the artifact as an asset, update the `datasets/features` document's `source.url` and `updated` (read the Dashboard type's instructions before writing), and delete the previous asset.
+   - Upload it to the artifact as an asset, update the `datasets/features` document's `source.url` and `updated` (read the Dashboard type's instructions before writing), and delete the previous asset. `updated.at` must be the real current UTC time (e.g. from `[DateTime]::UtcNow`), never an invented one.
    - Commit and push `docs/progress.json` on its own ("Update progress page").
 
 ### Writing a brief
