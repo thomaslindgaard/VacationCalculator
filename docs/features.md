@@ -208,7 +208,7 @@ Holidays, matching the previous web version:
 
 ## 5. Full-year calendar
 
-**Status:** Planned (some details proposed below)
+**Status:** In progress
 
 Show the whole selected year as a calendar, and register days by clicking them.
 
@@ -220,7 +220,9 @@ Show the whole selected year as a calendar, and register days by clicking them.
 - Uses the existing year navigation (◀ year ▶). The summary and status banner update immediately after each click.
 - Hovering a day shows a tooltip with the date, type and amount.
 
-Proposed: the calendar becomes the main view, and the existing vacation list and public holiday list stay beside or below it.
+Layout (user decision): the summary cards, holiday-years card and banner stay at the top of the main area; below them a tab switch **Calendar | List**. Calendar (the default tab) shows the 12 months (4 × 3), scrolling if needed; List holds the existing booking form and vacation list. The public-holiday list stays in the sidebar.
+
+Also shown in the calendar: bookings that fall on a public holiday (conflicts, see feature 4) are marked so they stand out. Clicking to book is feature 6; in this feature the calendar is display-only.
 
 **Agents:** `wpf-ui` (any calculation the calendar needs goes to `domain-logic` first).
 
