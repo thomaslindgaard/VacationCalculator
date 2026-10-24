@@ -100,9 +100,9 @@ Changes feature 2: 5th-week transfers are no longer registered per holiday year.
 
 Settings (in the sidebar):
 
-- **"Unused days can be transferred to the next holiday year"** (on/off, default off). Employment-wide.
+- ~~"Unused days can be transferred to the next holiday year" (on/off)~~ — removed (user decision): a transfer limit of 0 means no transfer, so the switch isn't needed.
 - Per holiday year (configurable year to year, for the holiday year shown):
-  - **"Days that can be transferred"** (number, default **5**, as in the Holiday Act). It can be set higher when the employee has a personal agreement in their contract. Shown only when transfer is on.
+  - **"Days that can be transferred"** (number, default **5**, as in the Holiday Act; **0 = no transfer**). It can be set higher when the employee has a personal agreement in their contract. Always shown. With the default 5, unused 5th-week days are transferred unless the year is set to 0.
   - **"Unused days paid out instead of lost"**: **None** (default), **Some** (a number of days) or **All**. This only applies to unused days beyond the 5th week (see below); it reflects the employee's contract.
   - A holiday year without its own values uses the previous holiday year's values; if there are none, the defaults (5 days, none paid out).
 
@@ -117,7 +117,7 @@ Days transferred into a holiday year are used first within that year (they are t
 Calculation at each holiday year's deadline (31 December of the following year), from the days still unused after all bookings (used and booked ahead):
 
 1. **Transferred-in days still unused:** lost.
-2. **Transferred:** if transfer is on, the year's own unused days up to the transfer limit: 5th-week days first (the year's own earnings beyond 20, at most 5), then other own unused days only through the part of the limit above 5 (a personal agreement). With the default limit 5 only 5th-week days move, as in the Holiday Act; limit 8 can also move up to 3 days from the first 20. They are added to the next holiday year's total.
+2. **Transferred:** the year's own unused days up to the transfer limit: 5th-week days first (the year's own earnings beyond 20, at most 5), then other own unused days only through the part of the limit above 5 (a personal agreement). With the default limit 5 only 5th-week days move, as in the Holiday Act; limit 8 can also move up to 3 days from the first 20. They are added to the next holiday year's total.
 3. **5th-week days not transferred:** always paid out, as the Holiday Act says.
 4. **Other unused days** (beyond the 5th week): paid out up to the payout setting (none, some N, or all); the rest are lost.
 
@@ -126,6 +126,16 @@ The banner and the holiday-years card show the projected split for the holiday y
 Removed: the per-holiday-year "Days transferred to next holiday year" input and the stored `TransferredToNext` values (old values in the data file are ignored). Unused 5th-week days that aren't transferred are always paid out (Holiday Act); the payout setting only covers unused days beyond the 5th week, whose treatment depends on the employee's contract.
 
 **Agents:** `domain-logic` (settings model, transfer/payout/lost calculation), then `wpf-ui` (sidebar settings, banner and card text).
+
+---
+
+## 2c. Remove the transfer switch
+
+**Status:** Planned (after feature 3)
+
+Remove the employment-wide "Unused days can be transferred" switch (`VacationData.TransferAllowed`). The per-holiday-year "Days that can be transferred" (default 5, inherited) alone decides: 0 = no transfer. Old data files with the switch still load (the value is ignored). See section 2b.
+
+**Agents:** `domain-logic`, then `wpf-ui`.
 
 ---
 
