@@ -232,7 +232,7 @@ Also shown in the calendar: bookings that fall on a public holiday (conflicts, s
 
 ## 6. Click to cycle day state, and range booking
 
-**Status:** In progress
+**Status:** Done
 
 Clicking the same day repeatedly switches between full and half days. Behaviour matches the previous web version:
 
@@ -246,6 +246,13 @@ Booking a range in the calendar:
 - **Shift+click** books every day from the last clicked day to the clicked day, with the type of the button used.
 - Weekends and public holidays in the range are skipped. Days already booked in the range are set to the new type as full days.
 - Feriefri ranges stop at the allowance: days that don't fit are not booked, and a message says how many were left out.
+- Days in a range that are already booked exactly as the range would book them are left as they are (description kept) and not counted; a range that changes nothing saves nothing.
+
+Details agreed during implementation:
+
+- A press and release on the same day is a click; only a real drag books a range. Escape or releasing outside a day cancels a drag. Shift+click without an earlier click acts as a plain click; the last clicked day is forgotten when the year changes.
+- Going from full to half keeps the day's description; new calendar bookings have none. Clicking a weekend or holiday does nothing, even if an old booking sits on it.
+- Messages use the booking form's wording. In the Calendar tab they sit below the calendar, and the banner keeps its height, so days don't move under the pointer between clicks.
 
 **Agents:** `domain-logic` (cycle and range logic as tested functions), then `wpf-ui` (mouse handling).
 

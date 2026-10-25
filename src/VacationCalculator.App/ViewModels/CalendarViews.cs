@@ -14,6 +14,14 @@ public enum DayFill
     Feriefri,
 }
 
+/// <summary>The temporary highlight of a day cell while a range is dragged.</summary>
+public enum DragKind
+{
+    None,
+    Vacation,
+    Feriefri,
+}
+
 /// <summary>The ISO week number at the start of a calendar row.</summary>
 public sealed class WeekNumberCell : ObservableObject
 {
@@ -45,6 +53,8 @@ public sealed class DayCell : ObservableObject
     private bool _isConflict;
     private bool _isBlank;
     private string _tooltip = "";
+    private bool _isBookable;
+    private DragKind _drag;
 
     public DayCell(CalendarDay day) => Update(day);
 
@@ -61,10 +71,17 @@ public sealed class DayCell : ObservableObject
 
     public string Tooltip { get => _tooltip; private set => SetField(ref _tooltip, value); }
 
+    /// <summary>A working day of the month: clicking it books or cycles it (hand cursor).</summary>
+    public bool IsBookable { get => _isBookable; private set => SetField(ref _isBookable, value); }
+
+    /// <summary>Highlight while a range is being dragged over this cell; the kind follows the mouse button.</summary>
+    public DragKind Drag { get => _drag; set => SetField(ref _drag, value); }
+
     public void Update(CalendarDay day)
     {
         Date = day.Date;
         IsBlank = !day.IsInMonth;
+        IsBookable = day.IsInMonth && day.IsWorkingDay;
         Text = day.Date.Day.ToString(CultureInfo.InvariantCulture);
         if (IsBlank)
         {

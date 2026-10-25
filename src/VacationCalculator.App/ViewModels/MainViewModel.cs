@@ -141,6 +141,8 @@ public sealed class MainViewModel : ObservableObject
     private bool _isListTab;
     private bool _summaryExpanded = true;
 
+    private DateOnly? _lastClicked;
+
     private DateTime? _newStart;
     private DateTime? _newEnd;
     private string _newDescription = "";
@@ -173,6 +175,8 @@ public sealed class MainViewModel : ObservableObject
         AddHolidayCommand = new RelayCommand(_ => AddHoliday());
         RemoveHolidayCommand = new RelayCommand(p => RemoveHoliday((DateOnly)p!));
         RemoveConflictDaysCommand = new RelayCommand(_ => RemoveConflictDays());
+        CalendarGestureCommand = new RelayCommand(p => HandleCalendarGesture((CalendarGesture)p!));
+        CalendarPreviewCommand = new RelayCommand(p => ShowDragPreview(p as CalendarGesture));
         ResetTransferLimitCommand = new RelayCommand(_ => Apply(() => _data.ClearTransferLimit(DeadlineYear)));
         ResetPayoutCommand = new RelayCommand(_ => Apply(() => _data.ClearPayout(DeadlineYear)));
 
@@ -243,6 +247,10 @@ public sealed class MainViewModel : ObservableObject
     public RelayCommand AddHolidayCommand { get; }
     public RelayCommand RemoveHolidayCommand { get; }
     public RelayCommand RemoveConflictDaysCommand { get; }
+    /// <summary>A finished mouse gesture on the calendar (parameter: <see cref="ViewModels.CalendarGesture"/>).</summary>
+    public RelayCommand CalendarGestureCommand { get; }
+    /// <summary>Shows (or, with a null parameter, clears) the highlight of the range being dragged.</summary>
+    public RelayCommand CalendarPreviewCommand { get; }
     public RelayCommand ResetTransferLimitCommand { get; }
     public RelayCommand ResetPayoutCommand { get; }
 
@@ -296,12 +304,14 @@ public sealed class MainViewModel : ObservableObject
                 return;
 
             _settings = GetOrCreateSettings(value);
+            _lastClicked = null;
             ErrorMessage = "";
             InfoMessage = "";
             OnPropertyChanged();
             PreviousYearCommand.RaiseCanExecuteChanged();
             NextYearCommand.RaiseCanExecuteChanged();
             Refresh();
+            ShowDragPreview(null);
         }
     }
 
@@ -782,8 +792,7 @@ public sealed class MainViewModel : ObservableObject
         }
         if (!Bookings.IsRangeWithinLimit(start, end))
         {
-            ErrorMessage = $"A booking can cover at most one year. The latest end date for a booking starting " +
-                $"{DateText.Long(start)} is {DateText.Long(Bookings.LatestAllowedEnd(start))}.";
+            ErrorMessage = TooLongMessage(start, Bookings.LatestAllowedEnd(start));
             return;
         }
         if (CountWorkingDays(start, end) == 0)
@@ -828,7 +837,8 @@ public sealed class MainViewModel : ObservableObject
             return;
         }
 
-        if (!Apply(() => _data.Days = result.Days))
+        var alreadyBooked = result.RequestedDays == 0 && result.UnchangedDates.Count > 0;
+        if (!alreadyBooked && !Apply(() => _data.Days = result.Days))
             return;
 
         IsHalfDay = false;
@@ -836,11 +846,22 @@ public sealed class MainViewModel : ObservableObject
         NewEnd = null;
         NewDescription = "";
 
-        var messages = new List<string>();
-        if (!result.IsComplete)
+        if (alreadyBooked)
         {
-            var head = $"{FeriefriDays(result.BookedDays)} booked; {Days(result.LeftOutDays)} left out";
-            if (result.Limit is { PaidOutAtFirstYearEnd: > 0 } reserved)
+            InfoMessage = "Those days were already booked as Feriefri.";
+            return;
+        }
+        InfoMessage = FeriefriPartialMessage(result.BookedDays, result.LeftOutDays, result.Limit, result.HalfDayDates);
+    }
+
+    /// <summary>Note for a Feriefri booking that didn't fit completely (shared by the form and the calendar); empty when it did.</summary>
+    private static string FeriefriPartialMessage(decimal bookedDays, decimal leftOutDays, FeriefriLimit? limit, IEnumerable<DateOnly> halfDayDates)
+    {
+        var messages = new List<string>();
+        if (leftOutDays > 0)
+        {
+            var head = $"{FeriefriDays(bookedDays)} booked; {Days(leftOutDays)} left out";
+            if (limit is { PaidOutAtFirstYearEnd: > 0 } reserved)
             {
                 var paid = reserved.PaidOutAtFirstYearEnd;
                 var usable = reserved.AllowanceDays - paid;
@@ -851,13 +872,85 @@ public sealed class MainViewModel : ObservableObject
             }
             else
             {
-                var year = result.Limit is { } limit ? $" for {limit.HolidayYear}" : "";
+                var year = limit is not null ? $" for {limit.HolidayYear}" : "";
                 messages.Add($"{head} because the Feriefri days{year} are used up.");
             }
         }
-        foreach (var date in result.HalfDayDates)
+        foreach (var date in halfDayDates)
             messages.Add($"{DateText.Long(date)} booked as a half day.");
-        InfoMessage = string.Join(" ", messages);
+        return string.Join(" ", messages);
+    }
+
+    private static string TooLongMessage(DateOnly start, DateOnly latestEnd) =>
+        $"A booking can cover at most one year. The latest end date for a booking starting " +
+        $"{DateText.Long(start)} is {DateText.Long(latestEnd)}.";
+
+    /// <summary>A finished calendar gesture: a click cycles the day, a drag or Shift+click books a range.</summary>
+    private void HandleCalendarGesture(CalendarGesture gesture)
+    {
+        ErrorMessage = "";
+        InfoMessage = "";
+        ShowDragPreview(null);
+
+        var previous = _lastClicked;
+        _lastClicked = gesture.Date;
+        if (gesture.Anchor != gesture.Date)
+            BookCalendarRange(gesture.Anchor, gesture.Date, gesture.Type);
+        else if (gesture.Shift && previous is { } from)
+            BookCalendarRange(from, gesture.Date, gesture.Type);
+        else
+            CycleCalendarDay(gesture.Date, gesture.Type);
+    }
+
+    private void CycleCalendarDay(DateOnly date, DayType type)
+    {
+        var result = Bookings.CycleDay(_data, date, type);
+        if (result.Outcome == DayCycleOutcome.Refused)
+        {
+            ErrorMessage = RefusedMessage(result.Limit);
+            return;
+        }
+        if (!result.Changed || !Apply(() => _data.Days = result.Days))
+            return;
+
+        if (result.Outcome is DayCycleOutcome.ConvertedToHalf or DayCycleOutcome.ReplacedAsHalf && result.Limit is { } limit)
+            InfoMessage = $"Only half a Feriefri day was left for {limit.HolidayYear}, so {DateText.WithWeekday(date)} was booked as a half day.";
+    }
+
+    private void BookCalendarRange(DateOnly from, DateOnly to, DayType type)
+    {
+        var result = Bookings.BookTypedRange(_data, from, to, type);
+        switch (result.Outcome)
+        {
+            case RangeBookingOutcome.TooLong:
+                ErrorMessage = TooLongMessage(result.Start, result.LatestAllowedEnd ?? Bookings.LatestAllowedEnd(result.Start));
+                return;
+            case RangeBookingOutcome.Refused:
+                ErrorMessage = RefusedMessage(result.Limit);
+                return;
+            case RangeBookingOutcome.NoWorkingDays:
+                return;
+        }
+
+        // Every day already was what the range would book: nothing to save, no message.
+        if (!result.Changed)
+            return;
+
+        if (Apply(() => _data.Days = result.Days) && result.Outcome == RangeBookingOutcome.Partial)
+            InfoMessage = FeriefriPartialMessage(result.BookedDays, result.LeftOutDays, result.Limit, result.HalfDayDates);
+    }
+
+    /// <summary>Highlights the cells between the anchor and the pointer of a drag in progress; null clears it.</summary>
+    private void ShowDragPreview(CalendarGesture? gesture)
+    {
+        var kind = gesture is null ? DragKind.None : gesture.Type == DayType.Feriefri ? DragKind.Feriefri : DragKind.Vacation;
+        var (first, last) = gesture is null ? (DateOnly.MaxValue, DateOnly.MinValue)
+            : gesture.Anchor <= gesture.Date ? (gesture.Anchor, gesture.Date) : (gesture.Date, gesture.Anchor);
+        foreach (var month in _calendarMonths)
+        {
+            foreach (var cell in month.Cells.OfType<DayCell>())
+                cell.Drag = cell.IsBookable && cell.Date >= first && cell.Date <= last ? kind : DragKind.None;
+        }
     }
 
     private static string RefusedMessage(FeriefriLimit? limit)

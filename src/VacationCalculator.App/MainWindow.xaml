@@ -56,6 +56,7 @@
                 <Polygon x:Name="Half" Points="1,0 1,1 0,1" Stretch="Fill" Visibility="Collapsed" />
                 <Border x:Name="TodayRing" CornerRadius="3" />
                 <Border x:Name="Ring" CornerRadius="3" />
+                <Border x:Name="DragMark" CornerRadius="3" BorderThickness="2" Visibility="Collapsed" />
                 <TextBlock x:Name="Num" Text="{Binding Text}" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center"
                            Foreground="{DynamicResource TextBrush}" />
             </Grid>
@@ -136,6 +137,22 @@
                     <Setter TargetName="Ring" Property="Margin" Value="2" />
                     <Setter TargetName="Ring" Property="CornerRadius" Value="2" />
                 </MultiDataTrigger>
+                <DataTrigger Binding="{Binding IsBookable}" Value="True">
+                    <Setter TargetName="Root" Property="Cursor" Value="Hand" />
+                </DataTrigger>
+                <!-- Range being dragged: soft fill and a solid border in the colour of the type being booked -->
+                <DataTrigger Binding="{Binding Drag}" Value="Vacation">
+                    <Setter TargetName="DragMark" Property="Visibility" Value="Visible" />
+                    <Setter TargetName="DragMark" Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+                    <Setter TargetName="DragMark" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                    <Setter TargetName="Num" Property="Foreground" Value="{DynamicResource TextBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Drag}" Value="Feriefri">
+                    <Setter TargetName="DragMark" Property="Visibility" Value="Visible" />
+                    <Setter TargetName="DragMark" Property="Background" Value="{DynamicResource FeriefriSoftBrush}" />
+                    <Setter TargetName="DragMark" Property="BorderBrush" Value="{DynamicResource FeriefriBrush}" />
+                    <Setter TargetName="Num" Property="Foreground" Value="{DynamicResource TextBrush}" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsBlank}" Value="True">
                     <Setter TargetName="Root" Property="Visibility" Value="Hidden" />
                 </DataTrigger>
@@ -621,9 +638,17 @@
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
                                 <Style.Triggers>
+                                    <!-- Empty: keeps its space on the Calendar tab (days must not move under the pointer), collapses on the List tab -->
                                     <DataTrigger Binding="{Binding HasStatusDetail}" Value="False">
-                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Setter Property="Visibility" Value="Hidden" />
                                     </DataTrigger>
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding HasStatusDetail}" Value="False" />
+                                            <Condition Binding="{Binding IsListTab}" Value="True" />
+                                        </MultiDataTrigger.Conditions>
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </MultiDataTrigger>
                                 </Style.Triggers>
                             </Style>
                         </TextBlock.Style>
@@ -633,8 +658,15 @@
                             <Style TargetType="TextBlock">
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding HasFeriefriBanner}" Value="False">
-                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Setter Property="Visibility" Value="Hidden" />
                                     </DataTrigger>
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding HasFeriefriBanner}" Value="False" />
+                                            <Condition Binding="{Binding IsListTab}" Value="True" />
+                                        </MultiDataTrigger.Conditions>
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </MultiDataTrigger>
                                 </Style.Triggers>
                             </Style>
                         </TextBlock.Style>
@@ -676,7 +708,7 @@
                 </DockPanel>
             </DockPanel>
 
-            <!-- Calendar tab: the year as 12 month cards (display only) -->
+            <!-- Calendar tab: the year as 12 month cards; clicks and drags on the days book (CalendarBooking behaviour) -->
             <DockPanel Grid.Row="1">
                 <DockPanel.Style>
                     <Style TargetType="DockPanel">
@@ -688,12 +720,10 @@
                     </Style>
                 </DockPanel.Style>
 
-                <StackPanel DockPanel.Dock="Top">
-                    <TextBlock Text="{Binding ErrorMessage}" Style="{StaticResource ErrorText}" />
-                    <TextBlock Text="{Binding InfoMessage}" Style="{StaticResource InfoText}" />
-                </StackPanel>
-
-                <WrapPanel DockPanel.Dock="Bottom" Margin="2,6,0,0">
+                <StackPanel DockPanel.Dock="Bottom" Margin="2,6,0,0">
+                <TextBlock Style="{StaticResource LegendLabel}" TextWrapping="Wrap" Margin="0,0,0,4"
+                           Text="Left-click: vacation · Right-click: Feriefri · Click again for half day, then remove · Drag or Shift+click for a range" />
+                <WrapPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,14,0">
                         <Border Style="{StaticResource LegendSwatch}" Background="{DynamicResource AccentBrush}" />
                         <TextBlock Text="Vacation" Style="{StaticResource LegendLabel}" />
@@ -727,9 +757,20 @@
                         <TextBlock Text="Booked on a day off (not counted)" Style="{StaticResource LegendLabel}" />
                     </StackPanel>
                 </WrapPanel>
+                </StackPanel>
+
+                <!-- Messages of calendar clicks sit below the cards, so showing or hiding one never moves the days under the pointer -->
+                <!-- MinHeight reserves two lines so a message appearing or wrapping never resizes the scroll area (which would shift the days) -->
+                <StackPanel DockPanel.Dock="Bottom" Margin="0,6,0,0" MinHeight="36">
+                    <TextBlock Text="{Binding ErrorMessage}" Style="{StaticResource ErrorText}" Margin="0,0,0,2" />
+                    <TextBlock Text="{Binding InfoMessage}" Style="{StaticResource InfoText}" Margin="0,0,0,2" />
+                </StackPanel>
 
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False"
-                              beh:ScrollChaining.IsEnabled="True">
+                              beh:ScrollChaining.IsEnabled="True"
+                              beh:CalendarBooking.IsEnabled="True"
+                              beh:CalendarBooking.GestureCommand="{Binding CalendarGestureCommand}"
+                              beh:CalendarBooking.PreviewCommand="{Binding CalendarPreviewCommand}">
                     <ItemsControl ItemsSource="{Binding CalendarMonths}" Focusable="False" IsTabStop="False" Margin="0,0,6,0">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
