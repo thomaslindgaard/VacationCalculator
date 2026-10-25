@@ -267,7 +267,8 @@ public class MainViewModelHalfDayTests : IDisposable
         vm.NewStart = Mon;
         vm.IsHalfDay = true;
 
-        Assert.Equal("0.5 working day(s)", vm.NewEntryPreview);
+        // half a day is not exactly one, so the plural form; the decimal separator follows the regional format
+        Assert.Equal(0.5m.ToString("0.##", System.Globalization.CultureInfo.CurrentCulture) + " working days", vm.NewEntryPreview);
     }
 
     [Fact]
@@ -277,7 +278,7 @@ public class MainViewModelHalfDayTests : IDisposable
         vm.NewStart = Sat;
         vm.IsHalfDay = true;
 
-        Assert.Equal("0 working day(s)", vm.NewEntryPreview);
+        Assert.Equal("0 working days", vm.NewEntryPreview);
     }
 
     [Fact]
@@ -289,7 +290,7 @@ public class MainViewModelHalfDayTests : IDisposable
         vm.NewStart = Thu;
         vm.IsHalfDay = true;
 
-        Assert.Equal("0 working day(s)", vm.NewEntryPreview);
+        Assert.Equal("0 working days", vm.NewEntryPreview);
     }
 
     [Fact]
@@ -299,7 +300,7 @@ public class MainViewModelHalfDayTests : IDisposable
         vm.NewStart = Mon;
         vm.NewEnd = Mon.AddDays(6); // Mon..Sun
 
-        Assert.Equal("5 working day(s)", vm.NewEntryPreview);
+        Assert.Equal("5 working days", vm.NewEntryPreview);
     }
 
     [Fact]
@@ -310,6 +311,6 @@ public class MainViewModelHalfDayTests : IDisposable
         vm.IsHalfDay = true;
         vm.IsHalfDay = false;
 
-        Assert.Equal("1 working day(s)", vm.NewEntryPreview);
+        Assert.Equal("1 working day", vm.NewEntryPreview);
     }
 }

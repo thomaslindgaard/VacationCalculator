@@ -134,7 +134,7 @@ public class MainViewModelCalendarTests : HolidayYearVmTestBase, IDisposable
         Assert.Equal("Friday 18 December 2026", Cell(vm, 12, 18).Tooltip);
         Assert.Equal("Saturday 19 December 2026" + NL + "Weekend", Cell(vm, 12, 19).Tooltip);
         Assert.Equal("Friday 5 June 2026" + NL + "Public holiday (added by you)", Cell(vm, 6, 5).Tooltip);
-        Assert.Equal("Thursday 1 January 2026" + NL + "Nytårsdag", Cell(vm, 1, 1).Tooltip);
+        Assert.Equal("Thursday 1 January 2026" + NL + "New Year's Day", Cell(vm, 1, 1).Tooltip);
         Assert.Equal(
             "Monday 21 December 2026" + NL + "Vacation, full day" + NL + "Note: xmas" + NL + "Holiday year 2025/26",
             Cell(vm, 12, 21).Tooltip);
@@ -142,7 +142,7 @@ public class MainViewModelCalendarTests : HolidayYearVmTestBase, IDisposable
             "Wednesday 4 November 2026" + NL + "Feriefri, half day" + NL + "Holiday year 2025/26",
             Cell(vm, 11, 4).Tooltip);
         Assert.Equal(
-            "Thursday 24 December 2026" + NL + "Juleaftensdag" + NL + "Vacation, full day" + NL + "Note: oops" + NL
+            "Thursday 24 December 2026" + NL + "Christmas Eve" + NL + "Vacation, full day" + NL + "Note: oops" + NL
             + "Booked on a public holiday or weekend; not counted",
             Cell(vm, 12, 24).Tooltip);
     }
@@ -255,7 +255,7 @@ public class MainViewModelCalendarTests : HolidayYearVmTestBase, IDisposable
         Assert.Equal(DayFill.Plain, Cell(vm, 12, 21).Fill);  // Tue 2027-12-21
         Assert.DoesNotContain(days, d => d.IsToday);
         Assert.DoesNotContain(days, d => d.IsPast);
-        Assert.Equal(DayFill.Holiday, Cell(vm, 12, 25).Fill); // Saturday 2027-12-25 is still a public holiday (Juledag)
+        Assert.Equal(DayFill.Holiday, Cell(vm, 12, 25).Fill); // Saturday 2027-12-25 is still a public holiday (Christmas Day)
 
         // and back: Feb grows to 5 rows again, 365 days, today is flagged
         vm.SelectedYear = 2026;

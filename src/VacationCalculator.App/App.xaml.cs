@@ -22,6 +22,9 @@ public partial class App : Application
             typeof(FrameworkElement),
             new FrameworkPropertyMetadata(XmlLanguage.GetLanguage(CultureInfo.CurrentCulture.IetfLanguageTag)));
 
+        // Until the preferences are read, text follows the Windows display language.
+        Loc.SetLanguage(Languages.Resolve(LanguageMode.System, CultureInfo.CurrentUICulture));
+
         // "--data <path>" uses that data file (and the preferences file next to it) instead of the default.
         var dataPath = DataStore.DefaultPath;
         var dataArg = Array.IndexOf(e.Args, "--data");
@@ -31,7 +34,7 @@ public partial class App : Application
             if (resolved is null)
             {
                 MessageBox.Show(
-                    "The --data option needs the path to a data file, for example:\n\n--data \"C:\\Temp\\vacation-data.json\"\n\nThe path is missing or not valid.",
+                    Loc.Get("Startup.DataArgMissing"),
                     "Vacation Calculator",
                     MessageBoxButton.OK,
                     MessageBoxImage.Error);
@@ -41,8 +44,10 @@ public partial class App : Application
             dataPath = resolved;
         }
 
-        _theme = new ThemeService(ThemeService.PreferencesPathFor(dataPath));
+        // The display language is what the System language choice follows.
+        _theme = new ThemeService(ThemeService.PreferencesPathFor(dataPath), uiCulture: () => CultureInfo.CurrentUICulture);
         _theme.Apply();
+        Loc.SetLanguage(_theme.Language);
 
         var store = new DataStore(dataPath);
         MainViewModel viewModel;
@@ -54,7 +59,7 @@ public partial class App : Application
         {
             // Don't start with empty data, as the next save would overwrite the user's file.
             MessageBox.Show(
-                $"Could not read {store.Path}:\n\n{ex.Message}\n\nFix or move the file and start the app again.",
+                Loc.Format("Startup.ReadFailed", store.Path, ex.Message),
                 "Vacation Calculator",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);

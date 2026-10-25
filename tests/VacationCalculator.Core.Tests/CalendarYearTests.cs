@@ -31,7 +31,7 @@ public class CalendarYearTests
         // Thu 2026-01-01; Mondays 2025-12-29, 01-05, 01-12, 01-19, 01-26; Sat 01-31 ends the last week (Sun 02-01).
         var jan = Build(Data(), 2026).Months[0];
 
-        Assert.Equal("January", jan.Name);
+        Assert.Equal(Enumerable.Range(1, 12), Build(Data(), 2026).Months.Select(m => m.Month)); // no names: the App formats Month
         Assert.Equal(1, jan.Month);
         Assert.Equal(2026, jan.Year);
         Assert.Equal([1, 2, 3, 4, 5], jan.Weeks.Select(w => w.WeekNumber));
@@ -58,7 +58,7 @@ public class CalendarYearTests
         Assert.Equal(D("2026-12-28"), last[0].Date);
         Assert.Equal(D("2027-01-01"), last[4].Date);
         Assert.False(last[4].IsInMonth);
-        Assert.Equal("Nytårsdag", last[4].HolidayName); // padding days carry their state too
+        Assert.Equal(DanishHolidayKind.NewYearsDay, last[4].HolidayKind); // padding days carry their state too
     }
 
     [Fact]
@@ -244,7 +244,7 @@ public class CalendarYearTests
         var mon = DayOf(cal, "2026-06-01"); // Monday
         Assert.Equal(CalendarDayKind.WorkingDay, mon.Kind);
         Assert.True(mon.IsWorkingDay);
-        Assert.Null(mon.HolidayName);
+        Assert.Null(mon.HolidayKind);
 
         var sun = DayOf(cal, "2026-06-07"); // Sunday
         Assert.Equal(CalendarDayKind.Weekend, sun.Kind);
@@ -253,13 +253,13 @@ public class CalendarYearTests
 
         var langfredag = DayOf(cal, "2026-04-03"); // Friday
         Assert.Equal(CalendarDayKind.PublicHoliday, langfredag.Kind);
-        Assert.Equal("Langfredag", langfredag.HolidayName);
+        Assert.Equal(DanishHolidayKind.GoodFriday, langfredag.HolidayKind);
         Assert.True(langfredag.IsDanishHoliday);
         Assert.False(langfredag.IsManualHoliday);
 
         var grundlov = DayOf(cal, "2026-06-05"); // Friday, manual only
         Assert.Equal(CalendarDayKind.ManualHoliday, grundlov.Kind);
-        Assert.Null(grundlov.HolidayName);
+        Assert.Null(grundlov.HolidayKind);
         Assert.True(grundlov.IsManualHoliday);
         Assert.False(grundlov.IsDanishHoliday);
         Assert.False(grundlov.IsWorkingDay);
@@ -271,15 +271,36 @@ public class CalendarYearTests
         var xmasEve = DayOf(cal, "2026-12-24"); // Thursday, Danish and manual
         Assert.Equal(CalendarDayKind.PublicHoliday, xmasEve.Kind);
         Assert.True(xmasEve.IsDanishHoliday && xmasEve.IsManualHoliday);
-        Assert.Equal("Juleaftensdag", xmasEve.HolidayName);
+        Assert.Equal(DanishHolidayKind.ChristmasEve, xmasEve.HolidayKind);
 
         var secondXmas = DayOf(cal, "2026-12-26"); // Saturday, Danish
         Assert.Equal(CalendarDayKind.PublicHoliday, secondXmas.Kind);
         Assert.True(secondXmas.IsWeekend);
-        Assert.Equal("2. juledag", secondXmas.HolidayName);
+        Assert.Equal(DanishHolidayKind.SecondChristmasDay, secondXmas.HolidayKind);
 
-        Assert.Equal("Nytårsdag", DayOf(cal, "2026-01-01").HolidayName);
-        Assert.Equal("Nytårsaftensdag", DayOf(cal, "2026-12-31").HolidayName);
+        Assert.Equal(DanishHolidayKind.NewYearsDay, DayOf(cal, "2026-01-01").HolidayKind);
+        Assert.Equal(DanishHolidayKind.NewYearsEve, DayOf(cal, "2026-12-31").HolidayKind);
+    }
+
+    [Theory]
+    [InlineData(2026)] // Easter Sun 04-05
+    [InlineData(2027)] // Easter Sun 03-28; January's first week is padded with Mon 2026-12-28 .. Thu 2026-12-31 (NewYearsEve)
+    [InlineData(CalendarYear.MinYear)]
+    [InlineData(CalendarYear.MaxYear)]
+    public void HolidayKind_IsSetExactlyOnDanishHolidays_IncludingPaddingDays(int year)
+    {
+        // Manual Fri 2026-06-05 (not Danish) keeps a null kind; manual Thu 2026-12-24 keeps ChristmasEve.
+        var cal = Build(Data().WithHolidays("2026-06-05", "2026-12-24"), year, "2026-10-24");
+
+        var days = cal.Months.SelectMany(m => m.Weeks).SelectMany(w => w.Days).ToList();
+        Assert.All(days, d => Assert.Equal(DanishHolidays.KindOf(d.Date), d.HolidayKind));
+        Assert.All(days, d => Assert.Equal(d.HolidayKind is not null, d.IsDanishHoliday));
+        Assert.Equal(12, days.Where(d => d.IsInMonth && d.HolidayKind is not null).Count());
+        if (year == 2026)
+        {
+            Assert.Null(DayOf(cal, "2026-06-05").HolidayKind);
+            Assert.True(DayOf(cal, "2026-06-05").IsManualHoliday);
+        }
     }
 
     [Fact]

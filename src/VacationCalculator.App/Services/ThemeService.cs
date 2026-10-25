@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System.Globalization;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Windows;
@@ -31,14 +32,22 @@ public sealed class ThemeService : IDisposable
     private ThemeMode _mode;
     private bool _disposed;
     private bool _summaryExpanded;
+    private readonly Func<CultureInfo?> _uiCulture;
+    private LanguageMode _languageMode;
 
     /// <param name="preferencesPath">Where to remember the choice; null keeps it in memory only.</param>
     /// <param name="systemPrefersDark">Whether Windows prefers dark apps; defaults to reading the registry.</param>
-    public ThemeService(string? preferencesPath, Func<bool>? systemPrefersDark = null)
+    /// <param name="uiCulture">
+    /// The Windows display language that the System language follows. The app passes the current UI culture; without it
+    /// (tests) System resolves to English, so nothing depends on the machine the code runs on.
+    /// </param>
+    public ThemeService(string? preferencesPath, Func<bool>? systemPrefersDark = null, Func<CultureInfo?>? uiCulture = null)
     {
         _preferencesPath = preferencesPath;
         _systemPrefersDark = systemPrefersDark ?? WindowsPrefersDark;
+        _uiCulture = uiCulture ?? (() => null);
         _mode = preferencesPath is null ? ThemeMode.System : LoadMode(preferencesPath);
+        _languageMode = preferencesPath is null ? LanguageMode.System : LoadLanguageMode(preferencesPath);
         _summaryExpanded = preferencesPath is null || LoadSummaryExpanded(preferencesPath);
         SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
     }
@@ -70,6 +79,26 @@ public sealed class ThemeService : IDisposable
             Changed?.Invoke(this, EventArgs.Empty);
         }
     }
+
+    public event EventHandler? LanguageChanged;
+
+    /// <summary>The language choice (System, English, Danish, Romanian, Redneck); remembered in the preferences file, never in the vacation data.</summary>
+    public LanguageMode LanguageMode
+    {
+        get => _languageMode;
+        set
+        {
+            if (value == _languageMode)
+                return;
+
+            _languageMode = value;
+            SaveMode();
+            LanguageChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    /// <summary>The language in use: the choice, with System resolved against the Windows display language.</summary>
+    public AppLanguage Language => Languages.Resolve(_languageMode, _uiCulture());
 
     /// <summary>
     /// Whether the summary (stat cards and holiday-year tables) above the calendar is expanded. Remembered in the same
@@ -182,6 +211,27 @@ public sealed class ThemeService : IDisposable
         return ThemeMode.System;
     }
 
+    private static LanguageMode LoadLanguageMode(string path)
+    {
+        // A missing field or file, or an unknown value, means System.
+        try
+        {
+            if (!File.Exists(path))
+                return LanguageMode.System;
+
+            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            if (document.RootElement.TryGetProperty("language", out var language)
+                && language.ValueKind == JsonValueKind.String
+                && Enum.TryParse<LanguageMode>(language.GetString(), ignoreCase: true, out var mode)
+                && Enum.IsDefined(mode))
+                return mode;
+        }
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+        }
+        return LanguageMode.System;
+    }
+
     private static bool LoadSummaryExpanded(string path)
     {
         try
@@ -208,7 +258,7 @@ public sealed class ThemeService : IDisposable
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(_preferencesPath)!);
-            File.WriteAllText(_preferencesPath, JsonSerializer.Serialize(new { theme = _mode.ToString(), summaryExpanded = _summaryExpanded }, new JsonSerializerOptions { WriteIndented = true }));
+            File.WriteAllText(_preferencesPath, JsonSerializer.Serialize(new { theme = _mode.ToString(), summaryExpanded = _summaryExpanded, language = _languageMode.ToString() }, new JsonSerializerOptions { WriteIndented = true }));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

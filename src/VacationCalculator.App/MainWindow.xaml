@@ -165,8 +165,10 @@
                     <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" Margin="2,0,0,4" />
                     <UniformGrid Columns="8" Margin="1,0">
                         <TextBlock />
-                        <TextBlock Text="M" /><TextBlock Text="T" /><TextBlock Text="W" /><TextBlock Text="T" />
-                        <TextBlock Text="F" /><TextBlock Text="S" /><TextBlock Text="S" />
+                        <TextBlock Text="{svc:Str WeekdayShort.1}" /><TextBlock Text="{svc:Str WeekdayShort.2}" />
+                        <TextBlock Text="{svc:Str WeekdayShort.3}" /><TextBlock Text="{svc:Str WeekdayShort.4}" />
+                        <TextBlock Text="{svc:Str WeekdayShort.5}" /><TextBlock Text="{svc:Str WeekdayShort.6}" />
+                        <TextBlock Text="{svc:Str WeekdayShort.7}" />
                         <UniformGrid.Resources>
                             <Style TargetType="TextBlock">
                                 <Setter Property="FontSize" Value="10" />
@@ -214,15 +216,24 @@
                 <TextBlock DockPanel.Dock="Top" Text="Vacation Calculator" FontFamily="{StaticResource HeadingFont}"
                            FontSize="20" FontWeight="SemiBold" Margin="0,0,0,24" />
 
-                <!-- Theme switch at the bottom -->
+                <!-- Theme and language switches at the bottom -->
                 <StackPanel DockPanel.Dock="Bottom" Margin="0,14,0,0">
-                    <TextBlock Text="Theme" Style="{StaticResource FieldLabel}" />
+                    <TextBlock Text="{svc:Str Language.Title}" Style="{StaticResource FieldLabel}" />
+                    <ComboBox ItemsSource="{Binding LanguageOptions}" SelectedItem="{Binding SelectedLanguage}"
+                              Margin="0,0,0,10">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding DisplayName}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <TextBlock Text="{svc:Str Theme.Title}" Style="{StaticResource FieldLabel}" />
                     <UniformGrid Rows="1">
-                        <RadioButton GroupName="Theme" Content="Light" Style="{StaticResource SegmentButton}"
+                        <RadioButton GroupName="Theme" Content="{svc:Str Theme.Light}" Style="{StaticResource SegmentButton}"
                                      IsChecked="{Binding IsLightTheme}" />
-                        <RadioButton GroupName="Theme" Content="Dark" Style="{StaticResource SegmentButton}"
+                        <RadioButton GroupName="Theme" Content="{svc:Str Theme.Dark}" Style="{StaticResource SegmentButton}"
                                      IsChecked="{Binding IsDarkTheme}" />
-                        <RadioButton GroupName="Theme" Content="System" Style="{StaticResource SegmentButton}"
+                        <RadioButton GroupName="Theme" Content="{svc:Str Theme.System}" Style="{StaticResource SegmentButton}"
                                      IsChecked="{Binding IsSystemTheme}" />
                     </UniformGrid>
                 </StackPanel>
@@ -231,50 +242,50 @@
                 <StackPanel Margin="0,0,6,0">
                 <!-- Year navigation -->
                 <StackPanel Margin="0,0,0,22">
-                    <TextBlock Text="Year" Style="{StaticResource FieldLabel}" />
+                    <TextBlock Text="{svc:Str Sidebar.Year}" Style="{StaticResource FieldLabel}" />
                     <DockPanel>
-                        <Button DockPanel.Dock="Left" Content="◀" Command="{Binding PreviousYearCommand}" ToolTip="Previous year" />
-                        <Button DockPanel.Dock="Right" Content="▶" Command="{Binding NextYearCommand}" ToolTip="Next year" />
+                        <Button DockPanel.Dock="Left" Content="◀" Command="{Binding PreviousYearCommand}" ToolTip="{svc:Str Sidebar.PreviousYear}" />
+                        <Button DockPanel.Dock="Right" Content="▶" Command="{Binding NextYearCommand}" ToolTip="{svc:Str Sidebar.NextYear}" />
                         <TextBlock Text="{Binding SelectedYear}" FontFamily="{StaticResource HeadingFont}" FontSize="22"
                                    FontWeight="SemiBold" TextAlignment="Center" VerticalAlignment="Center" />
                     </DockPanel>
-                    <Button Content="This year" Command="{Binding CurrentYearCommand}" Margin="0,8,0,0" />
+                    <Button Content="{svc:Str Sidebar.ThisYear}" Command="{Binding CurrentYearCommand}" Margin="0,8,0,0" />
                 </StackPanel>
 
                 <!-- Employment settings -->
                 <StackPanel DockPanel.Dock="Top" Margin="0,0,0,22">
-                    <TextBlock Text="Employment" Style="{StaticResource SectionTitle}" />
-                    <TextBlock Text="Employed since" Style="{StaticResource FieldLabel}" />
+                    <TextBlock Text="{svc:Str Employment.Title}" Style="{StaticResource SectionTitle}" />
+                    <TextBlock Text="{svc:Str Employment.Since}" Style="{StaticResource FieldLabel}" />
                     <DatePicker SelectedDate="{Binding EmployedSince}" />
-                    <TextBlock Text="Leave empty if you were employed before the holiday years shown." TextWrapping="Wrap"
+                    <TextBlock Text="{svc:Str Employment.SinceHint}" TextWrapping="Wrap"
                                Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,4,0,12" />
-                    <TextBlock Text="First holiday year tracked" Style="{StaticResource FieldLabel}" />
+                    <TextBlock Text="{svc:Str Employment.FirstYear}" Style="{StaticResource FieldLabel}" TextWrapping="Wrap" />
                     <ComboBox ItemsSource="{Binding FirstTrackedChoices}" SelectedItem="{Binding FirstTrackedHolidayYear}" />
-                    <TextBlock Text="Days transferred into it" Style="{StaticResource FieldLabel}" Margin="0,8,0,0" />
+                    <TextBlock Text="{svc:Str Employment.Opening}" Style="{StaticResource FieldLabel}" Margin="0,8,0,0" TextWrapping="Wrap" />
                     <TextBox Text="{Binding OpeningBalanceDays, UpdateSourceTrigger=PropertyChanged, Delay=400}" beh:CommitOnEnter.IsEnabled="True" />
-                    <TextBlock Text="Unused days you brought into that year. Leave at 0 if none." TextWrapping="Wrap"
+                    <TextBlock Text="{svc:Str Employment.OpeningHint}" TextWrapping="Wrap"
                                Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,4,0,12" />
 
                     <!-- Settings for the holiday year whose deadline is in the selected calendar year -->
                     <TextBlock Text="{Binding DeadlineSettingsTitle}" TextWrapping="Wrap" FontWeight="SemiBold" Margin="0,2,0,6" />
 
                     <StackPanel>
-                        <TextBlock Text="Days that can be transferred" Style="{StaticResource FieldLabel}" />
+                        <TextBlock Text="{svc:Str Settings.TransferLimit}" Style="{StaticResource FieldLabel}" TextWrapping="Wrap" />
                         <TextBox Text="{Binding TransferLimitDays, UpdateSourceTrigger=PropertyChanged, Delay=400}" beh:CommitOnEnter.IsEnabled="True" />
                         <DockPanel Margin="0,3,0,0">
-                            <Button DockPanel.Dock="Right" Content="Reset" Command="{Binding ResetTransferLimitCommand}"
+                            <Button DockPanel.Dock="Right" Content="{svc:Str Common.Reset}" Command="{Binding ResetTransferLimitCommand}"
                                     Style="{StaticResource LinkButton}" Visibility="{Binding TransferLimitIsOwn, Converter={StaticResource BoolToVisibility}}" />
                             <TextBlock Text="{Binding TransferLimitSource}" Foreground="{DynamicResource MutedBrush}" FontSize="11" />
                         </DockPanel>
-                        <TextBlock Text="5 by the Holiday Act; more with a personal agreement; 0 = no transfer." TextWrapping="Wrap"
+                        <TextBlock Text="{svc:Str Settings.TransferHint}" TextWrapping="Wrap"
                                    Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,2,0,10" />
                     </StackPanel>
 
-                    <TextBlock Text="Other unused days paid out" Style="{StaticResource FieldLabel}" />
+                    <TextBlock Text="{svc:Str Settings.Payout}" Style="{StaticResource FieldLabel}" TextWrapping="Wrap" />
                     <UniformGrid Rows="1">
-                        <RadioButton GroupName="Payout" Content="None" Style="{StaticResource SegmentButton}" IsChecked="{Binding PayoutNone}" />
-                        <RadioButton GroupName="Payout" Content="Some" Style="{StaticResource SegmentButton}" IsChecked="{Binding PayoutSome}" />
-                        <RadioButton GroupName="Payout" Content="All" Style="{StaticResource SegmentButton}" IsChecked="{Binding PayoutAll}" />
+                        <RadioButton GroupName="Payout" Content="{svc:Str Payout.None}" Style="{StaticResource SegmentButton}" IsChecked="{Binding PayoutNone}" />
+                        <RadioButton GroupName="Payout" Content="{svc:Str Payout.Some}" Style="{StaticResource SegmentButton}" IsChecked="{Binding PayoutSome}" />
+                        <RadioButton GroupName="Payout" Content="{svc:Str Payout.All}" Style="{StaticResource SegmentButton}" IsChecked="{Binding PayoutAll}" />
                     </UniformGrid>
                     <TextBox Text="{Binding PayoutDays, UpdateSourceTrigger=PropertyChanged, Delay=400}" Margin="0,6,4,0" beh:CommitOnEnter.IsEnabled="True">
                         <TextBox.Style>
@@ -289,25 +300,25 @@
                         </TextBox.Style>
                     </TextBox>
                     <DockPanel Margin="0,3,0,0">
-                        <Button DockPanel.Dock="Right" Content="Reset" Command="{Binding ResetPayoutCommand}"
+                        <Button DockPanel.Dock="Right" Content="{svc:Str Common.Reset}" Command="{Binding ResetPayoutCommand}"
                                 Style="{StaticResource LinkButton}" Visibility="{Binding PayoutIsOwn, Converter={StaticResource BoolToVisibility}}" />
                         <TextBlock Text="{Binding PayoutSource}" Foreground="{DynamicResource MutedBrush}" FontSize="11" />
                     </DockPanel>
-                    <TextBlock Text="Covers days beyond the 5th week. 5th-week days are always paid out unless transferred."
+                    <TextBlock Text="{svc:Str Settings.PayoutHint}"
                                TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,2,0,0" />
                 </StackPanel>
                 <!-- Public holidays: the whole list scrolls with the sidebar -->
                 <StackPanel>
-                    <TextBlock Text="Public holidays" Style="{StaticResource SectionTitle}" />
+                    <TextBlock Text="{svc:Str Holidays.Title}" Style="{StaticResource SectionTitle}" />
                     <TextBlock TextWrapping="Wrap" Style="{StaticResource FieldLabel}" Margin="0,0,0,10"
-                               Text="Danish public holidays are included automatically. Add extra days off, such as Grundlovsdag or company days. Weekends and holidays don't count as vacation days." />
+                               Text="{svc:Str Holidays.Intro}" />
                     <DockPanel Margin="0,0,0,10">
-                        <Button DockPanel.Dock="Right" Content="Add" Command="{Binding AddHolidayCommand}" Margin="8,0,0,0" />
+                        <Button DockPanel.Dock="Right" Content="{svc:Str Common.Add}" Command="{Binding AddHolidayCommand}" Margin="8,0,0,0" />
                         <DatePicker SelectedDate="{Binding NewHoliday}" />
                     </DockPanel>
 
-                    <TextBlock Text="Your extra days off" FontWeight="SemiBold" Margin="0,2,0,4" />
-                    <TextBlock Text="None added." Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,6">
+                    <TextBlock Text="{svc:Str Holidays.Extra}" FontWeight="SemiBold" Margin="0,2,0,4" />
+                    <TextBlock Text="{svc:Str Holidays.NoneAdded}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,6">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
                                 <Setter Property="Visibility" Value="Collapsed" />
@@ -347,7 +358,7 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
 
-                    <TextBlock Text="Danish public holidays" FontWeight="SemiBold" Margin="0,2,0,4" />
+                    <TextBlock Text="{svc:Str Holidays.Danish}" FontWeight="SemiBold" Margin="0,2,0,4" />
                     <ItemsControl ItemsSource="{Binding AutomaticHolidayRows}" Focusable="False">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
@@ -385,7 +396,7 @@
             <DockPanel Margin="0,0,0,6">
                 <Button DockPanel.Dock="Right" Content="{Binding SummaryToggleText}" Command="{Binding ToggleSummaryCommand}"
                         Style="{StaticResource LinkButton}" VerticalAlignment="Center" Margin="12,0,0,0"
-                        ToolTip="Show or hide the figures and holiday-year tables above the calendar" />
+                        ToolTip="{svc:Str Summary.ToggleTooltip}" />
                 <!-- One line at every width: the heading scales down when it does not fit next to the toggle -->
                 <Viewbox Stretch="Uniform" StretchDirection="DownOnly" HorizontalAlignment="Left">
                     <TextBlock Text="{Binding HolidayYearTitle}" TextWrapping="NoWrap"
@@ -396,7 +407,7 @@
             <StackPanel Visibility="{Binding IsSummaryExpanded, Converter={StaticResource BoolToVisibility}}">
                 <!-- Summary figures for the holiday year that expires on 31 December -->
                 <UniformGrid Rows="1" Margin="0,0,0,8">
-                    <Border Style="{StaticResource Card}" Padding="16,6" Margin="0,0,10,0">
+                    <Border Style="{StaticResource Card}" Padding="12,6" Margin="0,0,10,0">
                         <DockPanel>
                             <!-- The note sits next to the value when there is room, otherwise under it -->
                             <WrapPanel DockPanel.Dock="Bottom">
@@ -404,22 +415,22 @@
                                 <TextBlock Text="{Binding EarnableNote}" Foreground="{DynamicResource MutedBrush}" FontSize="10"
                                            TextWrapping="Wrap" VerticalAlignment="Bottom" Margin="0,0,0,6" />
                             </WrapPanel>
-                            <TextBlock Text="Earned so far" Style="{StaticResource StatLabel}" />
+                            <TextBlock Text="{svc:Str Summary.EarnedSoFar}" Style="{StaticResource StatLabel}" />
                         </DockPanel>
                     </Border>
-                    <Border Style="{StaticResource Card}" Padding="16,6" Margin="0,0,10,0">
+                    <Border Style="{StaticResource Card}" Padding="12,6" Margin="0,0,10,0">
                         <DockPanel>
                             <TextBlock DockPanel.Dock="Bottom" Text="{Binding Status.HolidayYear.UsedDays, StringFormat={}{0:0.##}}" Style="{StaticResource StatValue}" />
-                            <TextBlock Text="Used" Style="{StaticResource StatLabel}" />
+                            <TextBlock Text="{svc:Str Summary.Used}" Style="{StaticResource StatLabel}" />
                         </DockPanel>
                     </Border>
-                    <Border Style="{StaticResource Card}" Padding="16,6" Margin="0,0,10,0">
+                    <Border Style="{StaticResource Card}" Padding="12,6" Margin="0,0,10,0">
                         <DockPanel>
                             <TextBlock DockPanel.Dock="Bottom" Text="{Binding Status.HolidayYear.BookedAheadDays, StringFormat={}{0:0.##}}" Style="{StaticResource StatValue}" />
-                            <TextBlock Text="Booked ahead" Style="{StaticResource StatLabel}" />
+                            <TextBlock Text="{svc:Str Summary.BookedAhead}" Style="{StaticResource StatLabel}" />
                         </DockPanel>
                     </Border>
-                    <Border Style="{StaticResource Card}" Padding="16,6" Margin="0,0,10,0">
+                    <Border Style="{StaticResource Card}" Padding="12,6" Margin="0,0,10,0">
                         <DockPanel>
                             <TextBlock DockPanel.Dock="Bottom" Text="{Binding Status.UnbookedDays, StringFormat={}{0:0.##}}">
                                 <TextBlock.Style>
@@ -435,13 +446,13 @@
                                     </Style>
                                 </TextBlock.Style>
                             </TextBlock>
-                            <TextBlock Text="Not yet booked" Style="{StaticResource StatLabel}" />
+                            <TextBlock Text="{svc:Str Summary.NotYetBooked}" Style="{StaticResource StatLabel}" />
                         </DockPanel>
                     </Border>
-                    <Border Style="{StaticResource Card}" Padding="16,6">
+                    <Border Style="{StaticResource Card}" Padding="12,6">
                         <DockPanel>
                             <TextBlock DockPanel.Dock="Bottom" Text="{Binding Status.WorkingDaysLeft, StringFormat={}{0:0.##}}" Style="{StaticResource StatValue}" />
-                            <TextBlock Text="Working days left" Style="{StaticResource StatLabel}" />
+                            <TextBlock Text="{svc:Str Summary.WorkingDaysLeft}" Style="{StaticResource StatLabel}" />
                         </DockPanel>
                     </Border>
                 </UniformGrid>
@@ -460,14 +471,14 @@
                                 <ColumnDefinition SharedSizeGroup="G" Width="Auto" />
                                 <ColumnDefinition SharedSizeGroup="H" Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="Year" Style="{StaticResource FieldLabel}" Margin="0,0,8,0" />
-                            <TextBlock Grid.Column="1" Text="Earned&#10;so far" Style="{StaticResource FieldLabel}" Margin="0,0,8,0" />
-                            <TextBlock Grid.Column="2" Text="Transferred in" Style="{StaticResource FieldLabel}" Margin="0,0,8,0" />
-                            <TextBlock Grid.Column="3" Text="Used" Style="{StaticResource FieldLabel}" Margin="0,0,8,0" />
-                            <TextBlock Grid.Column="4" Text="Booked&#10;ahead" Style="{StaticResource FieldLabel}" Margin="0,0,8,0" />
-                            <TextBlock Grid.Column="5" Text="Remaining" Style="{StaticResource FieldLabel}" Margin="0,0,8,0" />
-                            <TextBlock Grid.Column="6" Text="To next year" Style="{StaticResource FieldLabel}" Margin="0,0,8,0" />
-                            <TextBlock Grid.Column="7" Text="Use by" Style="{StaticResource FieldLabel}" />
+                            <TextBlock Grid.Column="0" Text="{svc:Str Table.Year}" Style="{StaticResource FieldLabel}" Margin="0,0,8,0" />
+                            <TextBlock Grid.Column="1" Text="{svc:Str Table.EarnedSoFar}" Style="{StaticResource FieldLabel}" Margin="0,0,8,0" />
+                            <TextBlock Grid.Column="2" Text="{svc:Str Table.TransferredIn}" Style="{StaticResource FieldLabel}" Margin="0,0,8,0" />
+                            <TextBlock Grid.Column="3" Text="{svc:Str Table.Used}" Style="{StaticResource FieldLabel}" Margin="0,0,8,0" />
+                            <TextBlock Grid.Column="4" Text="{svc:Str Table.BookedAhead}" Style="{StaticResource FieldLabel}" Margin="0,0,8,0" />
+                            <TextBlock Grid.Column="5" Text="{svc:Str Table.Remaining}" Style="{StaticResource FieldLabel}" Margin="0,0,8,0" />
+                            <TextBlock Grid.Column="6" Text="{svc:Str Table.ToNextYear}" Style="{StaticResource FieldLabel}" Margin="0,0,8,0" />
+                            <TextBlock Grid.Column="7" Text="{svc:Str Table.UseBy}" Style="{StaticResource FieldLabel}" />
                         </Grid>
                         <ItemsControl ItemsSource="{Binding HolidayYearRows}">
                             <ItemsControl.ItemTemplate>
@@ -492,7 +503,7 @@
                                                         <Setter Property="Text" Value="{Binding TransferredIn, StringFormat={}{0:0.##;;–}}" />
                                                         <Style.Triggers>
                                                             <DataTrigger Binding="{Binding ShowProjected}" Value="True">
-                                                                <Setter Property="Text" Value="{Binding TransferredIn, StringFormat={}{0:0.##} (projected)}" />
+                                                                <Setter Property="Text" Value="{Binding ProjectedText}" />
                                                                 <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
                                                                 <Setter Property="FontStyle" Value="Italic" />
                                                                 <Setter Property="ToolTip" Value="{Binding ProjectedTooltip}" />
@@ -543,31 +554,30 @@
                         <ItemsControl ItemsSource="{Binding FeriefriRows}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <WrapPanel Margin="0,1">
-                                    <Grid>
+                                    <!-- Name and allowance box stay aligned between the rows; the figures and the note flow and wrap in the remaining width -->
+                                    <Grid Margin="0,1">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition SharedSizeGroup="FA" Width="Auto" />
                                             <ColumnDefinition SharedSizeGroup="FB" Width="Auto" />
-                                            <ColumnDefinition SharedSizeGroup="FC" Width="Auto" />
-                                            <ColumnDefinition SharedSizeGroup="FD" Width="Auto" />
-                                            <ColumnDefinition SharedSizeGroup="FE" Width="Auto" />
+                                            <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Grid.Column="0" Margin="0,0,16,0" FontWeight="SemiBold">
-                                            <Run Text="Feriefri" Foreground="{DynamicResource FeriefriBrush}" /><Run Text=" " /><Run Text="{Binding Name, Mode=OneWay}" />
+                                            <Run Text="{svc:Str Feriefri.Name}" Foreground="{DynamicResource FeriefriBrush}" /><Run Text=" " /><Run Text="{Binding Name, Mode=OneWay}" />
                                         </TextBlock>
                                         <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,0,16,0" ToolTip="{Binding AllowanceTooltip}">
                                             <TextBox Text="{Binding AllowanceDays, StringFormat={}{0:0.##}}" Width="42" Height="22" MinHeight="0"
                                                      Padding="2,0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
                                                      beh:CommitOnEnter.IsEnabled="True"
-                                                     ToolTip="Feriefri days this holiday year provides (0 to 20). Press Enter or Tab to save." />
+                                                     ToolTip="{svc:Str Feriefri.AllowanceBox}" />
                                             <TextBlock Text="{Binding AllowanceSource, StringFormat=' ({0})'}" VerticalAlignment="Center" Margin="6,0,0,0" />
-                                            <Button Content="Reset" Command="{Binding ResetAllowanceCommand}" Style="{StaticResource LinkButton}"
+                                            <Button Content="{svc:Str Common.Reset}" Command="{Binding ResetAllowanceCommand}" Style="{StaticResource LinkButton}"
                                                     Margin="6,0,0,0" VerticalAlignment="Center"
                                                     Visibility="{Binding AllowanceIsOwn, Converter={StaticResource BoolToVisibility}}" />
                                         </StackPanel>
-                                        <TextBlock Grid.Column="2" Text="{Binding Used, StringFormat={}{0:0.##} used}" Margin="0,0,16,0" />
-                                        <TextBlock Grid.Column="3" Text="{Binding BookedAhead, StringFormat={}{0:0.##} booked ahead}" Margin="0,0,16,0" />
-                                        <TextBlock Grid.Column="4" Text="{Binding Remaining, StringFormat={}{0:0.##} remaining}" Margin="0,0,16,0">
+                                        <WrapPanel Grid.Column="2" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding UsedText}" Margin="0,0,16,0" />
+                                        <TextBlock Text="{Binding BookedAheadText}" Margin="0,0,16,0" />
+                                        <TextBlock Text="{Binding RemainingText}" Margin="0,0,16,0">
                                             <TextBlock.Style>
                                                 <Style TargetType="TextBlock">
                                                     <Style.Triggers>
@@ -579,9 +589,8 @@
                                                 </Style>
                                             </TextBlock.Style>
                                         </TextBlock>
-                                    </Grid>
                                     <!-- The note follows the figures on the same line when there is room, otherwise it wraps onto its own line -->
-                                    <TextBlock Text="{Binding Note}" ToolTip="{Binding Note}" FontSize="11" TextWrapping="Wrap" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Note}" ToolTip="{Binding NoteTooltip}" FontSize="11" TextWrapping="Wrap" VerticalAlignment="Center">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">
                                                 <Setter Property="Foreground" Value="{DynamicResource FeriefriBrush}" />
@@ -594,6 +603,7 @@
                                         </TextBlock.Style>
                                     </TextBlock>
                                     </WrapPanel>
+                                    </Grid>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
@@ -684,8 +694,8 @@
 
             <DockPanel Grid.Row="0" Margin="0,0,0,6">
                 <UniformGrid DockPanel.Dock="Left" Rows="1" Width="190">
-                    <RadioButton GroupName="MainTab" Content="Calendar" Style="{StaticResource SegmentButton}" IsChecked="{Binding IsCalendarTab}" />
-                    <RadioButton GroupName="MainTab" Content="List" Style="{StaticResource SegmentButton}" IsChecked="{Binding IsListTab}" />
+                    <RadioButton GroupName="MainTab" Content="{svc:Str Tab.Calendar}" Style="{StaticResource SegmentButton}" IsChecked="{Binding IsCalendarTab}" />
+                    <RadioButton GroupName="MainTab" Content="{svc:Str Tab.List}" Style="{StaticResource SegmentButton}" IsChecked="{Binding IsListTab}" />
                 </UniformGrid>
                 <!-- On the List tab the same row carries the booking form's type choice and working-day preview -->
                 <DockPanel Margin="16,0,0,0">
@@ -700,8 +710,8 @@
                         </Style>
                     </DockPanel.Style>
                     <UniformGrid DockPanel.Dock="Right" Rows="1" Width="190" VerticalAlignment="Center">
-                        <RadioButton GroupName="BookType" Content="Vacation" Style="{StaticResource SegmentButton}" IsChecked="{Binding BookVacation}" />
-                        <RadioButton GroupName="BookType" Content="Feriefri" Style="{StaticResource SegmentButton}" IsChecked="{Binding BookFeriefri}" />
+                        <RadioButton GroupName="BookType" Content="{svc:Str Type.Vacation}" Style="{StaticResource SegmentButton}" IsChecked="{Binding BookVacation}" />
+                        <RadioButton GroupName="BookType" Content="{svc:Str Type.Feriefri}" Style="{StaticResource SegmentButton}" IsChecked="{Binding BookFeriefri}" />
                     </UniformGrid>
                     <TextBlock Text="{Binding NewEntryPreview}" Foreground="{DynamicResource MutedBrush}" TextTrimming="CharacterEllipsis"
                                HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,12,0" />
@@ -722,39 +732,39 @@
 
                 <StackPanel DockPanel.Dock="Bottom" Margin="2,6,0,0">
                 <TextBlock Style="{StaticResource LegendLabel}" TextWrapping="Wrap" Margin="0,0,0,4"
-                           Text="Left-click: vacation · Right-click: Feriefri · Click again for half day, then remove · Drag or Shift+click for a range" />
+                           Text="{svc:Str Calendar.Hint}" />
                 <WrapPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,14,0">
                         <Border Style="{StaticResource LegendSwatch}" Background="{DynamicResource AccentBrush}" />
-                        <TextBlock Text="Vacation" Style="{StaticResource LegendLabel}" />
+                        <TextBlock Text="{svc:Str Type.Vacation}" Style="{StaticResource LegendLabel}" />
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,14,0">
                         <Border Style="{StaticResource LegendSwatch}" Background="{DynamicResource FeriefriBrush}" />
-                        <TextBlock Text="Feriefri" Style="{StaticResource LegendLabel}" />
+                        <TextBlock Text="{svc:Str Type.Feriefri}" Style="{StaticResource LegendLabel}" />
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,14,0">
                         <Border Style="{StaticResource LegendSwatch}" Background="{DynamicResource AccentSoftBrush}">
                             <Polygon Points="1,0 1,1 0,1" Stretch="Fill" Fill="{DynamicResource AccentBrush}" />
                         </Border>
-                        <TextBlock Text="Half day" Style="{StaticResource LegendLabel}" />
+                        <TextBlock Text="{svc:Str Legend.HalfDay}" Style="{StaticResource LegendLabel}" />
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,14,0">
                         <Border Style="{StaticResource LegendSwatch}" Background="{DynamicResource CalHolidayBrush}" />
-                        <TextBlock Text="Public holiday" Style="{StaticResource LegendLabel}" />
+                        <TextBlock Text="{svc:Str Legend.PublicHoliday}" Style="{StaticResource LegendLabel}" />
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,14,0">
                         <Border Style="{StaticResource LegendSwatch}" BorderBrush="{DynamicResource MutedBrush}" BorderThickness="1" />
-                        <TextBlock Text="Weekend" Style="{StaticResource LegendLabel}" />
+                        <TextBlock Text="{svc:Str Legend.Weekend}" Style="{StaticResource LegendLabel}" />
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,14,0">
                         <Border Style="{StaticResource LegendSwatch}" Background="{DynamicResource CalDayBrush}"
                                 BorderBrush="{DynamicResource TextBrush}" BorderThickness="2" />
-                        <TextBlock Text="Today" Style="{StaticResource LegendLabel}" />
+                        <TextBlock Text="{svc:Str Legend.Today}" Style="{StaticResource LegendLabel}" />
                     </StackPanel>
                     <StackPanel Orientation="Horizontal">
                         <Border Style="{StaticResource LegendSwatch}" Background="{DynamicResource CalHolidayBrush}"
                                 BorderBrush="{DynamicResource ErrorBrush}" BorderThickness="1.5" />
-                        <TextBlock Text="Booked on a day off (not counted)" Style="{StaticResource LegendLabel}" />
+                        <TextBlock Text="{svc:Str Legend.Conflict}" Style="{StaticResource LegendLabel}" />
                     </StackPanel>
                 </WrapPanel>
                 </StackPanel>
@@ -796,18 +806,18 @@
                 <DockPanel>
                     <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,6">
                         <StackPanel Margin="0,0,12,0">
-                            <TextBlock Text="From" Style="{StaticResource FieldLabel}" />
-                            <DatePicker SelectedDate="{Binding NewStart}" Width="140" DisplayDateEnd="9998-12-31" />
+                            <TextBlock Text="{svc:Str Form.From}" Style="{StaticResource FieldLabel}" />
+                            <DatePicker SelectedDate="{Binding NewStart}" Width="130" DisplayDateEnd="9998-12-31" />
                         </StackPanel>
                         <StackPanel Margin="0,0,12,0">
-                            <TextBlock Text="To" Style="{StaticResource FieldLabel}" />
-                            <DatePicker SelectedDate="{Binding NewEnd}" Width="140" DisplayDateEnd="9998-12-31" />
+                            <TextBlock Text="{svc:Str Form.To}" Style="{StaticResource FieldLabel}" />
+                            <DatePicker SelectedDate="{Binding NewEnd}" Width="130" DisplayDateEnd="9998-12-31" />
                         </StackPanel>
                         <StackPanel Margin="0,0,12,0">
-                            <TextBlock Text="Description" Style="{StaticResource FieldLabel}" />
-                            <TextBox Text="{Binding NewDescription, UpdateSourceTrigger=PropertyChanged}" Width="160" />
+                            <TextBlock Text="{svc:Str Form.Description}" Style="{StaticResource FieldLabel}" />
+                            <TextBox Text="{Binding NewDescription, UpdateSourceTrigger=PropertyChanged}" Width="140" />
                         </StackPanel>
-                        <CheckBox Content="Half day" IsChecked="{Binding IsHalfDay}" IsEnabled="{Binding CanBookHalfDay}"
+                        <CheckBox Content="{svc:Str Form.HalfDay}" IsChecked="{Binding IsHalfDay}" IsEnabled="{Binding CanBookHalfDay}"
                                   VerticalAlignment="Bottom" Margin="0,0,14,6" />
                         <Button Content="{Binding AddButtonText}" Command="{Binding AddEntryCommand}" IsDefault="True"
                                 VerticalAlignment="Bottom" Style="{StaticResource PrimaryButton}" />
@@ -827,9 +837,9 @@
                                     </Style.Triggers>
                                 </Style>
                             </DockPanel.Style>
-                            <Button DockPanel.Dock="Right" Content="Remove these days" Command="{Binding RemoveConflictDaysCommand}"
+                            <Button DockPanel.Dock="Right" Content="{svc:Str Conflict.Remove}" Command="{Binding RemoveConflictDaysCommand}"
                                     Style="{StaticResource LinkButton}" VerticalAlignment="Top" Margin="12,0,0,0"
-                                    ToolTip="Deletes these stored days. Your balances don't change; they were not counted." />
+                                    ToolTip="{svc:Str Conflict.RemoveTooltip}" />
                             <TextBlock Text="{Binding ConflictNote}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
                         </DockPanel>
                     </StackPanel>
@@ -847,9 +857,9 @@
                             </Style>
                         </DataGrid.RowStyle>
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="From" Binding="{Binding Period.Start, StringFormat=d}" Width="110" />
-                            <DataGridTextColumn Header="To" Binding="{Binding Period.End, StringFormat=d}" Width="110" />
-                            <DataGridTemplateColumn Header="Days" Width="80" SortMemberPath="Period.Amount">
+                            <DataGridTextColumn Header="{svc:Str Column.From}" Binding="{Binding Period.Start, StringFormat=d}" Width="110" />
+                            <DataGridTextColumn Header="{svc:Str Column.To}" Binding="{Binding Period.End, StringFormat=d}" Width="110" />
+                            <DataGridTemplateColumn Header="{svc:Str Column.Days}" Width="80" SortMemberPath="Period.Amount">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <TextBlock Text="{Binding Period.Amount, StringFormat={}{0:0.##}}" VerticalAlignment="Center">
@@ -857,7 +867,7 @@
                                                 <Style TargetType="TextBlock">
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding IsNotCounted}" Value="True">
-                                                            <Setter Property="ToolTip" Value="This period is only on public holidays, so it is not counted." />
+                                                            <Setter Property="ToolTip" Value="{svc:Str Entry.NotCountedTooltip}" />
                                                         </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
@@ -866,11 +876,11 @@
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
-                            <DataGridTemplateColumn Header="Type" Width="90">
+                            <DataGridTemplateColumn Header="{svc:Str Column.Type}" Width="90">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <Grid>
-                                        <TextBlock Text="Vacation" VerticalAlignment="Center">
+                                        <TextBlock Text="{svc:Str Type.Vacation}" VerticalAlignment="Center">
                                             <TextBlock.Style>
                                                 <Style TargetType="TextBlock">
                                                     <Style.Triggers>
@@ -883,7 +893,7 @@
                                         </TextBlock>
                                         <Border CornerRadius="9" Padding="9,1" HorizontalAlignment="Left" VerticalAlignment="Center"
                                                 Background="{DynamicResource FeriefriSoftBrush}">
-                                            <TextBlock Text="Feriefri" FontSize="11" Foreground="{DynamicResource FeriefriBrush}" />
+                                            <TextBlock Text="{svc:Str Type.Feriefri}" FontSize="11" Foreground="{DynamicResource FeriefriBrush}" />
                                             <Border.Style>
                                                 <Style TargetType="Border">
                                                     <Setter Property="Visibility" Value="Collapsed" />
@@ -899,10 +909,10 @@
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
-                            <DataGridTemplateColumn Header="Description" Width="*" SortMemberPath="Period.Description">
+                            <DataGridTemplateColumn Header="{svc:Str Column.Description}" Width="*" SortMemberPath="Period.Description">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
-                                        <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
+                                        <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="{Binding FullDescription}">
                                             <Run Text="{Binding Period.Description, Mode=OneWay}" />
                                             <Run Text="{Binding NotCountedSuffix, Mode=OneWay}" FontSize="11" FontStyle="Italic"
                                                  Foreground="{DynamicResource MutedBrush}" />
@@ -913,7 +923,7 @@
                             <DataGridTemplateColumn Width="90">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
-                                        <Button Content="Delete" Padding="10,0" MinHeight="0" Margin="0,1" VerticalAlignment="Center"
+                                        <Button Content="{svc:Str Common.Delete}" Padding="10,0" MinHeight="0" Margin="0,1" VerticalAlignment="Center"
                                                 Command="{Binding DataContext.DeleteEntryCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                                 CommandParameter="{Binding}" />
                                     </DataTemplate>
@@ -929,7 +939,7 @@
 
             <!-- Footer: data location (validation messages are shown under the vacation form) -->
             <TextBlock Grid.Row="1" Margin="0,5,0,0" Foreground="{DynamicResource MutedBrush}" FontSize="11"
-                       Text="{Binding DataPath, StringFormat=Saved to {0}}" TextTrimming="CharacterEllipsis"
+                       Text="{Binding DataPathText}" TextTrimming="CharacterEllipsis"
                        ToolTip="{Binding DataPath}" />
         </Grid>
     </Grid>

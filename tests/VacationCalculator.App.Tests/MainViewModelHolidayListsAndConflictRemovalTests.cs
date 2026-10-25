@@ -5,7 +5,7 @@ namespace VacationCalculator.App.Tests;
 
 /// <summary>
 /// Feature 4 fix round: the two sidebar lists, the not-counted tag on 0-day rows, and "Remove these days".
-/// Clock Fri 2026-12-18. Calendar: Wed 2026-12-23, Thu 12-24 (Juleaftensdag), Fri 12-25 (Juledag), Sat 12-26,
+/// Clock Fri 2026-12-18. Calendar: Wed 2026-12-23, Thu 12-24 (Christmas Eve), Fri 12-25 (Christmas Day), Sat 12-26,
 /// Mon 12-28, Fri 2027-01-01 (Nytaarsdag), Fri 2026-06-05 (not a Danish holiday), Fri 2027-06-04 (not a holiday).
 /// </summary>
 public class MainViewModelHolidayListsAndConflictRemovalTests : HolidayYearVmTestBase, IDisposable
@@ -73,14 +73,14 @@ public class MainViewModelHolidayListsAndConflictRemovalTests : HolidayYearVmTes
     [Fact]
     public void ManualRows_AreInDateOrder_AndBothDatesAreInBothLists_WithName()
     {
-        // Manual: Fri 2026-12-24 (also Danish, Juleaftensdag), Fri 2026-06-05, Thu 2026-12-31 (also Danish).
+        // Manual: Fri 2026-12-24 (also Danish, Christmas Eve), Fri 2026-06-05, Thu 2026-12-31 (also Danish).
         var data = Seed(0).WithManualHoliday(D(2026, 12, 31)).WithManualHoliday(D(2026, 6, 5)).WithManualHoliday(D(2026, 12, 24));
         var vm = NewVm(Dec18, data);
 
         Assert.Equal([D(2026, 6, 5), D(2026, 12, 24), D(2026, 12, 31)], vm.ManualHolidayRows.Select(r => r.Date));
         Assert.Equal("", vm.ManualHolidayRows[0].Name);
-        Assert.Equal("Juleaftensdag", vm.ManualHolidayRows[1].Name);
-        Assert.Equal("Nytårsaftensdag", vm.ManualHolidayRows[2].Name);
+        Assert.Equal("Christmas Eve", vm.ManualHolidayRows[1].Name);
+        Assert.Equal("New Year's Eve", vm.ManualHolidayRows[2].Name);
         Assert.All(vm.ManualHolidayRows, r => Assert.True(r.CanRemove));
         // Both-dates also stay in the automatic list (removable only through the manual list)
         Assert.Equal(12, vm.AutomaticHolidayRows.Count);

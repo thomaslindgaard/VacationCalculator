@@ -76,7 +76,7 @@ public class CalendarYearIndependentTests
     }
 
     [Fact]
-    public void EasterSunday_IsHolidayKind_AndBookedConflict_EasterMondayHasName()
+    public void EasterSunday_IsHolidayKind_AndBookedConflict_EasterMondayHasItsKind()
     {
         // Easter 2026 is Sun 04-05; Easter Monday Mon 04-06; Maundy Thursday Thu 04-02.
         var data = Data([Day("2026-04-05", type: DayType.Feriefri), Day("2026-04-02")]);
@@ -88,7 +88,7 @@ public class CalendarYearIndependentTests
         Assert.True(sunday.IsConflict);
         Assert.Empty(sunday.Allocations);
         Assert.True(DayOf(cal, "2026-04-02").IsConflict);
-        Assert.NotNull(DayOf(cal, "2026-04-06").HolidayName);
+        Assert.Equal(DanishHolidayKind.EasterMonday, DayOf(cal, "2026-04-06").HolidayKind);
         Assert.False(DayOf(cal, "2026-04-07").IsPublicHoliday); // Tuesday after
     }
 

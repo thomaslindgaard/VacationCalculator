@@ -15,10 +15,12 @@ public sealed record EntryRow(BookedPeriod Period, bool IsPast)
     /// <summary>A stored period entirely on public holidays: it is listed but counts for nothing.</summary>
     public bool IsNotCounted => Period.Amount == 0;
 
-    public const string NotCountedTag = "public holiday – not counted";
+    /// <summary>Muted tag after the description of a not-counted period; empty for normal rows. The rows are rebuilt when the language changes.</summary>
+    public string NotCountedSuffix =>
+        !IsNotCounted ? "" : Period.Description.Length > 0 ? $"  ({Loc.Get("Entry.NotCounted")})" : Loc.Get("Entry.NotCounted");
 
-    /// <summary>Muted tag after the description of a not-counted period; empty for normal rows.</summary>
-    public string NotCountedSuffix => !IsNotCounted ? "" : Period.Description.Length > 0 ? $"  ({NotCountedTag})" : NotCountedTag;
+    /// <summary>The whole description cell as one text, for the tooltip when a long text is trimmed.</summary>
+    public string? FullDescription => (Period.Description + NotCountedSuffix).Trim() is { Length: > 0 } text ? text : null;
 }
 
 /// <summary>One line of the sidebar's public-holiday list.</summary>
@@ -30,9 +32,10 @@ public sealed record HolidayRow(PublicHoliday Holiday)
     /// <summary>Only the user's own entries can be removed; the Danish holidays are always there.</summary>
     public bool CanRemove => Holiday.IsManual;
 
-    public string Name => Holiday.Name ?? "";
+    /// <summary>The holiday's name in the current language; empty for an entry of the user's own. The rows are rebuilt when the language changes.</summary>
+    public string Name => Holiday.Kind is { } kind ? Loc.HolidayName(kind) : "";
     public bool HasName => Name.Length > 0;
-    public string RemoveTooltip => Holiday.IsAutomatic ? "Remove your extra entry (the public holiday stays)" : "Remove";
+    public string RemoveTooltip => Loc.Get(Holiday.IsAutomatic ? "Holidays.RemoveExtra" : "Holidays.Remove");
 }
 
 /// <summary>One line of the Feriefri card.</summary>
@@ -50,26 +53,35 @@ public sealed class FeriefriRow
         Name = b.HolidayYear.ToString();
         AllowanceDaysValue = b.AllowanceDays;
         AllowanceIsOwn = a.IsOwn;
-        AllowanceSource = a.IsOwn ? "own" : a.From is { } from ? $"from {from}" : "default";
-        AllowanceTooltip = a.IsOwn ? "Set for this holiday year" : a.From is { } f ? $"Inherited from {f}" : "Default allowance";
+        AllowanceSource = a.IsOwn ? Loc.Get("Feriefri.SourceOwn")
+            : a.From is { } from ? Loc.Format("Feriefri.SourceFrom", from.ToString())
+            : Loc.Get("Feriefri.SourceDefault");
+        AllowanceTooltip = a.IsOwn ? Loc.Get("Feriefri.TooltipOwn")
+            : a.From is { } f ? Loc.Format("Feriefri.TooltipInherited", f.ToString())
+            : Loc.Get("Feriefri.TooltipDefault");
         Used = b.UsedDays;
         BookedAhead = b.BookedAheadDays;
         Remaining = b.RemainingDays;
         RemainingSign = Math.Sign(b.RemainingDays);
+        UsedText = Loc.Format("Feriefri.Used", Loc.Num(b.UsedDays));
+        BookedAheadText = Loc.Format("Feriefri.BookedAhead", Loc.Num(b.BookedAheadDays));
+        RemainingText = Loc.Format("Feriefri.Remaining", Loc.Num(b.RemainingDays));
         ResetAllowanceCommand = new RelayCommand(_ => clearAllowance());
 
         // Year-end payout/lost notes only appear once the holiday year has started; before that they are just noise.
         var notes = new List<string>();
         if (b.ExceedsAllowanceBy > 0)
-            notes.Add($"{b.ExceedsAllowanceBy:0.##} more than the allowance");
+            notes.Add(Loc.Format("Feriefri.MoreThanAllowance", Loc.Num(b.ExceedsAllowanceBy)));
         if (started)
         {
             if (b.PaidOutAtFirstYearEnd > 0)
-                notes.Add($"{b.PaidOutAtFirstYearEnd:0.##} {Verb(b.PaidOutAtFirstYearEnd, b.FirstYearEndPassed)} paid out in January {b.HolidayYear.StartYear + 1}");
+                notes.Add(Loc.Tense("Fate.PaidOutJan", b.PaidOutAtFirstYearEnd, b.FirstYearEndPassed,
+                    Loc.Num(b.PaidOutAtFirstYearEnd), b.HolidayYear.StartYear + 1));
             if (b.PaidOutAtDeadline > 0)
-                notes.Add($"{b.PaidOutAtDeadline:0.##} {Verb(b.PaidOutAtDeadline, b.DeadlinePassed)} paid out in January {b.HolidayYear.StartYear + 2}");
+                notes.Add(Loc.Tense("Fate.PaidOutJan", b.PaidOutAtDeadline, b.DeadlinePassed,
+                    Loc.Num(b.PaidOutAtDeadline), b.HolidayYear.StartYear + 2));
             if (b.LostAtDeadline > 0)
-                notes.Add($"{b.LostAtDeadline:0.##} {Verb(b.LostAtDeadline, b.DeadlinePassed)} lost");
+                notes.Add(Loc.Tense("Fate.Lost", b.LostAtDeadline, b.DeadlinePassed, Loc.Num(b.LostAtDeadline)));
         }
         Note = string.Join("; ", notes);
         NoteIsError = b.ExceedsAllowanceBy > 0;
@@ -97,18 +109,22 @@ public sealed class FeriefriRow
     public decimal Used { get; }
     public decimal BookedAhead { get; }
     public decimal Remaining { get; }
+    public string UsedText { get; }
+    public string BookedAheadText { get; }
+    public string RemainingText { get; }
     public int RemainingSign { get; }
     public string Note { get; }
-    public bool NoteIsError { get; }
 
-    internal static string Verb(decimal days, bool past) => past ? (days == 1 ? "was" : "were") : "will be";
+    /// <summary>The note as a tooltip; null (no tooltip at all) when there is no note.</summary>
+    public string? NoteTooltip => Note.Length > 0 ? Note : null;
+    public bool NoteIsError { get; }
 }
 
 /// <summary>One line of the holiday-years card.</summary>
 public sealed record HolidayYearRow(
     string Name, string Earned, decimal TransferredIn, decimal TransferredOut, decimal Used, decimal BookedAhead,
     decimal Remaining, int RemainingSign, DateOnly Deadline, string Note, bool NoteIsError,
-    bool TransferredInIsProjected = false, string ProjectedTooltip = "")
+    bool TransferredInIsProjected = false, string ProjectedTooltip = "", string ProjectedText = "")
 {
     /// <summary>The transferred-in figure is a projection that is still counted in the previous holiday year.</summary>
     public bool ShowProjected => TransferredInIsProjected && TransferredIn > 0;
@@ -116,14 +132,14 @@ public sealed record HolidayYearRow(
     public static HolidayYearRow From(HolidayYearBalance b)
     {
         var note = b.ExceedsEarnableBy > 0
-            ? $"{b.ExceedsEarnableBy:0.##} more than can be earned by 31 August"
-            : b.ExceedsEarnedSoFarBy > 0 ? $"advance holiday: {b.ExceedsEarnedSoFarBy:0.##} not earned yet" : "";
+            ? Loc.Format("Note.ExceedsEarnable", Loc.Num(b.ExceedsEarnableBy))
+            : b.ExceedsEarnedSoFarBy > 0 ? Loc.Format("Note.Advance", Loc.Num(b.ExceedsEarnedSoFarBy)) : "";
         return new HolidayYearRow(
-            b.HolidayYear.ToString(), $"{b.EarnedSoFar:0.##} of {b.EarnableDays:0.##}", b.TransferredIn, b.TransferredToNext, b.UsedDays,
-            b.BookedAheadDays, b.RemainingDays, Math.Sign(b.RemainingDays), b.Deadline, note, b.ExceedsEarnableBy > 0,
-            b.TransferredInIsProjected,
-            $"Projected transfer from {b.HolidayYear.Previous} on {DateText.Long(b.HolidayYear.Previous.Deadline)}. " +
-            $"Until then these days still count as remaining in {b.HolidayYear.Previous}.");
+            b.HolidayYear.ToString(), Loc.Format("Table.Earned", Loc.Num(b.EarnedSoFar), Loc.Num(b.EarnableDays)), b.TransferredIn,
+            b.TransferredToNext, b.UsedDays, b.BookedAheadDays, b.RemainingDays, Math.Sign(b.RemainingDays), b.Deadline, note,
+            b.ExceedsEarnableBy > 0, b.TransferredInIsProjected,
+            Loc.Format("Table.ProjectedTooltip", b.HolidayYear.Previous.ToString(), DateText.Long(b.HolidayYear.Previous.Deadline)),
+            Loc.Format("Table.Projected", Loc.Num(b.TransferredIn)));
     }
 }
 
@@ -158,8 +174,14 @@ public sealed class MainViewModel : ObservableObject
     {
         _store = store;
         _theme = theme;
+        // Without a preferences service the text is English, never the language of the machine the code runs on.
+        Loc.SetLanguage(_theme?.Language ?? AppLanguage.English);
+        LanguageOptions = Enum.GetValues<LanguageMode>().Select(m => new LanguageOption(m)).ToList();
         if (_theme is not null)
+        {
             _theme.Changed += (_, _) => OnThemeChanged();
+            _theme.LanguageChanged += (_, _) => OnLanguageChanged();
+        }
         _today = today ?? (() => DateOnly.FromDateTime(DateTime.Today));
         _data = store.Load();
         _settings = GetOrCreateSettings(ClampYear(Today.Year));
@@ -186,6 +208,9 @@ public sealed class MainViewModel : ObservableObject
     private DateOnly Today => _today();
 
     public string DataPath => _store.Path;
+
+    /// <summary>The footer line "Saved to ..." in the current language.</summary>
+    public string DataPathText => Loc.Format("Footer.SavedTo", DataPath);
 
     // Theme choice: three radio buttons bind to these; only a "true" write changes the mode.
     public bool IsSystemTheme
@@ -223,7 +248,34 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
-    public string SummaryToggleText => IsSummaryExpanded ? "Hide summary" : "Show summary";
+    public string SummaryToggleText => Loc.Get(IsSummaryExpanded ? "Summary.Hide" : "Summary.Show");
+
+    /// <summary>The languages the picker offers (System first); each is shown in its own name.</summary>
+    public IReadOnlyList<LanguageOption> LanguageOptions { get; }
+
+    /// <summary>The picked language. Writing it applies at once to all text, clears the messages and saves only the preferences file.</summary>
+    public LanguageOption SelectedLanguage
+    {
+        get => LanguageOptions.First(o => o.Mode == (_theme?.LanguageMode ?? LanguageMode.System));
+        set
+        {
+            if (value is not null && _theme is not null)
+                _theme.LanguageMode = value.Mode;
+        }
+    }
+
+    /// <summary>Rebuilds every computed text in the new language. The vacation data is not touched or saved.</summary>
+    private void OnLanguageChanged()
+    {
+        Loc.SetLanguage(_theme!.Language);
+        ErrorMessage = "";
+        InfoMessage = "";
+        foreach (var option in LanguageOptions)
+            option.Refresh();
+        Refresh();
+        // An empty name means "every property changed": all computed texts are read again.
+        OnPropertyChanged(string.Empty);
+    }
 
     private void SetThemeMode(ThemeMode mode)
     {
@@ -279,8 +331,7 @@ public sealed class MainViewModel : ObservableObject
                 return "";
 
             var dates = string.Join(", ", days.Select(d => DateText.Long(d.Date)));
-            return $"{(days.Count == 1 ? "1 booked day falls" : $"{days.Count} booked days fall")} on public holidays " +
-                $"and {(days.Count == 1 ? "is" : "are")} not counted: {dates}.";
+            return Loc.Plural("Conflict.Note", days.Count, dates);
         }
     }
 
@@ -382,7 +433,7 @@ public sealed class MainViewModel : ObservableObject
     private DeadlineSettings DeadlineSettings => Status.HolidayYear.Settings;
 
     /// <summary>Heading of the per-holiday-year settings in the sidebar.</summary>
-    public string DeadlineSettingsTitle => $"When {DeadlineYear} expires ({DateText.Long(DeadlineYear.Deadline)})";
+    public string DeadlineSettingsTitle => Loc.Format("Settings.Title", DeadlineYear.ToString(), DateText.Long(DeadlineYear.Deadline));
 
     public decimal TransferLimitDays
     {
@@ -442,7 +493,7 @@ public sealed class MainViewModel : ObservableObject
     }
 
     private static string Source(HolidayYear? from, bool isOwn) =>
-        isOwn ? "Set for this year" : from is { } year ? $"From {year}" : "Default";
+        isOwn ? Loc.Get("Settings.Source.Own") : from is { } year ? Loc.Format("Settings.Source.From", year.ToString()) : Loc.Get("Settings.Source.Default");
 
     private void RaiseDeadlineSettingsChanged()
     {
@@ -541,19 +592,29 @@ public sealed class MainViewModel : ObservableObject
             var paid = e.PaidOutDays;
             var lost = e.LostDays;
             var sentences = new List<string>();
+            // The first sentence is introduced by "Feriefri:"; a second one continues it.
+            string Lead(string sentence) => Loc.Format("Banner.Feriefri.Lead", sentence);
             if (e.IsProjected)
             {
                 if (paid > 0)
-                    sentences.Add($"Feriefri: {Days(paid)} must be used by {deadline}, otherwise {(paid == 1 ? "it is" : "they are")} paid out in January.");
+                    sentences.Add(Lead(Loc.Number("Banner.Feriefri.MustUse", paid, Loc.Days(paid), deadline)));
                 if (lost > 0)
-                    sentences.Add($"{(paid > 0 ? "" : "Feriefri: ")}{Days(lost)} from {e.Previous} will be lost if not used by {(paid > 0 ? "then" : deadline)}.");
+                {
+                    var sentence = paid > 0
+                        ? Loc.Number("Banner.Feriefri.LostIfNotUsedThen", lost, Loc.Days(lost), e.Previous.ToString())
+                        : Lead(Loc.Number("Banner.Feriefri.LostIfNotUsedBy", lost, Loc.Days(lost), e.Previous.ToString(), deadline));
+                    sentences.Add(sentence);
+                }
             }
             else
             {
                 if (paid > 0)
-                    sentences.Add($"Feriefri: {Days(paid)} {FeriefriRow.Verb(paid, true)} paid out in January {e.Year + 1}.");
+                    sentences.Add(Lead(Loc.Tense("Fate.PaidOutJan", paid, true, Loc.Days(paid), e.Year + 1) + "."));
                 if (lost > 0)
-                    sentences.Add($"{(paid > 0 ? "" : "Feriefri: ")}{Days(lost)} from {e.Previous} {FeriefriRow.Verb(lost, true)} lost.");
+                {
+                    var sentence = Loc.Tense("Banner.Feriefri.LostFrom", lost, true, Loc.Days(lost), e.Previous.ToString());
+                    sentences.Add(paid > 0 ? sentence : Lead(sentence));
+                }
             }
             return string.Join(" ", sentences);
         }
@@ -562,9 +623,9 @@ public sealed class MainViewModel : ObservableObject
     public bool HasFeriefriBanner => FeriefriBanner.Length > 0;
 
     public string HolidayYearTitle =>
-        $"Holiday year {Status.HolidayYear.HolidayYear} · use by {DateText.Long(new DateOnly(Status.Year, 12, 31))}";
+        Loc.Format("Summary.HolidayYearTitle", Status.HolidayYear.HolidayYear.ToString(), DateText.Long(new DateOnly(Status.Year, 12, 31)));
 
-    public string EarnableNote => $"of {Status.HolidayYear.EarnableDays:0.##} earnable";
+    public string EarnableNote => Loc.Format("Summary.EarnableNote", Loc.Num(Status.HolidayYear.EarnableDays));
 
     /// <summary>Sign (-1, 0, 1) of the not-yet-booked days; the "Not yet booked" figure is coloured by it.</summary>
     public int UnbookedSign => Math.Sign(Status.UnbookedDays);
@@ -578,23 +639,22 @@ public sealed class MainViewModel : ObservableObject
             var unbooked = s.UnbookedDays;
             // The free-day count starts today in the current year, and covers the whole year for a future one.
             var window = s.Year > Today.Year
-                ? $"in {s.Year} up to and including {deadline}"
-                : $"from today through {deadline}";
+                ? Loc.Format("Status.Window.InYear", s.Year, deadline)
+                : Loc.Format("Status.Window.FromToday", deadline);
             return s.Status switch
             {
                 BalanceStatus.AllPlanned when s.HolidayYear.TotalDays == 0 =>
-                    $"No vacation days to use in holiday year {s.HolidayYear.HolidayYear}.",
-                BalanceStatus.AllPlanned => PastDeadline ? "Nothing was paid out or lost." : "Nothing will be paid out or lost.",
+                    Loc.Format("Status.NoDays", s.HolidayYear.HolidayYear.ToString()),
+                BalanceStatus.AllPlanned => Loc.Get(PastDeadline ? "Status.NothingLost.Past" : "Status.NothingLost.Future"),
                 BalanceStatus.DaysToPlan =>
-                    $"You have {Days(unbooked)} not yet booked. {(unbooked == 1 ? "It" : "They")} must be used by {deadline} " +
-                    $"({WorkingDays(s.WorkingDaysLeft)} still free).",
+                    Loc.Number("Status.DaysToPlan", unbooked, Loc.Days(unbooked), deadline, Loc.Plural("Unit.StillFree", s.WorkingDaysLeft)),
                 BalanceStatus.DaysWillBeLost =>
-                    $"You have {Days(unbooked)} not yet booked, but only {WorkingDaysLeft(s.WorkingDaysLeft)} {window}.",
+                    Loc.Format("Status.WillBeLost", Loc.Days(unbooked), Loc.Plural("Unit.Left", s.WorkingDaysLeft), window),
                 BalanceStatus.OverBooked =>
-                    $"You have booked {Days(s.HolidayYear.ExceedsEarnableBy)} more than you can earn by 31 August.",
+                    Loc.Format("Status.OverBooked", Loc.Days(s.HolidayYear.ExceedsEarnableBy)),
                 BalanceStatus.Expired =>
-                    $"Holiday year {s.HolidayYear.HolidayYear} expired on {deadline}: " +
-                    Outcome(s.HolidayYear.AtDeadline, s.NextHolidayYear, past: true) + ".",
+                    Loc.Format("Status.Expired", s.HolidayYear.HolidayYear.ToString(), deadline,
+                        Outcome(s.HolidayYear.AtDeadline, s.NextHolidayYear, past: true)),
                 _ => "",
             };
         }
@@ -616,24 +676,21 @@ public sealed class MainViewModel : ObservableObject
                 case BalanceStatus.DaysToPlan:
                     var outcome = Outcome(s.HolidayYear.AtDeadline, next, past: false);
                     if (outcome.Length > 0)
-                        lines.Add($"If they are not booked, {outcome}.");
+                        lines.Add(Loc.Format("Detail.IfNotBooked", outcome));
                     break;
                 case BalanceStatus.DaysWillBeLost:
-                    lines.Add($"{Days(s.DaysAtRisk)} can't fit even if you book every free working day: " +
-                        $"{Outcome(s.AtRisk, next, past: false)}.");
+                    lines.Add(Loc.Format("Detail.CantFit", Loc.Days(s.DaysAtRisk), Outcome(s.AtRisk, next, past: false)));
                     break;
                 case BalanceStatus.AllPlanned when s.HolidayYear.TotalDays > 0 && s.TransferredToNext > 0:
-                    lines.Add($"{Days(s.TransferredToNext)} {(PastDeadline ? (s.TransferredToNext == 1 ? "was" : "were") : "will be")} transferred to {next}.");
+                    lines.Add(Loc.Tense("Fate.Transferred", s.TransferredToNext, PastDeadline, Loc.Days(s.TransferredToNext), next.ToString()) + ".");
                     break;
             }
 
             if (transferredIn > 0 && s.Status is BalanceStatus.DaysToPlan or BalanceStatus.DaysWillBeLost)
             {
-                var source = s.HolidayYear.HolidayYear == _data.EffectiveFirstTrackedHolidayYear(Today)
-                    ? "of opening balance"
-                    : $"transferred from {s.HolidayYear.HolidayYear.Previous}";
-                lines.Add($"{Days(transferredIn)} {source} " +
-                    $"must be used in this holiday year, or {(transferredIn == 1 ? "it is" : "they are")} lost.");
+                lines.Add(s.HolidayYear.HolidayYear == _data.EffectiveFirstTrackedHolidayYear(Today)
+                    ? Loc.Number("Detail.OpeningMustUse", transferredIn, Loc.Days(transferredIn))
+                    : Loc.Number("Detail.TransferredMustUse", transferredIn, Loc.Days(transferredIn), s.HolidayYear.HolidayYear.Previous.ToString()));
             }
             return string.Join(Environment.NewLine, lines);
         }
@@ -644,16 +701,16 @@ public sealed class MainViewModel : ObservableObject
     {
         var parts = new List<string>();
         if (o.TransferredDays > 0)
-            parts.Add($"{Days(o.TransferredDays)} {(past ? (o.TransferredDays == 1 ? "was" : "were") : "will be")} transferred to {next}");
+            parts.Add(Loc.Tense("Fate.Transferred", o.TransferredDays, past, Loc.Days(o.TransferredDays), next.ToString()));
         if (o.PaidOutDays > 0)
-            parts.Add($"{Days(o.PaidOutDays)} {(past ? (o.PaidOutDays == 1 ? "was" : "were") : "will be")} paid out");
+            parts.Add(Loc.Tense("Fate.PaidOut", o.PaidOutDays, past, Loc.Days(o.PaidOutDays)));
         if (o.LostDays > 0)
-            parts.Add($"{Days(o.LostDays)} {(past ? (o.LostDays == 1 ? "was" : "were") : "will be")} lost");
+            parts.Add(Loc.Tense("Fate.Lost", o.LostDays, past, Loc.Days(o.LostDays)));
         return parts.Count switch
         {
             0 => "",
             1 => parts[0],
-            _ => string.Join(", ", parts.Take(parts.Count - 1)) + " and " + parts[^1],
+            _ => Loc.Format("List.And", string.Join(", ", parts.Take(parts.Count - 1)), parts[^1]),
         };
     }
     public bool HasStatusDetail => StatusDetail.Length > 0;
@@ -726,7 +783,7 @@ public sealed class MainViewModel : ObservableObject
         set { if (value) BookFeriefri = false; }
     }
 
-    public string AddButtonText => _bookFeriefri ? "Add Feriefri" : "Add vacation";
+    public string AddButtonText => Loc.Get(_bookFeriefri ? "Form.AddFeriefri" : "Form.AddVacation");
 
     public string NewDescription
     {
@@ -744,14 +801,14 @@ public sealed class MainViewModel : ObservableObject
             var start = DateOnly.FromDateTime(startDate);
             var end = DateOnly.FromDateTime(endDate);
             // Check the limit first so a huge range is never counted.
-            return Bookings.IsRangeWithinLimit(start, end) ? $"{PreviewDays(start, end)} working day(s)" : "More than one year";
+            return Bookings.IsRangeWithinLimit(start, end) ? Loc.Plural("Unit.WorkingDay", PreviewDays(start, end)) : Loc.Get("Preview.TooLong");
         }
     }
 
-    private string PreviewDays(DateOnly start, DateOnly end)
+    private decimal PreviewDays(DateOnly start, DateOnly end)
     {
         var days = CountWorkingDays(start, end);
-        return IsHalfDay && days > 0 ? "0.5" : days.ToString();
+        return IsHalfDay && days > 0 ? 0.5m : days;
     }
 
     public DateTime? NewHoliday
@@ -779,7 +836,7 @@ public sealed class MainViewModel : ObservableObject
         InfoMessage = "";
         if (NewStart is not { } startDate || NewEnd is not { } endDate)
         {
-            ErrorMessage = "Pick a start and end date.";
+            ErrorMessage = Loc.Get("Error.PickDates");
             return;
         }
 
@@ -787,7 +844,7 @@ public sealed class MainViewModel : ObservableObject
         var end = DateOnly.FromDateTime(endDate);
         if (end < start)
         {
-            ErrorMessage = "The end date must be on or after the start date.";
+            ErrorMessage = Loc.Get("Error.EndBeforeStart");
             return;
         }
         if (!Bookings.IsRangeWithinLimit(start, end))
@@ -798,8 +855,10 @@ public sealed class MainViewModel : ObservableObject
         if (CountWorkingDays(start, end) == 0)
         {
             ErrorMessage = start == end && _data.FindPublicHoliday(start) is { } holiday
-                ? $"{DateText.WithWeekday(start)} is a public holiday{(holiday.Name is { } name ? $" ({name})" : "")}."
-                : "That period has no working days in it.";
+                ? Loc.UpperFirst(holiday.Kind is { } kind
+                    ? Loc.Format("Error.PublicHolidayNamed", DateText.WithWeekday(start), Loc.HolidayName(kind))
+                    : Loc.Format("Error.PublicHoliday", DateText.WithWeekday(start)))
+                : Loc.Get("Error.NoWorkingDays");
             return;
         }
 
@@ -848,7 +907,7 @@ public sealed class MainViewModel : ObservableObject
 
         if (alreadyBooked)
         {
-            InfoMessage = "Those days were already booked as Feriefri.";
+            InfoMessage = Loc.Get("Feriefri.AlreadyBooked");
             return;
         }
         InfoMessage = FeriefriPartialMessage(result.BookedDays, result.LeftOutDays, result.Limit, result.HalfDayDates);
@@ -860,30 +919,27 @@ public sealed class MainViewModel : ObservableObject
         var messages = new List<string>();
         if (leftOutDays > 0)
         {
-            var head = $"{FeriefriDays(bookedDays)} booked; {Days(leftOutDays)} left out";
+            var head = Loc.Format("Feriefri.Partial.Head", Loc.FeriefriDays(bookedDays), Loc.Days(leftOutDays));
             if (limit is { PaidOutAtFirstYearEnd: > 0 } reserved)
             {
                 var paid = reserved.PaidOutAtFirstYearEnd;
                 var usable = reserved.AllowanceDays - paid;
                 var yearEnd = DateText.Long(new DateOnly(reserved.HolidayYear.StartYear, 12, 31));
-                messages.Add($"{head}: from January only {usable:0.##} of the {reserved.AllowanceDays:0.##} Feriefri days for " +
-                    $"{reserved.HolidayYear} can be used, because {paid:0.##} {(paid == 1 ? "is" : "are")} paid out in January " +
-                    $"{reserved.HolidayYear.StartYear + 1} unless used by {yearEnd}.");
+                messages.Add(Loc.Number("Feriefri.Partial.Reserved", paid, head, Loc.Num(usable), Loc.FeriefriDays(reserved.AllowanceDays),
+                    reserved.HolidayYear.ToString(), Loc.Num(paid), reserved.HolidayYear.StartYear + 1, yearEnd));
             }
+            else if (limit is not null)
+                messages.Add(Loc.Format("Feriefri.Partial.UsedUpFor", head, limit.HolidayYear.ToString()));
             else
-            {
-                var year = limit is not null ? $" for {limit.HolidayYear}" : "";
-                messages.Add($"{head} because the Feriefri days{year} are used up.");
-            }
+                messages.Add(Loc.Format("Feriefri.Partial.UsedUp", head));
         }
         foreach (var date in halfDayDates)
-            messages.Add($"{DateText.Long(date)} booked as a half day.");
+            messages.Add(Loc.Format("Feriefri.HalfDay", DateText.Long(date)));
         return string.Join(" ", messages);
     }
 
     private static string TooLongMessage(DateOnly start, DateOnly latestEnd) =>
-        $"A booking can cover at most one year. The latest end date for a booking starting " +
-        $"{DateText.Long(start)} is {DateText.Long(latestEnd)}.";
+        Loc.Format("Error.TooLong", DateText.Long(start), DateText.Long(latestEnd));
 
     /// <summary>A finished calendar gesture: a click cycles the day, a drag or Shift+click books a range.</summary>
     private void HandleCalendarGesture(CalendarGesture gesture)
@@ -914,7 +970,7 @@ public sealed class MainViewModel : ObservableObject
             return;
 
         if (result.Outcome is DayCycleOutcome.ConvertedToHalf or DayCycleOutcome.ReplacedAsHalf && result.Limit is { } limit)
-            InfoMessage = $"Only half a Feriefri day was left for {limit.HolidayYear}, so {DateText.WithWeekday(date)} was booked as a half day.";
+            InfoMessage = Loc.Format("Feriefri.HalfLeft", limit.HolidayYear.ToString(), DateText.WithWeekday(date));
     }
 
     private void BookCalendarRange(DateOnly from, DateOnly to, DayType type)
@@ -956,15 +1012,13 @@ public sealed class MainViewModel : ObservableObject
     private static string RefusedMessage(FeriefriLimit? limit)
     {
         if (limit is null)
-            return "No Feriefri days could be booked.";
+            return Loc.Get("Feriefri.None");
 
-        var paidOut = limit.PaidOutAtFirstYearEnd > 0
-            ? $" ({limit.PaidOutAtFirstYearEnd:0.##} are paid out in January {limit.HolidayYear.StartYear + 1})"
-            : "";
-        return $"All {limit.AllowanceDays:0.##} Feriefri days for {limit.HolidayYear} are used{paidOut}.";
+        var all = Loc.FeriefriDays(limit.AllowanceDays);
+        return limit.PaidOutAtFirstYearEnd > 0
+            ? Loc.Format("Feriefri.AllUsedPaid", all, limit.HolidayYear.ToString(), Loc.Num(limit.PaidOutAtFirstYearEnd), limit.HolidayYear.StartYear + 1)
+            : Loc.Format("Feriefri.AllUsed", all, limit.HolidayYear.ToString());
     }
-
-    private static string FeriefriDays(decimal days) => days == 1 ? "1 Feriefri day" : $"{days:0.##} Feriefri days";
 
     private void DeleteEntry(EntryRow row)
     {
@@ -977,16 +1031,16 @@ public sealed class MainViewModel : ObservableObject
         InfoMessage = "";
         if (NewHoliday is not { } value)
         {
-            ErrorMessage = "Pick a date for the holiday.";
+            ErrorMessage = Loc.Get("Error.PickHoliday");
             return;
         }
 
         var date = DateOnly.FromDateTime(value);
-        if (DanishHolidays.NameOf(date) is { } existing)
+        if (DanishHolidays.KindOf(date) is { } existing)
         {
             // Already a public holiday: nothing to store.
             NewHoliday = null;
-            InfoMessage = $"{DateText.Long(date)} is already a public holiday ({existing}).";
+            InfoMessage = Loc.Format("Info.AlreadyHoliday", DateText.Long(date), Loc.HolidayName(existing));
             return;
         }
 
@@ -1003,7 +1057,7 @@ public sealed class MainViewModel : ObservableObject
 
         NewHoliday = null;
         if (date.Year != SelectedYear)
-            InfoMessage = $"Added to {date.Year}'s holidays.";
+            InfoMessage = Loc.Format("Info.AddedToYear", date.Year);
     }
 
     /// <summary>Deletes the stored records on public holidays of the selected year; they were never counted, so balances stay.</summary>
@@ -1014,9 +1068,7 @@ public sealed class MainViewModel : ObservableObject
             return;
 
         if (Apply(() => _data.Days = Bookings.RemoveDays(_data.Days, dates)))
-            InfoMessage = dates.Count == 1
-                ? "Removed 1 booked day on a public holiday."
-                : $"Removed {dates.Count} booked days on public holidays.";
+            InfoMessage = Loc.Plural("Info.Removed", dates.Count);
     }
 
     private void RemoveHoliday(DateOnly date)
@@ -1061,7 +1113,7 @@ public sealed class MainViewModel : ObservableObject
             _data = JsonSerializer.Deserialize<VacationData>(snapshot, SnapshotOptions)!;
             _settings = GetOrCreateSettings(_settings.Year);
             Refresh();
-            ErrorMessage = $"Could not save: {ex.Message.TrimEnd('.', ' ')}. Your change was not saved.";
+            ErrorMessage = Loc.Format("Error.SaveFailed", ex.Message.TrimEnd('.', ' '));
             return false;
         }
 
@@ -1111,9 +1163,4 @@ public sealed class MainViewModel : ObservableObject
         RaiseDeadlineSettingsChanged();
     }
 
-    private static string Days(decimal days) => days == 1 ? "1 day" : $"{days:0.##} days";
-
-    private static string WorkingDays(decimal days) => days == 1 ? "1 working day is" : $"{days:0.##} working days are";
-
-    private static string WorkingDaysLeft(decimal days) => $"{WorkingDays(days)} left";
 }

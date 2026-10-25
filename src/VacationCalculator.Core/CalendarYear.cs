@@ -24,7 +24,7 @@ public enum CalendarDayKind
 /// <param name="IsPast">Whether the date is before today.</param>
 /// <param name="IsDanishHoliday">Whether the date is an automatic Danish public holiday.</param>
 /// <param name="IsManualHoliday">Whether the date is in the user's manual public holidays of its own calendar year.</param>
-/// <param name="HolidayName">The Danish name of the automatic holiday on the date; null otherwise (manual holidays have no name).</param>
+/// <param name="HolidayKind">Which automatic Danish holiday the date is (the App names it); null otherwise (manual holidays have no name).</param>
 /// <param name="Booking">
 /// The booked record on the date (the first one if the file has several), or null. It is stored even on a non-working
 /// day, where it doesn't count (see <see cref="IsConflict"/>).
@@ -41,7 +41,7 @@ public sealed record CalendarDay(
     bool IsWeekend,
     bool IsDanishHoliday,
     bool IsManualHoliday,
-    string? HolidayName,
+    DanishHolidayKind? HolidayKind,
     BookedDay? Booking,
     IReadOnlyList<AllocatedDay> Allocations)
 {
@@ -87,9 +87,12 @@ public sealed record CalendarDay(
 /// </param>
 public sealed record CalendarWeek(int WeekNumber, int WeekYear, IReadOnlyList<CalendarDay> Days);
 
-/// <summary>A month of a <see cref="CalendarYear"/> as whole weeks (4..6), Monday first.</summary>
-/// <param name="Name">The English month name, e.g. "January".</param>
-public sealed record CalendarMonth(int Year, int Month, string Name, IReadOnlyList<CalendarWeek> Weeks)
+/// <summary>
+/// A month of a <see cref="CalendarYear"/> as whole weeks (4..6), Monday first. It carries no name: the App formats
+/// <see cref="Month"/> in the user's language.
+/// </summary>
+/// <param name="Month">The month number, 1..12.</param>
+public sealed record CalendarMonth(int Year, int Month, IReadOnlyList<CalendarWeek> Weeks)
 {
     /// <summary>The month's own days (no padding), in date order.</summary>
     public IEnumerable<CalendarDay> Days => Weeks.SelectMany(w => w.Days).Where(d => d.IsInMonth);
@@ -151,15 +154,16 @@ public sealed record CalendarYear(int Year, IReadOnlyList<CalendarMonth> Months)
                 {
                     var date = monday.AddDays(i);
                     var booking = bookings.GetValueOrDefault(date);
+                    var holidayKind = DanishHolidays.KindOf(date);
                     days[i] = new CalendarDay(
                         date,
                         IsInMonth: date.Month == month && date.Year == year,
                         IsToday: date == today,
                         IsPast: date < today,
                         IsWeekend: date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday,
-                        IsDanishHoliday: DanishHolidays.IsHoliday(date),
+                        IsDanishHoliday: holidayKind is not null,
                         IsManualHoliday: manual.Contains(date),
-                        HolidayName: DanishHolidays.NameOf(date),
+                        HolidayKind: holidayKind,
                         Booking: booking,
                         Allocations: allocations.TryGetValue(date, out var list)
                             ? list.OrderBy(a => a.HolidayYear.StartYear).ToList()
@@ -168,7 +172,7 @@ public sealed record CalendarYear(int Year, IReadOnlyList<CalendarMonth> Months)
                 var dt = monday.ToDateTime(TimeOnly.MinValue);
                 weeks.Add(new CalendarWeek(ISOWeek.GetWeekOfYear(dt), ISOWeek.GetYear(dt), days));
             }
-            months.Add(new CalendarMonth(year, month, CultureInfo.InvariantCulture.DateTimeFormat.GetMonthName(month), weeks));
+            months.Add(new CalendarMonth(year, month, weeks));
         }
 
         return new CalendarYear(year, months);

@@ -163,14 +163,14 @@ public sealed class VacationData
     public bool IsPublicHoliday(DateOnly date) => DanishHolidays.IsHoliday(date) || IsManualPublicHoliday(date);
 
     /// <summary>
-    /// The public holiday on <paramref name="date"/> with its name and kind, or null if the date is neither an
+    /// The public holiday on <paramref name="date"/> with its Danish holiday kind and flags, or null if the date is neither an
     /// automatic Danish holiday nor a manual one. A date that is both gives one entry with both flags set.
     /// </summary>
     public PublicHoliday? FindPublicHoliday(DateOnly date)
     {
-        var name = DanishHolidays.NameOf(date);
+        var kind = DanishHolidays.KindOf(date);
         var manual = IsManualPublicHoliday(date);
-        return name is null && !manual ? null : new PublicHoliday(date, name, name is not null, manual);
+        return kind is null && !manual ? null : new PublicHoliday(date, kind, kind is not null, manual);
     }
 
     /// <summary>
@@ -187,7 +187,7 @@ public sealed class VacationData
             .ToHashSet();
         var result = new Dictionary<DateOnly, PublicHoliday>();
         foreach (var h in DanishHolidays.For(year))
-            result[h.Date] = new PublicHoliday(h.Date, h.Name, IsAutomatic: true, IsManual: manual.Contains(h.Date));
+            result[h.Date] = new PublicHoliday(h.Date, h.Kind, IsAutomatic: true, IsManual: manual.Contains(h.Date));
         foreach (var d in manual)
             result.TryAdd(d, new PublicHoliday(d, null, IsAutomatic: false, IsManual: true));
         return result.Values.OrderBy(h => h.Date).ToList();

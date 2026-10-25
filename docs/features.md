@@ -260,7 +260,7 @@ Details agreed during implementation:
 
 ## 7. Translations
 
-**Status:** In progress
+**Status:** Done
 
 The interface is available in four languages: **English**, **Danish** (Dansk), **Romanian** (Română) and **Redneck** (a full-on, good-natured American Southern dialect of English, a novelty option).
 

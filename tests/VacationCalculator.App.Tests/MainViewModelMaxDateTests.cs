@@ -51,7 +51,7 @@ public class MainViewModelMaxDateTests : IDisposable
 
         vm.AddEntryCommand.Execute(null);
 
-        Assert.Equal("Friday 31 December 9999 is a public holiday (Nytårsaftensdag).", vm.ErrorMessage);
+        Assert.Equal("Friday 31 December 9999 is a public holiday (New Year's Eve).", vm.ErrorMessage);
         Assert.Empty(Saved().Days);
     }
 

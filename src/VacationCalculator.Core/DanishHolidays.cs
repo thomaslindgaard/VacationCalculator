@@ -1,15 +1,47 @@
 namespace VacationCalculator.Core;
 
-/// <summary>An automatically calculated Danish public holiday (helligdag) with its Danish name.</summary>
-public sealed record DanishHoliday(DateOnly Date, string Name);
+/// <summary>
+/// The 12 automatic Danish public holidays (helligdage), in date order within a year. Core never names them; the App
+/// translates the kind into the user's language.
+/// </summary>
+public enum DanishHolidayKind
+{
+    /// <summary>Nytårsdag, 1 January.</summary>
+    NewYearsDay,
+    /// <summary>Skærtorsdag, Easter Sunday - 3.</summary>
+    MaundyThursday,
+    /// <summary>Langfredag, Easter Sunday - 2.</summary>
+    GoodFriday,
+    /// <summary>Påskedag.</summary>
+    EasterSunday,
+    /// <summary>2. påskedag, Easter Sunday + 1.</summary>
+    EasterMonday,
+    /// <summary>Kristi himmelfartsdag, Easter Sunday + 39.</summary>
+    AscensionDay,
+    /// <summary>Pinsedag, Easter Sunday + 49.</summary>
+    WhitSunday,
+    /// <summary>2. pinsedag, Easter Sunday + 50.</summary>
+    WhitMonday,
+    /// <summary>Juleaftensdag, 24 December.</summary>
+    ChristmasEve,
+    /// <summary>Juledag, 25 December.</summary>
+    ChristmasDay,
+    /// <summary>2. juledag, 26 December.</summary>
+    SecondChristmasDay,
+    /// <summary>Nytårsaftensdag, 31 December.</summary>
+    NewYearsEve,
+}
+
+/// <summary>An automatically calculated Danish public holiday (helligdag) and which one it is.</summary>
+public sealed record DanishHoliday(DateOnly Date, DanishHolidayKind Kind);
 
 /// <summary>
 /// A public holiday as shown to the user: automatic (Danish), manual (entered by the user), or both on the same date.
 /// </summary>
-/// <param name="Name">The Danish name of the automatic holiday; null for a manual-only holiday (manual holidays have no name).</param>
-/// <param name="IsAutomatic">Whether the date is a Danish public holiday (<see cref="DanishHolidays"/>); these can't be removed.</param>
+/// <param name="Kind">Which Danish holiday it is (the App names it in the user's language); null for a manual-only holiday (manual holidays have no name).</param>
+/// <param name="IsAutomatic">Whether the date is a Danish public holiday (<see cref="DanishHolidays"/>); these can't be removed. True exactly when <paramref name="Kind"/> is set.</param>
 /// <param name="IsManual">Whether the user entered the date in that year's manual public holidays; these can be removed.</param>
-public sealed record PublicHoliday(DateOnly Date, string? Name, bool IsAutomatic, bool IsManual);
+public sealed record PublicHoliday(DateOnly Date, DanishHolidayKind? Kind, bool IsAutomatic, bool IsManual);
 
 /// <summary>
 /// Danish public holidays (helligdage), calculated for any year 1..9999: Nytårsdag, Skærtorsdag, Langfredag, Påskedag,
@@ -24,15 +56,15 @@ public static class DanishHolidays
     private static readonly int[] EasterDayNumbers = new int[DateOnly.MaxValue.Year + 1];
 
     /// <summary>Holidays at a fixed offset from Easter Sunday, in date order.</summary>
-    private static readonly (int Offset, string Name)[] EasterBased =
+    private static readonly (int Offset, DanishHolidayKind Kind)[] EasterBased =
     [
-        (-3, "Skærtorsdag"),
-        (-2, "Langfredag"),
-        (0, "Påskedag"),
-        (1, "2. påskedag"),
-        (39, "Kristi himmelfartsdag"),
-        (49, "Pinsedag"),
-        (50, "2. pinsedag"),
+        (-3, DanishHolidayKind.MaundyThursday),
+        (-2, DanishHolidayKind.GoodFriday),
+        (0, DanishHolidayKind.EasterSunday),
+        (1, DanishHolidayKind.EasterMonday),
+        (39, DanishHolidayKind.AscensionDay),
+        (49, DanishHolidayKind.WhitSunday),
+        (50, DanishHolidayKind.WhitMonday),
     ];
 
     /// <summary>
@@ -52,38 +84,38 @@ public static class DanishHolidays
     public static IReadOnlyList<DanishHoliday> For(int year)
     {
         var easter = EasterSunday(year);
-        var list = new List<DanishHoliday>(12) { new(new DateOnly(year, 1, 1), "Nytårsdag") };
-        foreach (var (offset, name) in EasterBased)
-            list.Add(new DanishHoliday(easter.AddDays(offset), name));
-        list.Add(new DanishHoliday(new DateOnly(year, 12, 24), "Juleaftensdag"));
-        list.Add(new DanishHoliday(new DateOnly(year, 12, 25), "Juledag"));
-        list.Add(new DanishHoliday(new DateOnly(year, 12, 26), "2. juledag"));
-        list.Add(new DanishHoliday(new DateOnly(year, 12, 31), "Nytårsaftensdag"));
+        var list = new List<DanishHoliday>(12) { new(new DateOnly(year, 1, 1), DanishHolidayKind.NewYearsDay) };
+        foreach (var (offset, kind) in EasterBased)
+            list.Add(new DanishHoliday(easter.AddDays(offset), kind));
+        list.Add(new DanishHoliday(new DateOnly(year, 12, 24), DanishHolidayKind.ChristmasEve));
+        list.Add(new DanishHoliday(new DateOnly(year, 12, 25), DanishHolidayKind.ChristmasDay));
+        list.Add(new DanishHoliday(new DateOnly(year, 12, 26), DanishHolidayKind.SecondChristmasDay));
+        list.Add(new DanishHoliday(new DateOnly(year, 12, 31), DanishHolidayKind.NewYearsEve));
         return list;
     }
 
     /// <summary>Whether <paramref name="date"/> is a Danish public holiday. Never throws.</summary>
-    public static bool IsHoliday(DateOnly date) => NameOf(date) is not null;
+    public static bool IsHoliday(DateOnly date) => KindOf(date) is not null;
 
-    /// <summary>The Danish name of the holiday on <paramref name="date"/>, or null if it isn't one. Never throws.</summary>
-    public static string? NameOf(DateOnly date)
+    /// <summary>Which Danish holiday <paramref name="date"/> is, or null if it isn't one. Never throws.</summary>
+    public static DanishHolidayKind? KindOf(DateOnly date)
     {
         switch (date.Month, date.Day)
         {
-            case (1, 1): return "Nytårsdag";
-            case (12, 24): return "Juleaftensdag";
-            case (12, 25): return "Juledag";
-            case (12, 26): return "2. juledag";
-            case (12, 31): return "Nytårsaftensdag";
+            case (1, 1): return DanishHolidayKind.NewYearsDay;
+            case (12, 24): return DanishHolidayKind.ChristmasEve;
+            case (12, 25): return DanishHolidayKind.ChristmasDay;
+            case (12, 26): return DanishHolidayKind.SecondChristmasDay;
+            case (12, 31): return DanishHolidayKind.NewYearsEve;
         }
         // Easter-based holidays fall between 19 March (Easter - 3) and 14 June (Easter + 50).
         if (date.Month is < 3 or > 6)
             return null;
         var offset = date.DayNumber - EasterDayNumber(date.Year);
-        foreach (var (o, name) in EasterBased)
+        foreach (var (o, kind) in EasterBased)
         {
             if (o == offset)
-                return name;
+                return kind;
         }
         return null;
     }

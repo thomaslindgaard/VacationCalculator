@@ -109,24 +109,24 @@ public sealed class DayCell : ObservableObject
         var lines = new List<string> { DateText.WithWeekday(day.Date) };
 
         if (day.IsDanishHoliday)
-            lines.Add(day.HolidayName ?? "Public holiday");
+            lines.Add(day.HolidayKind is { } kind ? Loc.HolidayName(kind) : Loc.Get("Legend.PublicHoliday"));
         else if (day.IsManualHoliday)
-            lines.Add("Public holiday (added by you)");
+            lines.Add(Loc.Get("Cal.PublicHolidayManual"));
         else if (day.IsWeekend)
-            lines.Add("Weekend");
+            lines.Add(Loc.Get("Legend.Weekend"));
 
         if (day.IsBooked && (day.IsConflict || day.BookedAmount > 0))
         {
-            var type = day.BookedType == DayType.Feriefri ? "Feriefri" : "Vacation";
-            lines.Add($"{type}, {(day.IsHalfDay ? "half day" : "full day")}");
+            var type = Loc.Get(day.BookedType == DayType.Feriefri ? "Type.Feriefri" : "Type.Vacation");
+            lines.Add(Loc.Format("Cal.Booked", type, Loc.Get(day.IsHalfDay ? "Cal.HalfDay" : "Cal.FullDay")));
             if (day.Description.Length > 0)
-                lines.Add($"Note: {day.Description}");
+                lines.Add(Loc.Format("Cal.Note", day.Description));
             if (day.IsConflict)
-                lines.Add("Booked on a public holiday or weekend; not counted");
+                lines.Add(Loc.Get("Cal.Conflict"));
             else if (day.Allocations.Count > 1)
-                lines.Add(string.Join(", ", day.Allocations.Select(a => $"{a.Amount:0.##} from {a.HolidayYear}")));
+                lines.Add(string.Join(", ", day.Allocations.Select(a => Loc.Format("Cal.Allocation", Loc.Num(a.Amount), a.HolidayYear.ToString()))));
             else if (day.HolidayYearsText.Length > 0)
-                lines.Add($"Holiday year {day.HolidayYearsText}");
+                lines.Add(Loc.Format("Cal.HolidayYear", day.HolidayYearsText));
         }
 
         return string.Join(Environment.NewLine, lines);
@@ -150,7 +150,7 @@ public sealed class MonthView : ObservableObject
 
     public void Update(CalendarMonth month)
     {
-        Name = month.Name;
+        Name = Loc.MonthTitle(month.Month);
         if (_cells.Count == month.Weeks.Count * 8)
         {
             var i = 0;

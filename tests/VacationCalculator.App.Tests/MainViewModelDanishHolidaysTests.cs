@@ -1,4 +1,4 @@
-﻿using VacationCalculator.App.ViewModels;
+using VacationCalculator.App.ViewModels;
 using VacationCalculator.Core;
 
 namespace VacationCalculator.App.Tests;
@@ -32,10 +32,10 @@ public class MainViewModelDanishHolidaysTests : HolidayYearVmTestBase, IDisposab
 
         Assert.Equal(
             [
-                (D(2026, 1, 1), "Nytårsdag"), (D(2026, 4, 2), "Skærtorsdag"), (D(2026, 4, 3), "Langfredag"),
-                (D(2026, 4, 5), "Påskedag"), (D(2026, 4, 6), "2. påskedag"), (D(2026, 5, 14), "Kristi himmelfartsdag"),
-                (D(2026, 5, 24), "Pinsedag"), (D(2026, 5, 25), "2. pinsedag"), (D(2026, 12, 24), "Juleaftensdag"),
-                (D(2026, 12, 25), "Juledag"), (D(2026, 12, 26), "2. juledag"), (D(2026, 12, 31), "Nytårsaftensdag"),
+                (D(2026, 1, 1), "New Year's Day"), (D(2026, 4, 2), "Maundy Thursday"), (D(2026, 4, 3), "Good Friday"),
+                (D(2026, 4, 5), "Easter Sunday"), (D(2026, 4, 6), "Easter Monday"), (D(2026, 5, 14), "Ascension Day"),
+                (D(2026, 5, 24), "Whit Sunday"), (D(2026, 5, 25), "Whit Monday"), (D(2026, 12, 24), "Christmas Eve"),
+                (D(2026, 12, 25), "Christmas Day"), (D(2026, 12, 26), "Boxing Day"), (D(2026, 12, 31), "New Year's Eve"),
             ],
             vm.PublicHolidays.Select(r => (r.Date, r.Name)));
         Assert.All(vm.PublicHolidays, r =>
@@ -56,9 +56,9 @@ public class MainViewModelDanishHolidaysTests : HolidayYearVmTestBase, IDisposab
 
         Assert.Equal(12, vm.PublicHolidays.Count);
         Assert.All(vm.PublicHolidays, r => Assert.Equal(2027, r.Date.Year));
-        Assert.Equal(D(2027, 3, 25), vm.PublicHolidays.Single(r => r.Name == "Skærtorsdag").Date);
-        Assert.Equal(D(2027, 5, 6), vm.PublicHolidays.Single(r => r.Name == "Kristi himmelfartsdag").Date);
-        Assert.Equal(D(2027, 5, 16), vm.PublicHolidays.Single(r => r.Name == "Pinsedag").Date);
+        Assert.Equal(D(2027, 3, 25), vm.PublicHolidays.Single(r => r.Name == "Maundy Thursday").Date);
+        Assert.Equal(D(2027, 5, 6), vm.PublicHolidays.Single(r => r.Name == "Ascension Day").Date);
+        Assert.Equal(D(2027, 5, 16), vm.PublicHolidays.Single(r => r.Name == "Whit Sunday").Date);
     }
 
     [Fact]
@@ -108,7 +108,7 @@ public class MainViewModelDanishHolidaysTests : HolidayYearVmTestBase, IDisposab
         var row = vm.PublicHolidays.Single(r => r.Date == D(2026, 12, 24));
         Assert.True(row.IsAutomatic);
         Assert.True(row.CanRemove);
-        Assert.Equal("Juleaftensdag", row.Name);
+        Assert.Equal("Christmas Eve", row.Name);
         Assert.Equal(12, vm.PublicHolidays.Count); // not listed twice
 
         vm.RemoveHolidayCommand.Execute(D(2026, 12, 24));
@@ -122,7 +122,7 @@ public class MainViewModelDanishHolidaysTests : HolidayYearVmTestBase, IDisposab
         // The day still isn't bookable
         vm.NewStart = new DateTime(2026, 12, 24);
         vm.AddEntryCommand.Execute(null);
-        Assert.Equal("Thursday 24 December 2026 is a public holiday (Juleaftensdag).", vm.ErrorMessage);
+        Assert.Equal("Thursday 24 December 2026 is a public holiday (Christmas Eve).", vm.ErrorMessage);
     }
 
     [Fact]
@@ -149,12 +149,12 @@ public class MainViewModelDanishHolidaysTests : HolidayYearVmTestBase, IDisposab
     // ---- Adding an automatic holiday as a manual one ----
 
     [Theory]
-    [InlineData(2026, 4, 6, "6 April 2026 is already a public holiday (2. påskedag).")]
-    [InlineData(2026, 5, 24, "24 May 2026 is already a public holiday (Pinsedag).")] // Sunday
-    [InlineData(2026, 12, 24, "24 December 2026 is already a public holiday (Juleaftensdag).")]
-    [InlineData(2026, 12, 31, "31 December 2026 is already a public holiday (Nytårsaftensdag).")]
-    [InlineData(2027, 1, 1, "1 January 2027 is already a public holiday (Nytårsdag).")]  // other year than selected
-    [InlineData(2028, 5, 25, "25 May 2028 is already a public holiday (Kristi himmelfartsdag).")]
+    [InlineData(2026, 4, 6, "6 April 2026 is already a public holiday (Easter Monday).")]
+    [InlineData(2026, 5, 24, "24 May 2026 is already a public holiday (Whit Sunday).")] // Sunday
+    [InlineData(2026, 12, 24, "24 December 2026 is already a public holiday (Christmas Eve).")]
+    [InlineData(2026, 12, 31, "31 December 2026 is already a public holiday (New Year's Eve).")]
+    [InlineData(2027, 1, 1, "1 January 2027 is already a public holiday (New Year's Day).")]  // other year than selected
+    [InlineData(2028, 5, 25, "25 May 2028 is already a public holiday (Ascension Day).")]
     public void AutomaticDate_IsRefusedWithAnInfoMessage_AndNothingIsStored(int y, int m, int d, string message)
     {
         var vm = NewVm(Dec18);
@@ -244,7 +244,7 @@ public class MainViewModelDanishHolidaysTests : HolidayYearVmTestBase, IDisposab
 
         vm.AddEntryCommand.Execute(null);
 
-        Assert.Equal("Thursday 24 December 2026 is a public holiday (Juleaftensdag).", vm.ErrorMessage);
+        Assert.Equal("Thursday 24 December 2026 is a public holiday (Christmas Eve).", vm.ErrorMessage);
         Assert.Equal(before, File.Exists(DataFile) ? File.ReadAllBytes(DataFile) : null); // nothing booked, nothing saved
         Assert.DoesNotContain(vm.Entries, e => e.Period.Start == D(2026, 12, 24));
     }
@@ -266,11 +266,11 @@ public class MainViewModelDanishHolidaysTests : HolidayYearVmTestBase, IDisposab
     public void BookingASingleHolidayOnAWeekend_StillNamesTheHoliday()
     {
         var vm = NewVm(Dec18);
-        vm.NewStart = new DateTime(2026, 12, 26); // Saturday and 2. juledag
+        vm.NewStart = new DateTime(2026, 12, 26); // Saturday and Boxing Day
 
         vm.AddEntryCommand.Execute(null);
 
-        Assert.Equal("Saturday 26 December 2026 is a public holiday (2. juledag).", vm.ErrorMessage);
+        Assert.Equal("Saturday 26 December 2026 is a public holiday (Boxing Day).", vm.ErrorMessage);
     }
 
     [Fact]
@@ -305,7 +305,7 @@ public class MainViewModelDanishHolidaysTests : HolidayYearVmTestBase, IDisposab
         vm.NewEnd = new DateTime(2026, 12, 31);
 
         // Mon 21, 22, 23, 28, 29, 30 (24, 25, 31 are holidays)
-        Assert.Equal("6 working day(s)", vm.NewEntryPreview);
+        Assert.Equal("6 working days", vm.NewEntryPreview);
         vm.AddEntryCommand.Execute(null);
 
         Assert.Equal("", vm.ErrorMessage);
@@ -322,7 +322,7 @@ public class MainViewModelDanishHolidaysTests : HolidayYearVmTestBase, IDisposab
     {
         var vm = NewVm(Dec18);
         vm.NewStart = new DateTime(2026, 12, 25);
-        Assert.Equal("0 working day(s)", vm.NewEntryPreview);
+        Assert.Equal("0 working days", vm.NewEntryPreview);
     }
 
     // ---- ConflictNote ----
@@ -364,7 +364,7 @@ public class MainViewModelDanishHolidaysTests : HolidayYearVmTestBase, IDisposab
         var vm = NewVm(Dec18, WithDays(
             (D(2026, 12, 24), 1, DayType.Vacation),
             (D(2027, 1, 1), 1, DayType.Vacation),
-            (D(2027, 3, 26), 1, DayType.Vacation))); // Fri, Langfredag 2027
+            (D(2027, 3, 26), 1, DayType.Vacation))); // Fri, Good Friday 2027
         var raised = new List<string?>();
         vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
 

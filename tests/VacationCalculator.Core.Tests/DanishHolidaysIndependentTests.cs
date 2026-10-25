@@ -63,14 +63,14 @@ public class DanishHolidaysIndependentTests
     {
         for (var y = 1583; y <= 3000; y++)
         {
-            var byName = DanishHolidays.For(y).ToDictionary(h => h.Name, h => h.Date);
-            Assert.Equal(DayOfWeek.Thursday, byName["Skærtorsdag"].DayOfWeek);
-            Assert.Equal(DayOfWeek.Friday, byName["Langfredag"].DayOfWeek);
-            Assert.Equal(DayOfWeek.Sunday, byName["Påskedag"].DayOfWeek);
-            Assert.Equal(DayOfWeek.Monday, byName["2. påskedag"].DayOfWeek);
-            Assert.Equal(DayOfWeek.Thursday, byName["Kristi himmelfartsdag"].DayOfWeek);
-            Assert.Equal(DayOfWeek.Sunday, byName["Pinsedag"].DayOfWeek);
-            Assert.Equal(DayOfWeek.Monday, byName["2. pinsedag"].DayOfWeek);
+            var byKind = DanishHolidays.For(y).ToDictionary(h => h.Kind, h => h.Date);
+            Assert.Equal(DayOfWeek.Thursday, byKind[DanishHolidayKind.MaundyThursday].DayOfWeek);
+            Assert.Equal(DayOfWeek.Friday, byKind[DanishHolidayKind.GoodFriday].DayOfWeek);
+            Assert.Equal(DayOfWeek.Sunday, byKind[DanishHolidayKind.EasterSunday].DayOfWeek);
+            Assert.Equal(DayOfWeek.Monday, byKind[DanishHolidayKind.EasterMonday].DayOfWeek);
+            Assert.Equal(DayOfWeek.Thursday, byKind[DanishHolidayKind.AscensionDay].DayOfWeek);
+            Assert.Equal(DayOfWeek.Sunday, byKind[DanishHolidayKind.WhitSunday].DayOfWeek);
+            Assert.Equal(DayOfWeek.Monday, byKind[DanishHolidayKind.WhitMonday].DayOfWeek);
         }
     }
 
@@ -85,7 +85,7 @@ public class DanishHolidaysIndependentTests
             for (var n = new DateOnly(year, 1, 1).DayNumber; n <= new DateOnly(year, 12, 31).DayNumber; n++)
             {
                 var d = DateOnly.FromDayNumber(n);
-                Assert.Equal(DanishHolidays.NameOf(d) is not null, DanishHolidays.IsHoliday(d));
+                Assert.Equal(DanishHolidays.KindOf(d) is not null, DanishHolidays.IsHoliday(d));
                 if (DanishHolidays.IsHoliday(d))
                     found.Add(d);
             }
@@ -93,48 +93,52 @@ public class DanishHolidaysIndependentTests
         }
     }
 
-    // ---- The list with names ----
+    // ---- The list with kinds ----
 
     [Fact]
-    public void For2024_Names_AndDates()
+    public void For2024_Kinds_AndDates()
     {
         // Easter Sun 2024-03-31: Skaertorsdag Thu 03-28, Langfredag Fri 03-29, 2. paaskedag Mon 04-01,
         // Kristi himmelfart Thu 05-09 (31 Mar + 39 d: 30 Apr is +30, 9 May is +39), Pinsedag Sun 05-19, 2. pinsedag Mon 05-20.
         Assert.Equal(
             [
-                (D("2024-01-01"), "Nytårsdag"), (D("2024-03-28"), "Skærtorsdag"), (D("2024-03-29"), "Langfredag"),
-                (D("2024-03-31"), "Påskedag"), (D("2024-04-01"), "2. påskedag"), (D("2024-05-09"), "Kristi himmelfartsdag"),
-                (D("2024-05-19"), "Pinsedag"), (D("2024-05-20"), "2. pinsedag"), (D("2024-12-24"), "Juleaftensdag"),
-                (D("2024-12-25"), "Juledag"), (D("2024-12-26"), "2. juledag"), (D("2024-12-31"), "Nytårsaftensdag"),
+                (D("2024-01-01"), DanishHolidayKind.NewYearsDay), (D("2024-03-28"), DanishHolidayKind.MaundyThursday),
+                (D("2024-03-29"), DanishHolidayKind.GoodFriday), (D("2024-03-31"), DanishHolidayKind.EasterSunday),
+                (D("2024-04-01"), DanishHolidayKind.EasterMonday), (D("2024-05-09"), DanishHolidayKind.AscensionDay),
+                (D("2024-05-19"), DanishHolidayKind.WhitSunday), (D("2024-05-20"), DanishHolidayKind.WhitMonday),
+                (D("2024-12-24"), DanishHolidayKind.ChristmasEve), (D("2024-12-25"), DanishHolidayKind.ChristmasDay),
+                (D("2024-12-26"), DanishHolidayKind.SecondChristmasDay), (D("2024-12-31"), DanishHolidayKind.NewYearsEve),
             ],
-            DanishHolidays.For(2024).Select(h => (h.Date, h.Name)));
+            DanishHolidays.For(2024).Select(h => (h.Date, h.Kind)));
     }
 
     [Fact]
-    public void For2027_Names_AndDates()
+    public void For2027_Kinds_AndDates()
     {
         // Easter Sun 2027-03-28: Thu 03-25, Fri 03-26, Mon 03-29, Ascension Thu 05-06, Sun 05-16, Mon 05-17.
         Assert.Equal(
             [
-                (D("2027-01-01"), "Nytårsdag"), (D("2027-03-25"), "Skærtorsdag"), (D("2027-03-26"), "Langfredag"),
-                (D("2027-03-28"), "Påskedag"), (D("2027-03-29"), "2. påskedag"), (D("2027-05-06"), "Kristi himmelfartsdag"),
-                (D("2027-05-16"), "Pinsedag"), (D("2027-05-17"), "2. pinsedag"), (D("2027-12-24"), "Juleaftensdag"),
-                (D("2027-12-25"), "Juledag"), (D("2027-12-26"), "2. juledag"), (D("2027-12-31"), "Nytårsaftensdag"),
+                (D("2027-01-01"), DanishHolidayKind.NewYearsDay), (D("2027-03-25"), DanishHolidayKind.MaundyThursday),
+                (D("2027-03-26"), DanishHolidayKind.GoodFriday), (D("2027-03-28"), DanishHolidayKind.EasterSunday),
+                (D("2027-03-29"), DanishHolidayKind.EasterMonday), (D("2027-05-06"), DanishHolidayKind.AscensionDay),
+                (D("2027-05-16"), DanishHolidayKind.WhitSunday), (D("2027-05-17"), DanishHolidayKind.WhitMonday),
+                (D("2027-12-24"), DanishHolidayKind.ChristmasEve), (D("2027-12-25"), DanishHolidayKind.ChristmasDay),
+                (D("2027-12-26"), DanishHolidayKind.SecondChristmasDay), (D("2027-12-31"), DanishHolidayKind.NewYearsEve),
             ],
-            DanishHolidays.For(2027).Select(h => (h.Date, h.Name)));
+            DanishHolidays.For(2027).Select(h => (h.Date, h.Kind)));
     }
 
     [Fact]
     public void For2008_EarlyEaster_AscensionFallsOnMay1()
     {
         // Easter Sun 2008-03-23: Thu 03-20, Fri 03-21, Mon 03-24; Ascension Thu 05-01; Sun 05-11; Mon 05-12.
-        var byName = DanishHolidays.For(2008).ToDictionary(h => h.Name, h => h.Date);
-        Assert.Equal(D("2008-03-20"), byName["Skærtorsdag"]);
-        Assert.Equal(D("2008-03-21"), byName["Langfredag"]);
-        Assert.Equal(D("2008-03-24"), byName["2. påskedag"]);
-        Assert.Equal(D("2008-05-01"), byName["Kristi himmelfartsdag"]);
-        Assert.Equal(D("2008-05-11"), byName["Pinsedag"]);
-        Assert.Equal(D("2008-05-12"), byName["2. pinsedag"]);
+        var byKind = DanishHolidays.For(2008).ToDictionary(h => h.Kind, h => h.Date);
+        Assert.Equal(D("2008-03-20"), byKind[DanishHolidayKind.MaundyThursday]);
+        Assert.Equal(D("2008-03-21"), byKind[DanishHolidayKind.GoodFriday]);
+        Assert.Equal(D("2008-03-24"), byKind[DanishHolidayKind.EasterMonday]);
+        Assert.Equal(D("2008-05-01"), byKind[DanishHolidayKind.AscensionDay]);
+        Assert.Equal(D("2008-05-11"), byKind[DanishHolidayKind.WhitSunday]);
+        Assert.Equal(D("2008-05-12"), byKind[DanishHolidayKind.WhitMonday]);
     }
 
     [Fact]
@@ -448,7 +452,7 @@ public class DanishHolidaysIndependentTests
         var both = Data().WithHolidays("2026-04-06").PublicHolidaysIn(2026).Single(h => h.Date == D("2026-04-06"));
         Assert.True(both.IsAutomatic);
         Assert.True(both.IsManual);
-        Assert.Equal("2. påskedag", both.Name);
+        Assert.Equal(DanishHolidayKind.EasterMonday, both.Kind);
     }
 
     [Fact]

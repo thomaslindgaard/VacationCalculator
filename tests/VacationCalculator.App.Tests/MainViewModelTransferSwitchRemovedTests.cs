@@ -50,14 +50,15 @@ public class MainViewModelTransferSwitchRemovedTests : HolidayYearVmTestBase
 
         Assert.DoesNotContain(xaml, l => l.Contains("TransferAllowed"));
         Assert.DoesNotContain(xaml, l => l.Contains("can be transferred to the next holiday year"));
-        var label = Array.FindIndex(xaml, l => l.Contains("Days that can be transferred"));
+        var label = Array.FindIndex(xaml, l => l.Contains("Settings.TransferLimit"));
         Assert.True(label >= 0);
         Assert.Contains("TransferLimitDays", xaml[label + 1]);
         // Nothing in the few lines around the label collapses or triggers on visibility.
         var around = string.Join("\n", xaml[Math.Max(0, label - 4)..(label + 2)]);
         Assert.DoesNotContain("Collapsed", around);
         Assert.DoesNotContain("DataTrigger", around);
-        Assert.Contains("0 = no transfer", string.Join("\n", xaml));
+        Assert.Contains("Settings.TransferHint", string.Join("\n", xaml));
+        Assert.Contains("0 = no transfer", VacationCalculator.App.Services.StringTables.For(VacationCalculator.App.Services.AppLanguage.English)["Settings.TransferHint"]);
     }
 
     [Fact]

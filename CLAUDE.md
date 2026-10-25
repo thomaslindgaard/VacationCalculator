@@ -74,7 +74,8 @@ Every completed update to the app is committed and pushed to GitHub (`origin`, h
   - `MainWindow.xaml` (sidebar + main content), `ViewModels/` (hand-rolled MVVM: `ObservableObject`, `RelayCommand`, `MainViewModel` with `Apply` for every save)
   - Main area: summary (collapsible) and banner on top, then Calendar | List tabs; `ViewModels/CalendarViews.cs` (month/day view objects, updated in place), `Controls/AdaptiveUniformGrid.cs`
   - `Themes/` (`LightTheme.xaml` / `DarkTheme.xaml` palettes with identical keys, `Controls.xaml` control styles), `Behaviors/` (attached behaviours, e.g. `CommitOnEnter`)
-  - `Services/`: `ThemeService` (Light/Dark/System and the summary's collapsed state, stored in `vacation-calculator-preferences.json` next to the data file), `DateText` (English dates in text), `DataPathResolver` (`--data` option)
+  - `Services/`: `ThemeService` (Light/Dark/System, the language choice and the summary's collapsed state, stored in `vacation-calculator-preferences.json` next to the data file), `DateText` (dates in text, in the current language), `DataPathResolver` (`--data` option)
+  - Translations in `Services/`: `Language` (`AppLanguage`, `LanguageMode`, `Languages.Resolve`: System follows the Windows display language), `Loc` (current language, `Get`/`Format`/`Plural`, XAML indexer), `StrExtension` (`{svc:Str Key}` in XAML), `StringTables.<Language>.cs` (one dictionary per language, identical keys). Add a string to all four tables; plural keys have `.One`/`.Few`/`.Other`.
 - `tests/VacationCalculator.Core.Tests` and `tests/VacationCalculator.App.Tests` (xUnit). Files named `*Independent*` and most App tests are written by `tester`.
 
 ## Domain rules

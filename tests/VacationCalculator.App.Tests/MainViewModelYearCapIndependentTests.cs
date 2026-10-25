@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Globalization;
 using VacationCalculator.App.ViewModels;
 using VacationCalculator.Core;
@@ -135,10 +135,10 @@ public class MainViewModelYearCapIndependentTests : IDisposable
         Set(vm, new DateTime(2026, 3, 15), new DateTime(2027, 3, 15));
         Assert.Equal("More than one year", vm.NewEntryPreview);
         Set(vm, new DateTime(2026, 3, 15), new DateTime(2027, 3, 14));
-        Assert.EndsWith("working day(s)", vm.NewEntryPreview);
+        Assert.EndsWith("working days", vm.NewEntryPreview);
         // Mon 2026-11-02 .. Fri 2026-11-06 = 5 days (no holidays entered)
         Set(vm, new DateTime(2026, 11, 2), new DateTime(2026, 11, 6));
-        Assert.Equal("5 working day(s)", vm.NewEntryPreview);
+        Assert.Equal("5 working days", vm.NewEntryPreview);
     }
 
     [Fact]
