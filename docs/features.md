@@ -258,9 +258,28 @@ Details agreed during implementation:
 
 ---
 
-## Later ideas (not agreed)
+## 7. Translations
 
-- **Translations:** make the interface translatable (at least English and Danish), including dates in text. Until then all text, including dates in sentences and headings (e.g. "31 December 2026"), is English; number fields and date pickers follow the Windows regional format.
+**Status:** In progress
+
+The interface is available in four languages: **English**, **Danish** (Dansk), **Romanian** (Română) and **Redneck** (a full-on, good-natured American Southern dialect of English, a novelty option).
+
+- **Language picker** in the sidebar next to Theme: System / English / Dansk / Română / Redneck (each language named in itself). **System** (the default) follows the Windows display language: Danish → Danish, Romanian → Romanian, anything else → English. Redneck is only used when picked. The choice is stored in the preferences file next to the theme, not in the vacation data.
+- **Switching applies immediately** to everything on screen: labels, buttons, tooltips, headings, the summary, the banner, messages, the legend and hint line, calendar month and weekday headers, public holiday names, the List tab's form, column headers and type badges, and validation and error texts. A message showing at the moment of switching may simply be cleared.
+- The app name **"Vacation Calculator" is never translated**.
+- **Dates inside text** follow the language: English and Redneck "31 December 2026" / "Thursday 24 December 2026", Danish "31. december 2026" / "torsdag den 24. december 2026", Romanian "31 decembrie 2026" / "joi, 24 decembrie 2026". Inputs, numbers and table date columns keep following the Windows regional format. Holiday-year labels stay "2025/26".
+- **Terms:** "Feriefri" stays as a name in English, Romanian and Redneck. Danish uses the natural Danish wording (ferie, feriefridage, ferieår, 5. ferieuge, overførsel, udbetaling, bortfalder). Public holiday names are translated: Danish keeps the real names (Nytårsdag, Skærtorsdag, …), the other languages use their own equivalents (e.g. "Maundy Thursday", "Ascension Day", "Whit Monday").
+- **Plurals and numbers** are correct per language: "1 day" / "2 days" / "0,5 days"; Romanian "1 zi", "2 zile", "20 de zile", "2,5 zile".
+- **Redneck** is full-on dialect, but every number, date, day type and consequence (transferred, paid out, lost) stays exact and unambiguous.
+- **Layout:** every language meets the layout limits (default window fits 1366×768, at least 5 list rows, the sidebar scrolls as one area); longer text wraps rather than clips.
+- **Core has no user-facing text:** holiday and month names become keys and numbers that the App translates.
+- Translations are written by the agents. The Danish text is reviewed by the user; the Romanian text should ideally be checked by a native speaker.
+
+**Agents:** `domain-logic` (holiday kinds and month numbers instead of names), then `wpf-ui` (string resources, language picker, all text, dates), `tester` (every key and placeholder present in all languages, screenshots of all four languages in both themes).
+
+---
+
+## Later ideas (not agreed)
 
 - Main-holiday check (hovedferie): warn if fewer than 15 consecutive days (3 weeks) are booked between 1 May and 30 September.
 

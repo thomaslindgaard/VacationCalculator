@@ -22,7 +22,8 @@ What you may change:
 Checks to run:
 
 1. `dotnet build VacationCalculator.sln` (0 errors, 0 warnings) and `dotnet test`.
-2. For UI changes: launch `src/VacationCalculator.App/bin/Debug/net9.0-windows/VacationCalculator.exe --data <scratch file>` (never the user's real `%APPDATA%` data), confirm it stays running, take DPI-aware screenshots (e.g. `PrintWindow`) in both themes and look at them, then close it. UI Automation against the scratch data is fine.
+2. For text changes: every string resource exists in all languages (English, Danish, Romanian, Redneck) with the same placeholders.
+3. For UI changes: launch `src/VacationCalculator.App/bin/Debug/net9.0-windows/VacationCalculator.exe --data <scratch file>` (never the user's real `%APPDATA%` data), confirm it stays running, take DPI-aware screenshots (e.g. `PrintWindow`) in both themes and look at them, then close it. UI Automation against the scratch data is fine.
 
 Final report:
 

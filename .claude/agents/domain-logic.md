@@ -18,6 +18,7 @@ How to work:
 Constraints:
 
 - Keep Core free of UI and WPF references. Everything is pure and takes `today` as a parameter.
+- Core contains no user-facing text: expose keys, enums and numbers (e.g. a holiday kind, a month number) and let the App translate them. Exception messages are for developers, not users.
 - Working days are decided only by `BalanceCalculator.IsWorkingDay`, which already excludes Danish public holidays; `holidays` parameters mean the user's manual holidays.
 - Old data files must keep loading: new properties need sensible defaults; a removed property must still be ignored on load (System.Text.Json ignores unknown properties). Add a `DataStoreTests` test when the format changes. Never add a path that could save empty or partial data.
 - Tests written by `tester` (`*IndependentTests.cs` and others) may need updating when a rule changes; you may change them, but list every changed expectation and why in your report.
