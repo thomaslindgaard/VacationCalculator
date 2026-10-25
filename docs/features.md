@@ -232,7 +232,7 @@ Also shown in the calendar: bookings that fall on a public holiday (conflicts, s
 
 ## 6. Click to cycle day state, and range booking
 
-**Status:** Planned
+**Status:** In progress
 
 Clicking the same day repeatedly switches between full and half days. Behaviour matches the previous web version:
 
