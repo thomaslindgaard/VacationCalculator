@@ -369,8 +369,11 @@
                 <Button DockPanel.Dock="Right" Content="{Binding SummaryToggleText}" Command="{Binding ToggleSummaryCommand}"
                         Style="{StaticResource LinkButton}" VerticalAlignment="Center" Margin="12,0,0,0"
                         ToolTip="Show or hide the figures and holiday-year tables above the calendar" />
-                <TextBlock Text="{Binding HolidayYearTitle}" TextWrapping="Wrap"
-                           FontFamily="{StaticResource HeadingFont}" FontSize="20" FontWeight="SemiBold" />
+                <!-- One line at every width: the heading scales down when it does not fit next to the toggle -->
+                <Viewbox Stretch="Uniform" StretchDirection="DownOnly" HorizontalAlignment="Left">
+                    <TextBlock Text="{Binding HolidayYearTitle}" TextWrapping="NoWrap"
+                               FontFamily="{StaticResource HeadingFont}" FontSize="20" FontWeight="SemiBold" />
+                </Viewbox>
             </DockPanel>
 
             <StackPanel Visibility="{Binding IsSummaryExpanded, Converter={StaticResource BoolToVisibility}}">
@@ -378,11 +381,12 @@
                 <UniformGrid Rows="1" Margin="0,0,0,8">
                     <Border Style="{StaticResource Card}" Padding="16,6" Margin="0,0,10,0">
                         <DockPanel>
-                            <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal">
-                                <TextBlock Text="{Binding Status.HolidayYear.EarnedSoFar, StringFormat={}{0:0.##}}" Style="{StaticResource StatValue}" />
+                            <!-- The note sits next to the value when there is room, otherwise under it -->
+                            <WrapPanel DockPanel.Dock="Bottom">
+                                <TextBlock Text="{Binding Status.HolidayYear.EarnedSoFar, StringFormat={}{0:0.##}}" Style="{StaticResource StatValue}" Margin="0,0,6,0" />
                                 <TextBlock Text="{Binding EarnableNote}" Foreground="{DynamicResource MutedBrush}" FontSize="10"
-                                           VerticalAlignment="Bottom" Margin="6,0,0,6" />
-                            </StackPanel>
+                                           TextWrapping="Wrap" VerticalAlignment="Bottom" Margin="0,0,0,6" />
+                            </WrapPanel>
                             <TextBlock Text="Earned so far" Style="{StaticResource StatLabel}" />
                         </DockPanel>
                     </Border>
@@ -439,13 +443,13 @@
                                 <ColumnDefinition SharedSizeGroup="G" Width="Auto" />
                                 <ColumnDefinition SharedSizeGroup="H" Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="Year" Style="{StaticResource FieldLabel}" Margin="0,0,16,0" />
-                            <TextBlock Grid.Column="1" Text="Earned so far" Style="{StaticResource FieldLabel}" Margin="0,0,16,0" />
-                            <TextBlock Grid.Column="2" Text="Transferred in" Style="{StaticResource FieldLabel}" Margin="0,0,16,0" />
-                            <TextBlock Grid.Column="3" Text="Used" Style="{StaticResource FieldLabel}" Margin="0,0,16,0" />
-                            <TextBlock Grid.Column="4" Text="Booked ahead" Style="{StaticResource FieldLabel}" Margin="0,0,16,0" />
-                            <TextBlock Grid.Column="5" Text="Remaining" Style="{StaticResource FieldLabel}" Margin="0,0,16,0" />
-                            <TextBlock Grid.Column="6" Text="To next year" Style="{StaticResource FieldLabel}" Margin="0,0,16,0" />
+                            <TextBlock Grid.Column="0" Text="Year" Style="{StaticResource FieldLabel}" Margin="0,0,8,0" />
+                            <TextBlock Grid.Column="1" Text="Earned&#10;so far" Style="{StaticResource FieldLabel}" Margin="0,0,8,0" />
+                            <TextBlock Grid.Column="2" Text="Transferred in" Style="{StaticResource FieldLabel}" Margin="0,0,8,0" />
+                            <TextBlock Grid.Column="3" Text="Used" Style="{StaticResource FieldLabel}" Margin="0,0,8,0" />
+                            <TextBlock Grid.Column="4" Text="Booked&#10;ahead" Style="{StaticResource FieldLabel}" Margin="0,0,8,0" />
+                            <TextBlock Grid.Column="5" Text="Remaining" Style="{StaticResource FieldLabel}" Margin="0,0,8,0" />
+                            <TextBlock Grid.Column="6" Text="To next year" Style="{StaticResource FieldLabel}" Margin="0,0,8,0" />
                             <TextBlock Grid.Column="7" Text="Use by" Style="{StaticResource FieldLabel}" />
                         </Grid>
                         <ItemsControl ItemsSource="{Binding HolidayYearRows}">
@@ -463,9 +467,9 @@
                                                 <ColumnDefinition SharedSizeGroup="G" Width="Auto" />
                                 <ColumnDefinition SharedSizeGroup="H" Width="Auto" />
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="{Binding Name}" FontWeight="SemiBold" Margin="0,0,16,0" />
-                                            <TextBlock Grid.Column="1" Text="{Binding Earned}" Margin="0,0,16,0" />
-                                            <TextBlock Grid.Column="2" Margin="0,0,16,0">
+                                            <TextBlock Grid.Column="0" Text="{Binding Name}" FontWeight="SemiBold" Margin="0,0,8,0" />
+                                            <TextBlock Grid.Column="1" Text="{Binding Earned}" Margin="0,0,8,0" />
+                                            <TextBlock Grid.Column="2" Margin="0,0,8,0">
                                                 <TextBlock.Style>
                                                     <Style TargetType="TextBlock">
                                                         <Setter Property="Text" Value="{Binding TransferredIn, StringFormat={}{0:0.##;;–}}" />
@@ -480,9 +484,9 @@
                                                     </Style>
                                                 </TextBlock.Style>
                                             </TextBlock>
-                                            <TextBlock Grid.Column="3" Text="{Binding Used, StringFormat={}{0:0.##}}" Margin="0,0,16,0" />
-                                            <TextBlock Grid.Column="4" Text="{Binding BookedAhead, StringFormat={}{0:0.##}}" Margin="0,0,16,0" />
-                                            <TextBlock Grid.Column="5" Text="{Binding Remaining, StringFormat={}{0:0.##}}" Margin="0,0,16,0">
+                                            <TextBlock Grid.Column="3" Text="{Binding Used, StringFormat={}{0:0.##}}" Margin="0,0,8,0" />
+                                            <TextBlock Grid.Column="4" Text="{Binding BookedAhead, StringFormat={}{0:0.##}}" Margin="0,0,8,0" />
+                                            <TextBlock Grid.Column="5" Text="{Binding Remaining, StringFormat={}{0:0.##}}" Margin="0,0,8,0">
                                                 <TextBlock.Style>
                                                     <Style TargetType="TextBlock">
                                                         <Style.Triggers>
@@ -494,7 +498,7 @@
                                                     </Style>
                                                 </TextBlock.Style>
                                             </TextBlock>
-                                            <TextBlock Grid.Column="6" Text="{Binding TransferredOut, StringFormat={}{0:0.##;;–}}" Margin="0,0,16,0" />
+                                            <TextBlock Grid.Column="6" Text="{Binding TransferredOut, StringFormat={}{0:0.##;;–}}" Margin="0,0,8,0" />
                                             <TextBlock Grid.Column="7" Text="{Binding Deadline, StringFormat=d}" />
                                         </Grid>
                                         <TextBlock Text="{Binding Note}" FontSize="11" Margin="0,1,0,0">
@@ -522,14 +526,14 @@
                         <ItemsControl ItemsSource="{Binding FeriefriRows}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Grid Margin="0,1">
+                                    <WrapPanel Margin="0,1">
+                                    <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition SharedSizeGroup="FA" Width="Auto" />
                                             <ColumnDefinition SharedSizeGroup="FB" Width="Auto" />
                                             <ColumnDefinition SharedSizeGroup="FC" Width="Auto" />
                                             <ColumnDefinition SharedSizeGroup="FD" Width="Auto" />
                                             <ColumnDefinition SharedSizeGroup="FE" Width="Auto" />
-                                            <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Grid.Column="0" Margin="0,0,16,0" FontWeight="SemiBold">
                                             <Run Text="Feriefri" Foreground="{DynamicResource FeriefriBrush}" /><Run Text=" " /><Run Text="{Binding Name, Mode=OneWay}" />
@@ -558,19 +562,21 @@
                                                 </Style>
                                             </TextBlock.Style>
                                         </TextBlock>
-                                        <TextBlock Grid.Column="5" Text="{Binding Note}" ToolTip="{Binding Note}" FontSize="11" TextTrimming="CharacterEllipsis" VerticalAlignment="Center">
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
-                                                    <Setter Property="Foreground" Value="{DynamicResource FeriefriBrush}" />
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding NoteIsError}" Value="True">
-                                                            <Setter Property="Foreground" Value="{DynamicResource ErrorBrush}" />
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
                                     </Grid>
+                                    <!-- The note follows the figures on the same line when there is room, otherwise it wraps onto its own line -->
+                                    <TextBlock Text="{Binding Note}" ToolTip="{Binding Note}" FontSize="11" TextWrapping="Wrap" VerticalAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="{DynamicResource FeriefriBrush}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding NoteIsError}" Value="True">
+                                                        <Setter Property="Foreground" Value="{DynamicResource ErrorBrush}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                    </WrapPanel>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
@@ -722,7 +728,8 @@
                     </StackPanel>
                 </WrapPanel>
 
-                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False"
+                              beh:ScrollChaining.IsEnabled="True">
                     <ItemsControl ItemsSource="{Binding CalendarMonths}" Focusable="False" IsTabStop="False" Margin="0,0,6,0">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
@@ -787,7 +794,8 @@
                     </StackPanel>
 
                     <DataGrid ItemsSource="{Binding Entries}" AutoGenerateColumns="False" IsReadOnly="True"
-                              RowHeight="26" MinHeight="112" CanUserResizeRows="False" SelectionMode="Single">
+                              RowHeight="26" MinHeight="112" CanUserResizeRows="False" SelectionMode="Single"
+                              beh:ScrollChaining.IsEnabled="True">
                         <DataGrid.RowStyle>
                             <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
                                 <Style.Triggers>

@@ -5,7 +5,9 @@ namespace VacationCalculator.App.Controls;
 
 /// <summary>
 /// Lays children out in equal-width columns. The column count is the largest divisor of the child count that still
-/// gives every column at least <see cref="MinItemWidth"/> (12 months: 4, 3, 2 or 1 columns), so the last row is never ragged.
+/// gives every column at least <see cref="MinItemWidth"/>, so the last row is never ragged. For 12 children that is
+/// 1, 2, 3, 4, 6 or 12 columns (with the calendar's MinItemWidth 172 and Spacing 10: 6 columns from about 1082 DIP of width,
+/// 12 columns from 2174 DIP).
 /// Assumptions: children are laid out row by row, rows are as tall as their tallest child, and the width is bounded
 /// (it fills the available width); with an unbounded width it lays out at most 4 columns of <see cref="MinItemWidth"/>.
 /// </summary>
