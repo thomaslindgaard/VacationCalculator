@@ -95,7 +95,7 @@ public class MainViewModelDeadlineSettingsTests : HolidayYearVmTestBase
         Assert.Equal(
             "If they are not booked, 2 days will be transferred to 2026/27 and 3 days will be paid out.",
             vm.StatusDetail);
-        Assert.Equal(2m, vm.HolidayYearRows[0].TransferredOut);
+        Assert.Equal(2m, vm.SummaryRows[1].TransferredIn);
     }
 
     [Fact]
@@ -107,7 +107,7 @@ public class MainViewModelDeadlineSettingsTests : HolidayYearVmTestBase
 
         Assert.Equal(0m, vm.TransferLimitDays);
         Assert.True(vm.TransferLimitIsOwn);
-        Assert.Equal(0m, vm.HolidayYearRows[0].TransferredOut);
+        Assert.Equal(0m, vm.SummaryRows[1].TransferredIn);
         Assert.Equal("If they are not booked, 5 days will be paid out.", vm.StatusDetail);
     }
 
@@ -131,7 +131,7 @@ public class MainViewModelDeadlineSettingsTests : HolidayYearVmTestBase
 
         Assert.Equal(2.5m, vm.TransferLimitDays);
         Assert.Equal(2.5m, NewVm(Dec18).TransferLimitDays);
-        Assert.Equal(2.5m, vm.HolidayYearRows[0].TransferredOut);
+        Assert.Equal(2.5m, vm.SummaryRows[1].TransferredIn);
     }
 
     [Fact]
@@ -142,8 +142,8 @@ public class MainViewModelDeadlineSettingsTests : HolidayYearVmTestBase
 
         vm.TransferLimitDays = 8;
 
-        Assert.Equal(8m, vm.HolidayYearRows[0].TransferredOut);
-        Assert.Equal(8m, vm.HolidayYearRows[1].TransferredIn);
+        Assert.Equal(8m, vm.SummaryRows[1].TransferredIn);
+        Assert.Equal(8m, vm.SummaryRows[1].TransferredIn);
         Assert.Equal("If they are not booked, 8 days will be transferred to 2026/27 and 2 days will be lost.", vm.StatusDetail);
     }
 
@@ -218,7 +218,7 @@ public class MainViewModelDeadlineSettingsTests : HolidayYearVmTestBase
 
         Assert.Equal(4m, reloaded.TransferLimitDays);
         Assert.True(reloaded.TransferLimitIsOwn);
-        Assert.Equal(4m, reloaded.HolidayYearRows[0].TransferredOut);
+        Assert.Equal(4m, reloaded.SummaryRows[1].TransferredIn);
     }
 
     [Fact]
@@ -227,11 +227,11 @@ public class MainViewModelDeadlineSettingsTests : HolidayYearVmTestBase
         // 2c: "transfer off" is just limit 0 on the year. 20 used -> 5 unused 5th-week days.
         var vm = NewVm(Dec18, Seed(20, transferAllowed: true));
         vm.TransferLimitDays = 0;
-        Assert.Equal(0m, vm.HolidayYearRows[0].TransferredOut);
+        Assert.Equal(0m, vm.SummaryRows[1].TransferredIn);
         Assert.Equal("If they are not booked, 5 days will be paid out.", vm.StatusDetail);
 
         vm.TransferLimitDays = 4;
-        Assert.Equal(4m, vm.HolidayYearRows[0].TransferredOut);
+        Assert.Equal(4m, vm.SummaryRows[1].TransferredIn);
     }
 
     // ---- Payout ----
@@ -406,7 +406,7 @@ public class MainViewModelDeadlineSettingsTests : HolidayYearVmTestBase
         Assert.Equal(5m, vm.TransferLimitDays);
         Assert.False(vm.TransferLimitIsOwn);
         // 1 used, 24 unused: default limit 5 -> 5 transferred, not the old 3.
-        Assert.Equal(5m, vm.HolidayYearRows[0].TransferredOut);
+        Assert.Equal(5m, vm.SummaryRows[1].TransferredIn);
 
         // An edit saves and keeps the booking and the transfer setting.
         vm.TransferLimitDays = 6;

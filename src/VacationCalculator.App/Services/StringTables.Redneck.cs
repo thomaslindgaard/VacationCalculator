@@ -61,12 +61,13 @@ public static partial class StringTables
 
         { "Table.Year", "Year" },
         { "Table.EarnedSoFar", "Earned\nthus far" },
-        { "Table.TransferredIn", "Hauled in\n(transferred)" },
+        { "Table.GroupVacation", "Vacatin' days" },
+        { "Table.TransferredIn", "Hauled\nin" },
         { "Table.Used", "Used up" },
-        { "Table.BookedAhead", "Booked\nfer later" },
+        { "Table.Booked", "Booked\n'head" },
         { "Table.Remaining", "What's\nleft" },
-        { "Table.ToNextYear", "Toted to\nnext year" },
-        { "Table.UseBy", "Use 'em\nby" },
+        { "Table.Allotted", "Doled out" },
+        { "Table.TotalRemaining", "All what's\nleft" },
         { "Table.Earned", "{0} outta {1}" },
         { "Table.Projected", "{0} (reckoned)" },
         { "Table.ProjectedTooltip", "Reckoned transfer from {0} on {1}. Till then these days still count as left in {0}, y'all." },
@@ -75,16 +76,10 @@ public static partial class StringTables
 
         // ---- Feriefri card ----
         { "Feriefri.Name", "Feriefri" },
-        { "Feriefri.SourceOwn", "yer own" },
-        { "Feriefri.SourceFrom", "handed down from {0}" },
-        { "Feriefri.SourceDefault", "plain default" },
         { "Feriefri.TooltipOwn", "Set fer this holiday year" },
         { "Feriefri.TooltipInherited", "Handed down from {0}" },
         { "Feriefri.TooltipDefault", "Plain ol' default allowance" },
         { "Feriefri.AllowanceBox", "Feriefri days this holiday year hands out (0 to 20). Hit Enter or Tab to save it, y'all." },
-        { "Feriefri.Used", "{0} used up" },
-        { "Feriefri.BookedAhead", "{0} booked 'head" },
-        { "Feriefri.Remaining", "{0} left" },
         { "Feriefri.MoreThanAllowance", "{0} more than y'all're allowed" },
 
         // ---- Units and plurals ----

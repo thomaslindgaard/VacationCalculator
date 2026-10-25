@@ -369,8 +369,8 @@ public class MainViewModelStatusMessageTests : HolidayYearVmTestBase
 
         Assert.Equal(BalanceStatus.OverBooked, vm.Status.Status);
         Assert.False(vm.HasStatusDetail);
-        Assert.Equal(0m, vm.HolidayYearRows[0].TransferredOut);
-        Assert.Equal(0m, vm.HolidayYearRows[1].TransferredIn);
+        Assert.Equal(0m, vm.SummaryRows[1].TransferredIn);
+        Assert.Equal(0m, vm.SummaryRows[1].TransferredIn);
     }
 
     // ---- Expired ----

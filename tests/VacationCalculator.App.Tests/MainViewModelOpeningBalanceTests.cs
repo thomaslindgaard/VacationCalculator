@@ -185,14 +185,14 @@ public class MainViewModelOpeningBalanceTests : HolidayYearVmTestBase
     {
         var vm = NewVm(Dec18, Seed(0, transferAllowed: true));
         vm.OpeningBalanceDays = 3;
-        Assert.Equal(3m, vm.HolidayYearRows[0].TransferredIn); // 2025/26 row
+        Assert.Equal(3m, vm.SummaryRows[0].TransferredIn); // 2025/26 row
 
         vm.FirstTrackedHolidayYear = new HolidayYear(2026);
 
         Assert.Equal(2026, Saved().FirstTrackedHolidayYear);
-        Assert.Equal(0m, vm.HolidayYearRows[0].TransferredIn);
-        Assert.Equal(3m, vm.HolidayYearRows[1].TransferredIn); // 2026/27 row
-        Assert.Equal(0m, vm.HolidayYearRows[0].TransferredOut); // 2025/26 is before the first tracked year
+        Assert.Equal(0m, vm.SummaryRows[0].TransferredIn);
+        Assert.Equal(3m, vm.SummaryRows[1].TransferredIn); // 2026/27 row
+        Assert.Equal(25m, vm.SummaryRows[0].Remaining); // 2025/26 is before the first tracked year: transfers nothing, keeps its own 25
     }
 
     [Fact]
@@ -205,7 +205,7 @@ public class MainViewModelOpeningBalanceTests : HolidayYearVmTestBase
         vm.FirstTrackedHolidayYear = new HolidayYear(2024);
 
         Assert.Contains("FirstTrackedHolidayYear", raised);
-        Assert.Contains("HolidayYearRows", raised);
+        Assert.Contains("SummaryRows", raised);
         Assert.Equal(new HolidayYear(2024), vm.FirstTrackedHolidayYear);
     }
 
@@ -249,8 +249,8 @@ public class MainViewModelOpeningBalanceTests : HolidayYearVmTestBase
         Assert.Equal(3m, Saved().OpeningBalanceDays);
         Assert.Contains("OpeningBalanceDays", raised);
         Assert.Contains("StatusMessage", raised);
-        Assert.Equal(3m, vm.HolidayYearRows[0].TransferredIn); // first tracked 2025 = the 2025/26 row
-        Assert.Equal(0m, vm.HolidayYearRows[1].TransferredIn); // transfer off: nothing flows on
+        Assert.Equal(3m, vm.SummaryRows[0].TransferredIn); // first tracked 2025 = the 2025/26 row
+        Assert.Equal(0m, vm.SummaryRows[1].TransferredIn); // transfer off: nothing flows on
         Assert.Equal(28m, vm.Status.HolidayYear.TotalDays);
     }
 
@@ -261,7 +261,7 @@ public class MainViewModelOpeningBalanceTests : HolidayYearVmTestBase
         vm.OpeningBalanceDays = 4;
 
         Assert.Equal(0m, vm.TransferLimitDays); // the test data has transfer off = limit 0
-        Assert.Equal(4m, vm.HolidayYearRows[0].TransferredIn);
+        Assert.Equal(4m, vm.SummaryRows[0].TransferredIn);
         // 29 total, 10 booked.
         Assert.Equal(19m, vm.Status.UnbookedDays);
     }
@@ -275,7 +275,7 @@ public class MainViewModelOpeningBalanceTests : HolidayYearVmTestBase
         var reloaded = NewVm(Dec18);
 
         Assert.Equal(2.5m, reloaded.OpeningBalanceDays);
-        Assert.Equal(2.5m, reloaded.HolidayYearRows[0].TransferredIn);
+        Assert.Equal(2.5m, reloaded.SummaryRows[0].TransferredIn);
     }
 
     [Fact]
@@ -288,7 +288,7 @@ public class MainViewModelOpeningBalanceTests : HolidayYearVmTestBase
 
         Assert.Equal(0m, vm.OpeningBalanceDays);
         Assert.Equal(0m, Saved().OpeningBalanceDays);
-        Assert.Equal(0m, vm.HolidayYearRows[0].TransferredIn);
+        Assert.Equal(0m, vm.SummaryRows[0].TransferredIn);
     }
 
     [Fact]

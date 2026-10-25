@@ -457,34 +457,83 @@
                     </Border>
                 </UniformGrid>
 
-                <!-- Holiday years open around this calendar year -->
-                <Border Style="{StaticResource Card}" Padding="16,6" Margin="0,0,0,8">
-                    <StackPanel Grid.IsSharedSizeScope="True">
-                        <Grid Margin="0,0,0,4">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition SharedSizeGroup="A" Width="Auto" />
-                                <ColumnDefinition SharedSizeGroup="B" Width="Auto" />
-                                <ColumnDefinition SharedSizeGroup="C" Width="Auto" />
-                                <ColumnDefinition SharedSizeGroup="D" Width="Auto" />
-                                <ColumnDefinition SharedSizeGroup="E" Width="Auto" />
-                                <ColumnDefinition SharedSizeGroup="F" Width="Auto" />
-                                <ColumnDefinition SharedSizeGroup="G" Width="Auto" />
-                                <ColumnDefinition SharedSizeGroup="H" Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="{svc:Str Table.Year}" Style="{StaticResource FieldLabel}" Margin="0,0,8,0" />
-                            <TextBlock Grid.Column="1" Text="{svc:Str Table.EarnedSoFar}" Style="{StaticResource FieldLabel}" Margin="0,0,8,0" />
-                            <TextBlock Grid.Column="2" Text="{svc:Str Table.TransferredIn}" Style="{StaticResource FieldLabel}" Margin="0,0,8,0" />
-                            <TextBlock Grid.Column="3" Text="{svc:Str Table.Used}" Style="{StaticResource FieldLabel}" Margin="0,0,8,0" />
-                            <TextBlock Grid.Column="4" Text="{svc:Str Table.BookedAhead}" Style="{StaticResource FieldLabel}" Margin="0,0,8,0" />
-                            <TextBlock Grid.Column="5" Text="{svc:Str Table.Remaining}" Style="{StaticResource FieldLabel}" Margin="0,0,8,0" />
-                            <TextBlock Grid.Column="6" Text="{svc:Str Table.ToNextYear}" Style="{StaticResource FieldLabel}" Margin="0,0,8,0" />
-                            <TextBlock Grid.Column="7" Text="{svc:Str Table.UseBy}" Style="{StaticResource FieldLabel}" />
-                        </Grid>
-                        <ItemsControl ItemsSource="{Binding HolidayYearRows}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <StackPanel Margin="0,1">
-                                        <Grid>
+                <!-- Holiday years open around this calendar year: vacation and Feriefri figures in one table. Notes are tooltips. -->
+                <Border Style="{StaticResource Card}" Padding="10,6" Margin="0,0,0,8">
+                    <Viewbox Stretch="Uniform" StretchDirection="DownOnly" HorizontalAlignment="Left">
+                        <StackPanel Grid.IsSharedSizeScope="True">
+                            <StackPanel.Resources>
+                                <Style x:Key="TableHead" TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+                                    <Setter Property="FontSize" Value="11" />
+                                    <Setter Property="TextAlignment" Value="Center" />
+                                    <Setter Property="VerticalAlignment" Value="Bottom" />
+                                    <Setter Property="Margin" Value="8,0,8,3" />
+                                </Style>
+                                <Style x:Key="TableGroup" TargetType="TextBlock">
+                                    <Setter Property="FontSize" Value="12" />
+                                    <Setter Property="FontWeight" Value="SemiBold" />
+                                    <Setter Property="TextAlignment" Value="Center" />
+                                    <Setter Property="Margin" Value="0,0,0,2" />
+                                </Style>
+                                <Style x:Key="TableCell" TargetType="TextBlock">
+                                    <Setter Property="TextAlignment" Value="Center" />
+                                    <Setter Property="Padding" Value="8,1" />
+                                    <Setter Property="VerticalAlignment" Value="Center" />
+                                </Style>
+                            </StackPanel.Resources>
+
+                            <!-- Group headers span their columns, each with a rule in the group's colour -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition SharedSizeGroup="A" Width="Auto" />
+                                    <ColumnDefinition SharedSizeGroup="B" Width="Auto" />
+                                    <ColumnDefinition SharedSizeGroup="C" Width="Auto" />
+                                    <ColumnDefinition SharedSizeGroup="D" Width="Auto" />
+                                    <ColumnDefinition SharedSizeGroup="E" Width="Auto" />
+                                    <ColumnDefinition SharedSizeGroup="F" Width="Auto" />
+                                    <ColumnDefinition SharedSizeGroup="G" Width="Auto" />
+                                    <ColumnDefinition SharedSizeGroup="H" Width="Auto" />
+                                    <ColumnDefinition SharedSizeGroup="I" Width="Auto" />
+                                    <ColumnDefinition SharedSizeGroup="J" Width="Auto" />
+                                    <ColumnDefinition SharedSizeGroup="K" Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="1" Grid.ColumnSpan="5" Margin="3,0" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="0,0,0,2">
+                                    <TextBlock Text="{svc:Str Table.GroupVacation}" Style="{StaticResource TableGroup}" Foreground="{DynamicResource AccentBrush}" />
+                                </Border>
+                                <Border Grid.Column="6" Grid.ColumnSpan="4" Margin="3,0" BorderBrush="{DynamicResource FeriefriBrush}" BorderThickness="0,0,0,2">
+                                    <TextBlock Text="{svc:Str Feriefri.Name}" Style="{StaticResource TableGroup}" Foreground="{DynamicResource FeriefriBrush}" />
+                                </Border>
+                            </Grid>
+                            <Grid Margin="0,2,0,2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition SharedSizeGroup="A" Width="Auto" />
+                                    <ColumnDefinition SharedSizeGroup="B" Width="Auto" />
+                                    <ColumnDefinition SharedSizeGroup="C" Width="Auto" />
+                                    <ColumnDefinition SharedSizeGroup="D" Width="Auto" />
+                                    <ColumnDefinition SharedSizeGroup="E" Width="Auto" />
+                                    <ColumnDefinition SharedSizeGroup="F" Width="Auto" />
+                                    <ColumnDefinition SharedSizeGroup="G" Width="Auto" />
+                                    <ColumnDefinition SharedSizeGroup="H" Width="Auto" />
+                                    <ColumnDefinition SharedSizeGroup="I" Width="Auto" />
+                                    <ColumnDefinition SharedSizeGroup="J" Width="Auto" />
+                                    <ColumnDefinition SharedSizeGroup="K" Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="{svc:Str Table.Year}" Style="{StaticResource TableHead}" TextAlignment="Left" />
+                                <TextBlock Grid.Column="1" Text="{svc:Str Table.TransferredIn}" Style="{StaticResource TableHead}" />
+                                <TextBlock Grid.Column="2" Text="{svc:Str Table.EarnedSoFar}" Style="{StaticResource TableHead}" />
+                                <TextBlock Grid.Column="3" Text="{svc:Str Table.Used}" Style="{StaticResource TableHead}" />
+                                <TextBlock Grid.Column="4" Text="{svc:Str Table.Booked}" Style="{StaticResource TableHead}" />
+                                <TextBlock Grid.Column="5" Text="{svc:Str Table.Remaining}" Style="{StaticResource TableHead}" />
+                                <TextBlock Grid.Column="6" Text="{svc:Str Table.Allotted}" Style="{StaticResource TableHead}" />
+                                <TextBlock Grid.Column="7" Text="{svc:Str Table.Used}" Style="{StaticResource TableHead}" />
+                                <TextBlock Grid.Column="8" Text="{svc:Str Table.Booked}" Style="{StaticResource TableHead}" />
+                                <TextBlock Grid.Column="9" Text="{svc:Str Table.Remaining}" Style="{StaticResource TableHead}" />
+                                <TextBlock Grid.Column="10" Text="{svc:Str Table.TotalRemaining}" Style="{StaticResource TableHead}" />
+                            </Grid>
+                            <ItemsControl ItemsSource="{Binding SummaryRows}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,1">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition SharedSizeGroup="A" Width="Auto" />
                                                 <ColumnDefinition SharedSizeGroup="B" Width="Auto" />
@@ -493,30 +542,30 @@
                                                 <ColumnDefinition SharedSizeGroup="E" Width="Auto" />
                                                 <ColumnDefinition SharedSizeGroup="F" Width="Auto" />
                                                 <ColumnDefinition SharedSizeGroup="G" Width="Auto" />
-                                <ColumnDefinition SharedSizeGroup="H" Width="Auto" />
+                                                <ColumnDefinition SharedSizeGroup="H" Width="Auto" />
+                                                <ColumnDefinition SharedSizeGroup="I" Width="Auto" />
+                                                <ColumnDefinition SharedSizeGroup="J" Width="Auto" />
+                                                <ColumnDefinition SharedSizeGroup="K" Width="Auto" />
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="{Binding Name}" FontWeight="SemiBold" Margin="0,0,8,0" />
-                                            <TextBlock Grid.Column="1" Text="{Binding Earned}" Margin="0,0,8,0" />
-                                            <TextBlock Grid.Column="2" Margin="0,0,8,0">
+                                            <TextBlock Grid.Column="0" Text="{Binding Name}" Style="{StaticResource TableCell}" TextAlignment="Left" FontWeight="SemiBold" />
+                                            <TextBlock Grid.Column="1" Text="{Binding TransferredIn, StringFormat={}{0:0.##;;–}}" ToolTip="{Binding TransferredInTooltip}">
                                                 <TextBlock.Style>
-                                                    <Style TargetType="TextBlock">
-                                                        <Setter Property="Text" Value="{Binding TransferredIn, StringFormat={}{0:0.##;;–}}" />
+                                                    <Style TargetType="TextBlock" BasedOn="{StaticResource TableCell}">
                                                         <Style.Triggers>
                                                             <DataTrigger Binding="{Binding ShowProjected}" Value="True">
-                                                                <Setter Property="Text" Value="{Binding ProjectedText}" />
                                                                 <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
                                                                 <Setter Property="FontStyle" Value="Italic" />
-                                                                <Setter Property="ToolTip" Value="{Binding ProjectedTooltip}" />
                                                             </DataTrigger>
                                                         </Style.Triggers>
                                                     </Style>
                                                 </TextBlock.Style>
                                             </TextBlock>
-                                            <TextBlock Grid.Column="3" Text="{Binding Used, StringFormat={}{0:0.##}}" Margin="0,0,8,0" />
-                                            <TextBlock Grid.Column="4" Text="{Binding BookedAhead, StringFormat={}{0:0.##}}" Margin="0,0,8,0" />
-                                            <TextBlock Grid.Column="5" Text="{Binding Remaining, StringFormat={}{0:0.##}}" Margin="0,0,8,0">
+                                            <TextBlock Grid.Column="2" Text="{Binding EarnedSoFar, StringFormat={}{0:0.##}}" ToolTip="{Binding EarnedTooltip}" Style="{StaticResource TableCell}" />
+                                            <TextBlock Grid.Column="3" Text="{Binding Used, StringFormat={}{0:0.##}}" Style="{StaticResource TableCell}" />
+                                            <TextBlock Grid.Column="4" Text="{Binding BookedAhead, StringFormat={}{0:0.##}}" Style="{StaticResource TableCell}" />
+                                            <TextBlock Grid.Column="5" Text="{Binding Remaining, StringFormat={}{0:0.##}}" ToolTip="{Binding RemainingTooltip}">
                                                 <TextBlock.Style>
-                                                    <Style TargetType="TextBlock">
+                                                    <Style TargetType="TextBlock" BasedOn="{StaticResource TableCell}">
                                                         <Style.Triggers>
                                                             <DataTrigger Binding="{Binding RemainingSign}" Value="-1">
                                                                 <Setter Property="Foreground" Value="{DynamicResource ErrorBrush}" />
@@ -526,89 +575,69 @@
                                                     </Style>
                                                 </TextBlock.Style>
                                             </TextBlock>
-                                            <TextBlock Grid.Column="6" Text="{Binding TransferredOut, StringFormat={}{0:0.##;;–}}" Margin="0,0,8,0" />
-                                            <TextBlock Grid.Column="7" Text="{Binding Deadline, StringFormat=d}" />
-                                        </Grid>
-                                        <TextBlock Text="{Binding Note}" FontSize="11" Margin="0,1,0,0">
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
-                                                    <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding Note}" Value="">
-                                                            <Setter Property="Visibility" Value="Collapsed" />
-                                                        </DataTrigger>
-                                                        <DataTrigger Binding="{Binding NoteIsError}" Value="True">
-                                                            <Setter Property="Foreground" Value="{DynamicResource ErrorBrush}" />
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
-                                    </StackPanel>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
 
-                        <!-- Feriefri days of the same holiday years, one compact line each -->
-                        <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0" Margin="0,6,0,0" Padding="0,5,0,0">
-                        <ItemsControl ItemsSource="{Binding FeriefriRows}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <!-- Name and allowance box stay aligned between the rows; the figures and the note flow and wrap in the remaining width -->
-                                    <Grid Margin="0,1">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition SharedSizeGroup="FA" Width="Auto" />
-                                            <ColumnDefinition SharedSizeGroup="FB" Width="Auto" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Margin="0,0,16,0" FontWeight="SemiBold">
-                                            <Run Text="{svc:Str Feriefri.Name}" Foreground="{DynamicResource FeriefriBrush}" /><Run Text=" " /><Run Text="{Binding Name, Mode=OneWay}" />
-                                        </TextBlock>
-                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,0,16,0" ToolTip="{Binding AllowanceTooltip}">
-                                            <TextBox Text="{Binding AllowanceDays, StringFormat={}{0:0.##}}" Width="42" Height="22" MinHeight="0"
-                                                     Padding="2,0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                                                     beh:CommitOnEnter.IsEnabled="True"
-                                                     ToolTip="{svc:Str Feriefri.AllowanceBox}" />
-                                            <TextBlock Text="{Binding AllowanceSource, StringFormat=' ({0})'}" VerticalAlignment="Center" Margin="6,0,0,0" />
-                                            <Button Content="{svc:Str Common.Reset}" Command="{Binding ResetAllowanceCommand}" Style="{StaticResource LinkButton}"
-                                                    Margin="6,0,0,0" VerticalAlignment="Center"
-                                                    Visibility="{Binding AllowanceIsOwn, Converter={StaticResource BoolToVisibility}}" />
-                                        </StackPanel>
-                                        <WrapPanel Grid.Column="2" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding UsedText}" Margin="0,0,16,0" />
-                                        <TextBlock Text="{Binding BookedAheadText}" Margin="0,0,16,0" />
-                                        <TextBlock Text="{Binding RemainingText}" Margin="0,0,16,0">
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding RemainingSign}" Value="-1">
-                                                            <Setter Property="Foreground" Value="{DynamicResource ErrorBrush}" />
-                                                            <Setter Property="FontWeight" Value="SemiBold" />
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
-                                    <!-- The note follows the figures on the same line when there is room, otherwise it wraps onto its own line -->
-                                    <TextBlock Text="{Binding Note}" ToolTip="{Binding NoteTooltip}" FontSize="11" TextWrapping="Wrap" VerticalAlignment="Center">
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="Foreground" Value="{DynamicResource FeriefriBrush}" />
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding NoteIsError}" Value="True">
-                                                        <Setter Property="Foreground" Value="{DynamicResource ErrorBrush}" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </TextBlock.Style>
-                                    </TextBlock>
-                                    </WrapPanel>
-                                    </Grid>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                        </Border>
-                    </StackPanel>
+                                            <!-- Allotted: editable in place (Enter or Tab saves); muted while inherited or default; the arrow resets an own value -->
+                                            <StackPanel Grid.Column="6" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" ToolTip="{Binding AllowanceTooltip}">
+                                                <TextBox Text="{Binding AllowanceDays, StringFormat={}{0:0.##}}" Width="38" Height="22" MinHeight="0"
+                                                         Padding="2,0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                                         beh:CommitOnEnter.IsEnabled="True">
+                                                    <TextBox.Style>
+                                                        <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                                                            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding AllowanceIsOwn}" Value="True">
+                                                                    <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBox.Style>
+                                                </TextBox>
+                                                <Button Content="↺" Command="{Binding ResetAllowanceCommand}" FontSize="14" Width="16" Margin="2,0,0,0"
+                                                        VerticalAlignment="Center" ToolTip="{svc:Str Common.Reset}">
+                                                    <Button.Style>
+                                                        <Style TargetType="Button" BasedOn="{StaticResource LinkButton}">
+                                                            <Setter Property="Visibility" Value="Hidden" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding AllowanceIsOwn}" Value="True">
+                                                                    <Setter Property="Visibility" Value="Visible" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Button.Style>
+                                                </Button>
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="7" Text="{Binding FeriefriUsed, StringFormat={}{0:0.##}}" Style="{StaticResource TableCell}" />
+                                            <TextBlock Grid.Column="8" Text="{Binding FeriefriBookedAhead, StringFormat={}{0:0.##}}" Style="{StaticResource TableCell}" />
+                                            <TextBlock Grid.Column="9" Text="{Binding FeriefriRemaining, StringFormat={}{0:0.##}}" ToolTip="{Binding FeriefriRemainingTooltip}">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock" BasedOn="{StaticResource TableCell}">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding FeriefriRemainingSign}" Value="-1">
+                                                                <Setter Property="Foreground" Value="{DynamicResource ErrorBrush}" />
+                                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                            <TextBlock Grid.Column="10" Text="{Binding TotalRemaining, StringFormat={}{0:0.##}}">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock" BasedOn="{StaticResource TableCell}">
+                                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding TotalRemainingSign}" Value="-1">
+                                                                <Setter Property="Foreground" Value="{DynamicResource ErrorBrush}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Viewbox>
                 </Border>
             </StackPanel>
             <!-- Status banner: colour follows how urgent the situation is -->

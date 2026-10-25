@@ -81,8 +81,8 @@ public class MainViewModelTransferSwitchRemovedTests : HolidayYearVmTestBase
         // 20 of 25 used in Jan 2026 (Mon 01-05 .. Fri 01-30 = 4 full weeks); 5 unused 5th-week days, default limit 5.
         var vm = NewVm(Dec18, Plain());
 
-        Assert.Equal(5m, vm.HolidayYearRows[0].TransferredOut);
-        Assert.Equal(5m, vm.HolidayYearRows[1].TransferredIn);
+        Assert.Equal(5m, vm.SummaryRows[1].TransferredIn);
+        Assert.Equal(5m, vm.SummaryRows[1].TransferredIn);
         Assert.Equal(BalanceStatus.AllPlanned, vm.Status.Status);
         Assert.Equal("5 days will be transferred to 2026/27.", vm.StatusDetail);
         Assert.DoesNotContain("paid out", vm.StatusDetail);
@@ -106,15 +106,15 @@ public class MainViewModelTransferSwitchRemovedTests : HolidayYearVmTestBase
         var vm = NewVm(Dec18, Plain());
 
         vm.TransferLimitDays = 0; // 2025/26
-        Assert.Equal(0m, vm.HolidayYearRows[0].TransferredOut);
-        Assert.Equal(0m, vm.HolidayYearRows[1].TransferredIn);
+        Assert.Equal(0m, vm.SummaryRows[1].TransferredIn);
+        Assert.Equal(0m, vm.SummaryRows[1].TransferredIn);
         Assert.Equal("If they are not booked, 5 days will be paid out.", vm.StatusDetail);
 
         vm.SelectedYear = 2027; // 2026/27 inherits 0
         Assert.Equal(0m, vm.TransferLimitDays);
         Assert.False(vm.TransferLimitIsOwn);
         Assert.Equal(25m, vm.Status.UnbookedDays); // nothing transferred in
-        Assert.Equal(0m, vm.HolidayYearRows[0].TransferredOut); // rows at 2027 = 2026/27, 2027/28; inherited 0: its own unused 5th week is paid out too
+        Assert.Equal(0m, vm.SummaryRows[1].TransferredIn); // rows at 2027 = 2026/27, 2027/28; inherited 0: its own unused 5th week is paid out too
 
         vm.SelectedYear = 2028; // 2027/28 inherits 0 as well
         Assert.Equal(0m, vm.TransferLimitDays);
@@ -122,13 +122,13 @@ public class MainViewModelTransferSwitchRemovedTests : HolidayYearVmTestBase
         vm.SelectedYear = 2027;
         vm.TransferLimitDays = 5; // 2026/27 sets its own
         Assert.True(vm.TransferLimitIsOwn);
-        Assert.Equal(5m, vm.HolidayYearRows[0].TransferredOut); // nothing booked in 2026/27: 5th week moves on
-        Assert.Equal(0m, vm.HolidayYearRows[0].TransferredIn); // 2025/26 still transfers nothing
+        Assert.Equal(5m, vm.SummaryRows[1].TransferredIn); // nothing booked in 2026/27: 5th week moves on
+        Assert.Equal(0m, vm.SummaryRows[0].TransferredIn); // 2025/26 still transfers nothing
 
         vm.SelectedYear = 2028; // now inherits 5 from 2026/27
         Assert.Equal(5m, vm.TransferLimitDays);
         Assert.Contains("2026/27", vm.TransferLimitSource);
-        Assert.Equal(5m, vm.HolidayYearRows[0].TransferredIn); // row 0 is 2027/28; receives 2026/27's 5
+        Assert.Equal(5m, vm.SummaryRows[0].TransferredIn); // row 0 is 2027/28; receives 2026/27's 5
 
         vm.SelectedYear = 2026; // earlier year unaffected: still its own 0
         Assert.Equal(0m, vm.TransferLimitDays);
@@ -145,7 +145,7 @@ public class MainViewModelTransferSwitchRemovedTests : HolidayYearVmTestBase
 
         Assert.Equal(5m, vm.TransferLimitDays);
         Assert.False(vm.TransferLimitIsOwn);
-        Assert.Equal(5m, vm.HolidayYearRows[0].TransferredOut);
+        Assert.Equal(5m, vm.SummaryRows[1].TransferredIn);
         Assert.Null(Saved().FindHolidayYear(2025)!.TransferLimitDays);
     }
 
@@ -158,7 +158,7 @@ public class MainViewModelTransferSwitchRemovedTests : HolidayYearVmTestBase
 
         vm.TransferLimitDays = 0;
 
-        Assert.Equal(4m, vm.HolidayYearRows[0].TransferredIn);
+        Assert.Equal(4m, vm.SummaryRows[0].TransferredIn);
     }
 
     // ---- Old files ----
@@ -181,7 +181,7 @@ public class MainViewModelTransferSwitchRemovedTests : HolidayYearVmTestBase
 
         Assert.Equal(5m, vm.TransferLimitDays);
         Assert.False(vm.TransferLimitIsOwn);
-        Assert.Equal(5m, vm.HolidayYearRows[0].TransferredOut); // 24 unused: only 5th week (5) moves on
+        Assert.Equal(5m, vm.SummaryRows[1].TransferredIn); // 24 unused: only 5th week (5) moves on
         Assert.Contains("transferred to 2026/27", vm.StatusDetail);
 
         // The booking survives an edit and the dropped switch is not written back.
@@ -204,7 +204,7 @@ public class MainViewModelTransferSwitchRemovedTests : HolidayYearVmTestBase
             var vm = NewVm(Dec18);
 
             Assert.Equal(5m, vm.TransferLimitDays);
-            Assert.Equal(5m, vm.HolidayYearRows[0].TransferredOut); // nothing booked: 25 unused, 5th week moves on
+            Assert.Equal(5m, vm.SummaryRows[1].TransferredIn); // nothing booked: 25 unused, 5th week moves on
         }
     }
 
@@ -224,7 +224,7 @@ public class MainViewModelTransferSwitchRemovedTests : HolidayYearVmTestBase
 
         Assert.Equal(2m, vm.TransferLimitDays);
         Assert.True(vm.TransferLimitIsOwn);
-        Assert.Equal(2m, vm.HolidayYearRows[0].TransferredOut);
+        Assert.Equal(2m, vm.SummaryRows[1].TransferredIn);
     }
 
     [Fact]

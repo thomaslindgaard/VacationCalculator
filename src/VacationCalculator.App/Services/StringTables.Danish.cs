@@ -61,12 +61,13 @@ public static partial class StringTables
 
         { "Table.Year", "År" },
         { "Table.EarnedSoFar", "Optjent\nhidtil" },
-        { "Table.TransferredIn", "Overført ind" },
+        { "Table.GroupVacation", "Feriedage" },
+        { "Table.TransferredIn", "Overført\nind" },
         { "Table.Used", "Brugt" },
-        { "Table.BookedAhead", "Booket\nfremover" },
+        { "Table.Booked", "Booket" },
         { "Table.Remaining", "Tilbage" },
-        { "Table.ToNextYear", "Til næste år" },
-        { "Table.UseBy", "Brug inden" },
+        { "Table.Allotted", "Tildelt" },
+        { "Table.TotalRemaining", "Tilbage\ni alt" },
         { "Table.Earned", "{0} af {1}" },
         { "Table.Projected", "{0} (forventet)" },
         { "Table.ProjectedTooltip", "Forventet overførsel fra {0} den {1}. Indtil da tæller disse dage stadig som tilbage i {0}." },
@@ -75,16 +76,10 @@ public static partial class StringTables
 
         // ---- Feriefri card ----
         { "Feriefri.Name", "Feriefri" },
-        { "Feriefri.SourceOwn", "egen" },
-        { "Feriefri.SourceFrom", "fra {0}" },
-        { "Feriefri.SourceDefault", "standard" },
         { "Feriefri.TooltipOwn", "Valgt for dette ferieår" },
         { "Feriefri.TooltipInherited", "Arvet fra {0}" },
         { "Feriefri.TooltipDefault", "Standardværdi" },
         { "Feriefri.AllowanceBox", "Antal feriefridage i dette ferieår (0 til 20). Tryk Enter eller Tab for at gemme." },
-        { "Feriefri.Used", "{0} brugt" },
-        { "Feriefri.BookedAhead", "{0} booket fremover" },
-        { "Feriefri.Remaining", "{0} tilbage" },
         { "Feriefri.MoreThanAllowance", "{0} mere end kvoten" },
 
         // ---- Units and plurals ----

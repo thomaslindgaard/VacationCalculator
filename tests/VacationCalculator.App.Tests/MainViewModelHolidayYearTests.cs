@@ -75,20 +75,18 @@ public class MainViewModelHolidayYearTests : HolidayYearVmTestBase
         var vm = NewVm(Dec18, Seed(20));
 
         Assert.Equal("Holiday year 2025/26 · use by 31 December 2026", vm.HolidayYearTitle);
-        Assert.Equal(2, vm.HolidayYearRows.Count);
-        var old = vm.HolidayYearRows[0];
+        Assert.Equal(2, vm.SummaryRows.Count);
+        var old = vm.SummaryRows[0];
         Assert.Equal("2025/26", old.Name);
-        Assert.Equal("25 of 25", old.Earned);
+        Assert.Equal("25 of 25", old.EarnedTooltip);
         Assert.Equal(20m, old.Used);
         Assert.Equal(0m, old.BookedAhead);
         Assert.Equal(5m, old.Remaining);
         Assert.Equal(1, old.RemainingSign);
-        Assert.Equal(new DateOnly(2026, 12, 31), old.Deadline);
-        var next = vm.HolidayYearRows[1];
+        var next = vm.SummaryRows[1];
         Assert.Equal("2026/27", next.Name);
-        Assert.Equal("6.25 of 25", next.Earned);
+        Assert.Equal("6.25 of 25", next.EarnedTooltip);
         Assert.Equal(6.25m, next.Remaining);
-        Assert.Equal(new DateOnly(2027, 12, 31), next.Deadline);
     }
 
     [Fact]
@@ -98,7 +96,7 @@ public class MainViewModelHolidayYearTests : HolidayYearVmTestBase
         vm.SelectedYear = 2027;
 
         Assert.Equal("Holiday year 2026/27 · use by 31 December 2027", vm.HolidayYearTitle);
-        Assert.Equal(["2026/27", "2027/28"], vm.HolidayYearRows.Select(r => r.Name));
+        Assert.Equal(["2026/27", "2027/28"], vm.SummaryRows.Select(r => r.Name));
     }
 
     [Fact]
@@ -111,11 +109,11 @@ public class MainViewModelHolidayYearTests : HolidayYearVmTestBase
             data.Days.Add(new BookedDay { Date = new DateOnly(2026, 12, day) });
         var vm = NewVm(Dec18, data);
 
-        var next = vm.HolidayYearRows[1];
+        var next = vm.SummaryRows[1];
         Assert.Equal(3m, next.BookedAhead);
         Assert.Equal(3.25m, next.Remaining);
-        Assert.Equal("", next.Note);
-        Assert.Equal(25m, vm.HolidayYearRows[0].Used);
+        Assert.Null(next.RemainingTooltip);
+        Assert.Equal(25m, vm.SummaryRows[0].Used);
     }
 
     [Fact]
@@ -129,11 +127,10 @@ public class MainViewModelHolidayYearTests : HolidayYearVmTestBase
         data.Days.Add(new BookedDay { Date = new DateOnly(2027, 1, 4) });
         var vm = NewVm(Dec18, data);
 
-        var next = vm.HolidayYearRows[1];
+        var next = vm.SummaryRows[1];
         Assert.Equal(-0.75m, next.Remaining);
         Assert.Equal(-1, next.RemainingSign);
-        Assert.Equal("advance holiday: 0.75 not earned yet", next.Note);
-        Assert.False(next.NoteIsError);
+        Assert.Equal("advance holiday: 0.75 not earned yet", next.RemainingTooltip);
     }
 
     [Fact]
@@ -142,9 +139,8 @@ public class MainViewModelHolidayYearTests : HolidayYearVmTestBase
         // 26 booked days in 2025/26 (25 earnable) -> 1 more than can be earned by 31 August.
         var vm = NewVm(Dec18, Seed(26));
 
-        var row = vm.HolidayYearRows[0];
-        Assert.Equal("1 more than can be earned by 31 August", row.Note);
-        Assert.True(row.NoteIsError);
+        var row = vm.SummaryRows[0];
+        Assert.Equal("1 more than can be earned by 31 August", row.RemainingTooltip);
         Assert.Equal(-1, row.RemainingSign);
     }
 
@@ -164,7 +160,7 @@ public class MainViewModelHolidayYearTests : HolidayYearVmTestBase
     // ---- Card: transfer columns ----
 
     [Fact]
-    public void Rows_TransferOn_ShowTransferredOutAndIn()
+    public void Rows_TransferOn_ShowTransferredIn()
     {
         // 20 used, transfer on: 5 unused 5th-week days are transferred from 2025/26 to 2026/27.
         // 2026/27: 6.25 earned so far (Sep-Nov). The 5 transferred days are only projected on Dec 18 (2025/26 is
@@ -172,14 +168,13 @@ public class MainViewModelHolidayYearTests : HolidayYearVmTestBase
         // 6.25 + 5 (in 2025/26) = 11.25 days that really exist, not 16.25.
         var vm = NewVm(Dec18, Seed(20, transferAllowed: true));
 
-        Assert.Equal(5m, vm.HolidayYearRows[0].TransferredOut);
-        Assert.Equal(0m, vm.HolidayYearRows[0].TransferredIn);
-        Assert.Equal(5m, vm.HolidayYearRows[1].TransferredIn);
-        Assert.True(vm.HolidayYearRows[1].TransferredInIsProjected);
-        Assert.Equal(6.25m, vm.HolidayYearRows[1].Remaining);
-        Assert.Equal(11.25m, vm.HolidayYearRows[0].Remaining + vm.HolidayYearRows[1].Remaining);
+        Assert.Equal(0m, vm.SummaryRows[0].TransferredIn);
+        Assert.Equal(5m, vm.SummaryRows[1].TransferredIn);
+        Assert.True(vm.SummaryRows[1].TransferredInIsProjected);
+        Assert.Equal(6.25m, vm.SummaryRows[1].Remaining);
+        Assert.Equal(11.25m, vm.SummaryRows[0].Remaining + vm.SummaryRows[1].Remaining);
         // The projected transfer does not reduce what is still bookable in 2025/26.
-        Assert.Equal(5m, vm.HolidayYearRows[0].Remaining);
+        Assert.Equal(5m, vm.SummaryRows[0].Remaining);
     }
 
     [Fact]
@@ -187,20 +182,18 @@ public class MainViewModelHolidayYearTests : HolidayYearVmTestBase
     {
         var vm = NewVm(Dec18, Seed(20));
 
-        Assert.All(vm.HolidayYearRows, r => Assert.Equal(0m, r.TransferredOut));
-        Assert.All(vm.HolidayYearRows, r => Assert.Equal(0m, r.TransferredIn));
+        Assert.All(vm.SummaryRows, r => Assert.Equal(0m, r.TransferredIn));
     }
 
     [Fact]
-    public void Rows_TransferredOut_FollowsThePerYearLimit()
+    public void Rows_TransferredIn_FollowsThePerYearLimit()
     {
         // Limit 3 for 2025/26: 3 of the 5 unused days are transferred.
         var data = Seed(20, transferAllowed: true);
         data.SetTransferLimit(new HolidayYear(2025), 3);
         var vm = NewVm(Dec18, data);
 
-        Assert.Equal(3m, vm.HolidayYearRows[0].TransferredOut);
-        Assert.Equal(3m, vm.HolidayYearRows[1].TransferredIn);
+        Assert.Equal(3m, vm.SummaryRows[1].TransferredIn);
     }
 
     [Fact]
@@ -213,10 +206,9 @@ public class MainViewModelHolidayYearTests : HolidayYearVmTestBase
             data.Days.Add(new BookedDay { Date = new DateOnly(2026, 12, day) });
         var vm = NewVm(Dec18, data);
 
-        Assert.Equal(2m, vm.HolidayYearRows[0].BookedAhead);
-        Assert.Equal(3m, vm.HolidayYearRows[0].TransferredOut);
-        Assert.Equal(3m, vm.HolidayYearRows[1].TransferredIn);
-        Assert.Equal(0m, vm.HolidayYearRows[1].BookedAhead);
+        Assert.Equal(2m, vm.SummaryRows[0].BookedAhead);
+        Assert.Equal(3m, vm.SummaryRows[1].TransferredIn);
+        Assert.Equal(0m, vm.SummaryRows[1].BookedAhead);
     }
     // ---- Data written by the previous version ----
 

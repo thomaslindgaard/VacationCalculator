@@ -102,30 +102,56 @@ public class TooltipNullIndependentTests : HolidayYearVmTestBase, IDisposable
     }
 
     [Fact]
-    public void FeriefriNoteTooltip_IsNullWithoutNote_AndEqualsTheNoteWithOne()
+    public void FeriefriRemainingTooltip_IsNullWithoutNote_NeverEmpty()
     {
-        // On Mon 2026-03-02 no holiday year with Feriefri has started its payout notes (notes only appear once a year has begun
-        // and Feriefri is over the allowance), and none is booked, so the rows have no note.
+        // On Mon 2026-03-02 holiday year 2026/27 has not started, nothing is booked and no allowance is exceeded,
+        // so its Feriefri cell has no note: the tooltip must be null (not "").
         var vm = Build(Date(2026, 3, 2));
-        Assert.NotEmpty(vm.FeriefriRows);
-        Assert.Contains(vm.FeriefriRows, r => r.Note.Length == 0);
-        foreach (var r in vm.FeriefriRows.Where(r => r.Note.Length == 0))
-            Assert.Null(r.NoteTooltip);
+        Assert.NotEmpty(vm.SummaryRows);
+        Assert.Null(vm.SummaryRows.Single(r => r.Name == "2026/27").FeriefriRemainingTooltip);
+        Assert.All(vm.SummaryRows, r => Assert.NotEqual("", r.FeriefriRemainingTooltip));
     }
 
     [Fact]
-    public void FeriefriNoteTooltip_EqualsTheYearEndPayoutNote()
+    public void FeriefriRemainingTooltip_HoldsTheYearEndPayoutNote()
     {
         // One Feriefri day booked ahead (Mon 2026-12-21) in 2025/26: 4 of 5 remain, and 4 are paid out in January 2027.
         var vm = Build(new BookedDay { Date = new DateOnly(2026, 12, 21), Type = DayType.Feriefri, Amount = 1 });
-        var row = vm.FeriefriRows.Single(r => r.Name == "2025/26");
-        Assert.NotEqual("", row.Note);
-        Assert.Equal(row.Note, row.NoteTooltip);
-        Assert.Contains("4", row.Note);
+        var row = vm.SummaryRows.Single(r => r.Name == "2025/26");
+        Assert.Equal("4 will be paid out in January 2027", row.FeriefriRemainingTooltip);
 
         Pick(vm, LanguageMode.Danish);
-        var da = vm.FeriefriRows.Single(r => r.Name == "2025/26");
-        Assert.Equal("4 udbetales i januar 2027", da.Note);
-        Assert.Equal(da.Note, da.NoteTooltip);
+        var da = vm.SummaryRows.Single(r => r.Name == "2025/26");
+        Assert.Equal("4 udbetales i januar 2027", da.FeriefriRemainingTooltip);
+    }
+
+    [Fact]
+    public void RemainingTooltip_IsNullWhenNothingToSay_AndHasTheNoteOtherwise()
+    {
+        // Nothing booked on Fri 2026-12-18: no advance holiday, so no note anywhere.
+        var vm = Build();
+        Assert.All(vm.SummaryRows, r => Assert.Null(r.RemainingTooltip));
+
+        // 25 days Mon 2026-01-05 .. Fri 2026-02-06 fill 2025/26. Then Mon-Wed 12-21..23 and 12-28..30 (24-26 and 31 Dec are
+        // holidays) plus Mon 2027-01-04 = 7 working days go to 2026/27, which has earned 3 months * 25/12 = 6.25 so far: -0.75.
+        var days = new List<BookedDay>();
+        for (var d = new DateOnly(2026, 1, 5); d <= new DateOnly(2026, 2, 6); d = d.AddDays(1))
+            if (d.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday))
+                days.Add(new BookedDay { Date = d });
+        foreach (var day in new[] { 21, 22, 23, 28, 29, 30 })
+            days.Add(new BookedDay { Date = new DateOnly(2026, 12, day) });
+        days.Add(new BookedDay { Date = new DateOnly(2027, 1, 4) });
+        var over = Build(days.ToArray());
+
+        Assert.Null(over.SummaryRows[0].RemainingTooltip);
+        Assert.Equal(-0.75m, over.SummaryRows[1].Remaining);
+        Assert.Equal("advance holiday: 0.75 not earned yet", over.SummaryRows[1].RemainingTooltip);
+    }
+    [Fact]
+    public void TransferredInTooltip_IsNullWithoutProjection()
+    {
+        // Seed(0) has nothing booked and no opening balance: no transfer, so no projected-transfer tooltip anywhere.
+        var vm = Build();
+        Assert.All(vm.SummaryRows, r => Assert.Null(r.TransferredInTooltip));
     }
 }

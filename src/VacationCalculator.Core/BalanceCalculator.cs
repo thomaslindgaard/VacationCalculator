@@ -48,6 +48,11 @@ public sealed record AllocatedDay(DateOnly Date, HolidayYear HolidayYear, decima
 /// year. False for the first tracked year (the opening balance is actual from the start), for untracked years and
 /// when the previous year's transfer limit is 0.
 /// </param>
+/// <param name="DeadlinePassed">
+/// Whether today is after <see cref="Deadline"/> (the deadline day itself is still usable), so the split at the deadline
+/// is what happened and those days are no longer in <see cref="RemainingDays"/>. Same convention as
+/// <see cref="FeriefriBalance.DeadlinePassed"/>.
+/// </param>
 public sealed record HolidayYearBalance(
     HolidayYear HolidayYear,
     decimal EarnedSoFar,
@@ -59,7 +64,8 @@ public sealed record HolidayYearBalance(
     decimal UnusedFifthWeekDays,
     DeadlineOutcome AtDeadline,
     DeadlineSettings Settings,
-    bool TransferredInIsProjected = false)
+    bool TransferredInIsProjected = false,
+    bool DeadlinePassed = false)
 {
     public DateOnly Deadline => HolidayYear.Deadline;
 
@@ -87,11 +93,15 @@ public sealed record HolidayYearBalance(
     public decimal ActualTransferredIn => TransferredInIsProjected ? 0 : TransferredIn;
 
     /// <summary>
-    /// Days available now that are not used or booked: earned so far + actual transferred in - used - booked ahead.
-    /// Negative = advance holiday. A projected transfer out does not reduce it (the days can still be booked), and a
-    /// projected transfer in does not add to it (those days still count in the previous year).
+    /// Days available now that are not used or booked: earned so far + actual transferred in - used - booked ahead,
+    /// less, once the deadline has passed (<see cref="DeadlinePassed"/>), the days that left the year then
+    /// (transferred, paid out and lost; see <see cref="AtDeadline"/>), like <see cref="FeriefriBalance.RemainingDays"/>.
+    /// So after the deadline it is 0, or negative when the year is over-booked.
+    /// Negative = advance holiday. Before the deadline a projected transfer out does not reduce it (the days can still
+    /// be booked), and a projected transfer in does not add to it (those days still count in the previous year).
     /// </summary>
-    public decimal RemainingDays => EarnedSoFar + ActualTransferredIn - BookedDays;
+    public decimal RemainingDays =>
+        EarnedSoFar + ActualTransferredIn - BookedDays - (DeadlinePassed ? AtDeadline.UnusedDays : 0);
 
     /// <summary>By how much bookings exceed the days earned so far plus actual transferred-in days (0 if they don't).</summary>
     public decimal ExceedsEarnedSoFarBy => Math.Max(0, -RemainingDays);
@@ -342,7 +352,8 @@ public static class BalanceCalculator
                 UnusedFifthWeekDays: Outcome(year, transferAllowed: false).PaidOutFifthWeekDays,
                 AtDeadline: outcome,
                 Settings: Settings(year),
-                TransferredInIsProjected: ReceivesTransfer(year) && today <= year.Previous.Deadline);
+                TransferredInIsProjected: ReceivesTransfer(year) && today <= year.Previous.Deadline,
+                DeadlinePassed: today > year.Deadline);
         }
 
         private DeadlineOutcome Outcome(HolidayYear year, bool? transferAllowed = null) =>

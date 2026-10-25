@@ -71,22 +71,14 @@ public class TranslationLiveSwitchIndependentTests : HolidayYearVmTestBase, IDis
             s["Manual " + h.Date.ToString("yyyy-MM-dd")] = h.Name + "|" + h.RemoveTooltip;
         foreach (var h in vm.AutomaticHolidayRows)
             s["Auto " + h.Date.ToString("yyyy-MM-dd")] = h.Name + "|" + h.RemoveTooltip;
-        foreach (var r in vm.FeriefriRows)
+        foreach (var r in vm.SummaryRows)
         {
-            var k = "Feriefri " + r.Name;
-            s[k + " source"] = r.AllowanceSource;
-            s[k + " tooltip"] = r.AllowanceTooltip;
-            s[k + " used"] = r.UsedText;
-            s[k + " ahead"] = r.BookedAheadText;
-            s[k + " remaining"] = r.RemainingText;
-            s[k + " note"] = r.Note;
-        }
-        foreach (var r in vm.HolidayYearRows)
-        {
-            s["Year " + r.Name + " earned"] = r.Earned;
-            s["Year " + r.Name + " note"] = r.Note;
-            s["Year " + r.Name + " projected"] = r.ProjectedText;
-            s["Year " + r.Name + " projectedTip"] = r.ProjectedTooltip;
+            var k = "Row " + r.Name;
+            s[k + " allowanceTip"] = r.AllowanceTooltip;
+            s[k + " earnedTip"] = r.EarnedTooltip;
+            s[k + " transferredInTip"] = r.TransferredInTooltip ?? "";
+            s[k + " remainingTip"] = r.RemainingTooltip ?? "";
+            s[k + " feriefriRemainingTip"] = r.FeriefriRemainingTooltip ?? "";
         }
         foreach (var (m, mi) in vm.CalendarMonths.Select((m, i) => (m, i)))
         {
@@ -159,14 +151,17 @@ public class TranslationLiveSwitchIndependentTests : HolidayYearVmTestBase, IDis
         Assert.Equal("mandag den 21. december 2026" + NL + "Feriefri, hel dag" + NL + "Ferieår 2025/26", Tip(vm, 12, 21));
         Assert.Equal("fredag den 5. juni 2026" + NL + "Helligdag (tilføjet af dig)", Tip(vm, 6, 5));
 
-        // Feriefri rows: 2025/26 has 1 booked ahead, 4 remaining; 4 paid out in January 2027.
-        var ff = vm.FeriefriRows[0];
+        // Summary row 2025/26: Feriefri has 1 booked ahead, 4 remaining; 4 paid out in January 2027.
+        var ff = vm.SummaryRows[0];
         Assert.Equal("2025/26", ff.Name);
-        Assert.Equal("0 brugt", ff.UsedText);
-        Assert.Equal("1 booket fremover", ff.BookedAheadText);
-        Assert.Equal("4 tilbage", ff.RemainingText);
-        Assert.Equal("4 udbetales i januar 2027", ff.Note);
-        Assert.Equal("standard", ff.AllowanceSource);
+        Assert.Equal(0m, ff.FeriefriUsed);
+        Assert.Equal(1m, ff.FeriefriBookedAhead);
+        Assert.Equal(4m, ff.FeriefriRemaining);
+        Assert.Equal("4 udbetales i januar 2027", ff.FeriefriRemainingTooltip);
+        Assert.StartsWith("Standardværdi\n", ff.AllowanceTooltip);
+        Assert.Equal("25 af 25", ff.EarnedTooltip);
+        Assert.Equal("Feriedage", Loc.Get("Table.GroupVacation"));
+        Assert.Equal("Booket", Loc.Get("Table.Booked"));
 
         Assert.Equal(["System", "English", "Dansk", "Română", "Redneck"], vm.LanguageOptions.Select(o => o.DisplayName));
     }
@@ -306,16 +301,17 @@ public class TranslationLiveSwitchIndependentTests : HolidayYearVmTestBase, IDis
     }
 
     [Fact]
-    public void RomanianFeriefriRow_ColonLabelsFirst()
+    public void RomanianSummaryHeaders_AndFeriefriTooltips()
     {
         var (vm, _) = Scenario();
         Pick(vm, LanguageMode.Romanian);
-        var ff = vm.FeriefriRows[0];
-        Assert.Equal("folosite: 0", ff.UsedText);
-        Assert.Equal("programate: 1", ff.BookedAheadText);
-        Assert.Equal("rămase: 4", ff.RemainingText);
+        var ff = vm.SummaryRows[0];
         Assert.Equal("Reportate" + "\n" + "în an", Loc.Get(AppLanguage.Romanian, "Table.TransferredIn"));
-        Assert.Equal("În anul" + "\n" + "viitor", Loc.Get(AppLanguage.Romanian, "Table.ToNextYear"));
+        Assert.Equal("Zile de concediu", Loc.Get(AppLanguage.Romanian, "Table.GroupVacation"));
+        Assert.Equal("Programate", Loc.Get(AppLanguage.Romanian, "Table.Booked"));
+        Assert.Equal("Alocate", Loc.Get(AppLanguage.Romanian, "Table.Allotted"));
+        Assert.Equal("Total" + "\n" + "rămase", Loc.Get(AppLanguage.Romanian, "Table.TotalRemaining"));
+        Assert.Equal("4 vor fi plătite în ianuarie 2027", ff.FeriefriRemainingTooltip);
     }
     private static readonly string NL = Environment.NewLine;
 
@@ -351,11 +347,11 @@ public class TranslationLiveSwitchIndependentTests : HolidayYearVmTestBase, IDis
         Assert.Equal("luni, 21 decembrie 2026" + NL + "Feriefri, zi întreagă" + NL + "An de concediu 2025/26", Tip(vm, 12, 21));
         Assert.Equal("vineri, 5 iunie 2026" + NL + "Sărbătoare legală (adăugată de tine)", Tip(vm, 6, 5));
 
-        var ff = vm.FeriefriRows[0];
-        Assert.Equal("folosite: 0", ff.UsedText);
-        Assert.Equal("programate: 1", ff.BookedAheadText);
-        Assert.Equal("rămase: 4", ff.RemainingText);
-        Assert.Equal("4 vor fi plătite în ianuarie 2027", ff.Note);
+        var ff = vm.SummaryRows[0];
+        Assert.Equal(4m, ff.FeriefriRemaining);
+        Assert.Equal("4 vor fi plătite în ianuarie 2027", ff.FeriefriRemainingTooltip);
+        Assert.StartsWith("Alocare implicită\n", ff.AllowanceTooltip);
+        Assert.Equal("25 din 25", ff.EarnedTooltip);
         Assert.Equal(["Sistem", "English", "Dansk", "Română", "Redneck"], vm.LanguageOptions.Select(o => o.DisplayName));
     }
 

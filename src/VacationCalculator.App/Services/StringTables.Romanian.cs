@@ -61,12 +61,13 @@ public static partial class StringTables
 
         { "Table.Year", "An" },
         { "Table.EarnedSoFar", "Acumulate\npână acum" },
+        { "Table.GroupVacation", "Zile de concediu" },
         { "Table.TransferredIn", "Reportate\nîn an" },
         { "Table.Used", "Folosite" },
-        { "Table.BookedAhead", "Programate" },
+        { "Table.Booked", "Programate" },
         { "Table.Remaining", "Rămase" },
-        { "Table.ToNextYear", "În anul\nviitor" },
-        { "Table.UseBy", "De folosit\npână la" },
+        { "Table.Allotted", "Alocate" },
+        { "Table.TotalRemaining", "Total\nrămase" },
         { "Table.Earned", "{0} din {1}" },
         { "Table.Projected", "{0} (estimat)" },
         { "Table.ProjectedTooltip", "Transfer estimat din {0} la {1}. Până atunci aceste zile se numără în continuare ca rămase în {0}." },
@@ -75,16 +76,10 @@ public static partial class StringTables
 
         // ---- Feriefri card ----
         { "Feriefri.Name", "Feriefri" },
-        { "Feriefri.SourceOwn", "propriu" },
-        { "Feriefri.SourceFrom", "din {0}" },
-        { "Feriefri.SourceDefault", "implicit" },
         { "Feriefri.TooltipOwn", "Setat pentru acest an de concediu" },
         { "Feriefri.TooltipInherited", "Moștenit din {0}" },
         { "Feriefri.TooltipDefault", "Alocare implicită" },
         { "Feriefri.AllowanceBox", "Zilele Feriefri pe care le oferă acest an de concediu (0–20). Apasă Enter sau Tab pentru a salva." },
-        { "Feriefri.Used", "folosite: {0}" },
-        { "Feriefri.BookedAhead", "programate: {0}" },
-        { "Feriefri.Remaining", "rămase: {0}" },
         { "Feriefri.MoreThanAllowance", "{0} peste alocare" },
 
         // ---- Units and plurals ----

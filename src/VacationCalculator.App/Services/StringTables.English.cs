@@ -61,12 +61,13 @@ public static partial class StringTables
 
         { "Table.Year", "Year" },
         { "Table.EarnedSoFar", "Earned\nso far" },
-        { "Table.TransferredIn", "Transferred in" },
+        { "Table.GroupVacation", "Vacation days" },
+        { "Table.TransferredIn", "Transferred\nin" },
         { "Table.Used", "Used" },
-        { "Table.BookedAhead", "Booked\nahead" },
+        { "Table.Booked", "Booked" },
         { "Table.Remaining", "Remaining" },
-        { "Table.ToNextYear", "To next year" },
-        { "Table.UseBy", "Use by" },
+        { "Table.Allotted", "Allotted" },
+        { "Table.TotalRemaining", "Total\nremaining" },
         { "Table.Earned", "{0} of {1}" },
         { "Table.Projected", "{0} (projected)" },
         { "Table.ProjectedTooltip", "Projected transfer from {0} on {1}. Until then these days still count as remaining in {0}." },
@@ -75,16 +76,10 @@ public static partial class StringTables
 
         // ---- Feriefri card ----
         { "Feriefri.Name", "Feriefri" },
-        { "Feriefri.SourceOwn", "own" },
-        { "Feriefri.SourceFrom", "from {0}" },
-        { "Feriefri.SourceDefault", "default" },
         { "Feriefri.TooltipOwn", "Set for this holiday year" },
         { "Feriefri.TooltipInherited", "Inherited from {0}" },
         { "Feriefri.TooltipDefault", "Default allowance" },
         { "Feriefri.AllowanceBox", "Feriefri days this holiday year provides (0 to 20). Press Enter or Tab to save." },
-        { "Feriefri.Used", "{0} used" },
-        { "Feriefri.BookedAhead", "{0} booked ahead" },
-        { "Feriefri.Remaining", "{0} remaining" },
         { "Feriefri.MoreThanAllowance", "{0} more than the allowance" },
 
         // ---- Units and plurals ----

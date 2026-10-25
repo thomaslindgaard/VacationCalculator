@@ -83,8 +83,8 @@ public class MainViewModelFeriefriTests : HolidayYearVmTestBase, IDisposable
         Assert.Equal(5m, row.Period.Amount);
         Assert.Equal("trip", row.Period.Description);
         Assert.Equal(0m, vm.Status.HolidayYear.UsedDays); // vacation figures unaffected
-        Assert.Equal(5m, vm.FeriefriRows[0].Used);
-        Assert.Equal(0m, vm.FeriefriRows[0].Remaining);
+        Assert.Equal(5m, vm.SummaryRows[0].FeriefriUsed);
+        Assert.Equal(0m, vm.SummaryRows[0].FeriefriRemaining);
         Assert.Equal(5, Reload(Dec18).Entries.Single().Period.Dates.Count); // persisted
     }
 
@@ -98,8 +98,8 @@ public class MainViewModelFeriefriTests : HolidayYearVmTestBase, IDisposable
         Assert.Equal("2 Feriefri days booked; 3 days left out because the Feriefri days for 2025/26 are used up.", vm.InfoMessage);
         Assert.Null(vm.NewStart);
         Assert.Equal("", vm.NewDescription);
-        Assert.Equal(5m, vm.FeriefriRows[0].Used);
-        Assert.Equal(5m, Reload(Dec18).FeriefriRows[0].Used);
+        Assert.Equal(5m, vm.SummaryRows[0].FeriefriUsed);
+        Assert.Equal(5m, Reload(Dec18).SummaryRows[0].FeriefriUsed);
     }
 
     [Fact]
@@ -155,7 +155,7 @@ public class MainViewModelFeriefriTests : HolidayYearVmTestBase, IDisposable
             "0.5 Feriefri days booked; 0.5 days left out because the Feriefri days for 2025/26 are used up. 12 January 2026 booked as a half day.",
             vm.InfoMessage);
         Assert.Equal("", vm.ErrorMessage);
-        Assert.Equal(5m, vm.FeriefriRows[0].Used);
+        Assert.Equal(5m, vm.SummaryRows[0].FeriefriUsed);
     }
 
     [Fact]
@@ -167,7 +167,7 @@ public class MainViewModelFeriefriTests : HolidayYearVmTestBase, IDisposable
         vm.IsHalfDay = true;
         vm.AddEntryCommand.Execute(null);
         Assert.Equal("", vm.ErrorMessage);
-        Assert.Equal(0.5m, vm.FeriefriRows[0].Used);
+        Assert.Equal(0.5m, vm.SummaryRows[0].FeriefriUsed);
         Assert.False(vm.IsHalfDay);
     }
 
@@ -193,7 +193,7 @@ public class MainViewModelFeriefriTests : HolidayYearVmTestBase, IDisposable
         Enter(vm, new DateTime(2026, 2, 2), new DateTime(2026, 2, 3), feriefri: false); // vacation Mon+Tue
         Assert.Equal("", vm.ErrorMessage);
         Assert.Equal(2m, vm.Status.HolidayYear.UsedDays);
-        Assert.Equal(2m, vm.FeriefriRows[0].Used);
+        Assert.Equal(2m, vm.SummaryRows[0].FeriefriUsed);
         Assert.Equal(2, vm.Entries.Count);
         Assert.Contains(vm.Entries, e => e.IsFeriefri);
         Assert.Contains(vm.Entries, e => !e.IsFeriefri);
@@ -215,7 +215,7 @@ public class MainViewModelFeriefriTests : HolidayYearVmTestBase, IDisposable
         Assert.Equal(1m, vm.Status.HolidayYear.UsedDays);
         Enter(vm, Jan12, Jan12);
         Assert.Equal(0m, vm.Status.HolidayYear.UsedDays);
-        Assert.Equal(1m, vm.FeriefriRows[0].Used);
+        Assert.Equal(1m, vm.SummaryRows[0].FeriefriUsed);
     }
 
     [Fact]
@@ -224,34 +224,46 @@ public class MainViewModelFeriefriTests : HolidayYearVmTestBase, IDisposable
         var vm = NewVm(Dec18, WithDays(JanFF(5)));
         vm.DeleteEntryCommand.Execute(vm.Entries[0]);
         Assert.Empty(vm.Entries);
-        Assert.Equal(0m, vm.FeriefriRows[0].Used);
-        Assert.Equal(5m, vm.FeriefriRows[0].Remaining);
+        Assert.Equal(0m, vm.SummaryRows[0].FeriefriUsed);
+        Assert.Equal(5m, vm.SummaryRows[0].FeriefriRemaining);
     }
 
     // ---------- per-row allowance ----------
+    /// <summary>Where the allowance comes from, read off the first line of its tooltip (the old "Source" column text).</summary>
+    private static string Src(SummaryRow r)
+    {
+        var first = r.AllowanceTooltip.Split('\n')[0];
+        return first switch
+        {
+            "Default allowance" => "default",
+            "Set for this holiday year" => "own",
+            _ => first.Replace("Inherited from ", "from "),
+        };
+    }
 
-    private static (decimal Days, string Source, bool Own) A(FeriefriRow r) => (r.AllowanceDays, r.AllowanceSource, r.AllowanceIsOwn);
+
+    private static (decimal Days, string Source, bool Own) A(SummaryRow r) => (r.AllowanceDays, Src(r), r.AllowanceIsOwn);
 
     [Fact]
     public void RowAllowance_Default_SetOwn_Persist_Clamp_Reset()
     {
         var vm = NewVm(Dec18, WithDays([]));
-        Assert.Equal((5m, "default", false), A(vm.FeriefriRows[0]));
-        Assert.Equal("Default allowance", vm.FeriefriRows[0].AllowanceTooltip);
+        Assert.Equal((5m, "default", false), A(vm.SummaryRows[0]));
+        Assert.StartsWith("Default allowance\n", vm.SummaryRows[0].AllowanceTooltip);
 
-        vm.FeriefriRows[0].AllowanceDays = 8m;
-        Assert.Equal((8m, "own", true), A(vm.FeriefriRows[0]));
-        Assert.Equal("Set for this holiday year", vm.FeriefriRows[0].AllowanceTooltip);
-        Assert.Equal((8m, "own", true), A(Reload(Dec18).FeriefriRows[0])); // persisted
+        vm.SummaryRows[0].AllowanceDays = 8m;
+        Assert.Equal((8m, "own", true), A(vm.SummaryRows[0]));
+        Assert.StartsWith("Set for this holiday year\n", vm.SummaryRows[0].AllowanceTooltip);
+        Assert.Equal((8m, "own", true), A(Reload(Dec18).SummaryRows[0])); // persisted
 
-        vm.FeriefriRows[0].AllowanceDays = 25m; // clamped to 20
-        Assert.Equal(20m, vm.FeriefriRows[0].AllowanceDays);
-        vm.FeriefriRows[0].AllowanceDays = -1m; // clamped to 0
-        Assert.Equal(0m, vm.FeriefriRows[0].AllowanceDays);
+        vm.SummaryRows[0].AllowanceDays = 25m; // clamped to 20
+        Assert.Equal(20m, vm.SummaryRows[0].AllowanceDays);
+        vm.SummaryRows[0].AllowanceDays = -1m; // clamped to 0
+        Assert.Equal(0m, vm.SummaryRows[0].AllowanceDays);
 
-        vm.FeriefriRows[0].ResetAllowanceCommand.Execute(null);
-        Assert.Equal((5m, "default", false), A(vm.FeriefriRows[0]));
-        Assert.Equal((5m, "default", false), A(Reload(Dec18).FeriefriRows[0]));
+        vm.SummaryRows[0].ResetAllowanceCommand.Execute(null);
+        Assert.Equal((5m, "default", false), A(vm.SummaryRows[0]));
+        Assert.Equal((5m, "default", false), A(Reload(Dec18).SummaryRows[0]));
         Assert.Equal("", vm.ErrorMessage);
     }
 
@@ -259,54 +271,54 @@ public class MainViewModelFeriefriTests : HolidayYearVmTestBase, IDisposable
     public void RowAllowance_SettingTheDefaultValue_MakesItOwn()
     {
         var vm = NewVm(Dec18, WithDays([]));
-        vm.FeriefriRows[0].AllowanceDays = 5m;
-        Assert.True(vm.FeriefriRows[0].AllowanceIsOwn);
-        Assert.Equal("own", vm.FeriefriRows[0].AllowanceSource);
+        vm.SummaryRows[0].AllowanceDays = 5m;
+        Assert.True(vm.SummaryRows[0].AllowanceIsOwn);
+        Assert.Equal("own", Src(vm.SummaryRows[0]));
     }
 
     [Fact]
     public void RowAllowance_EditingLaterYear_DoesNotTouchEarlierYear()
     {
         var vm = NewVm(Dec18, WithDays([]));
-        Assert.Equal("2025/26", vm.FeriefriRows[0].Name);
-        Assert.Equal("2026/27", vm.FeriefriRows[1].Name);
+        Assert.Equal("2025/26", vm.SummaryRows[0].Name);
+        Assert.Equal("2026/27", vm.SummaryRows[1].Name);
 
-        vm.FeriefriRows[1].AllowanceDays = 8m;
+        vm.SummaryRows[1].AllowanceDays = 8m;
 
-        Assert.Equal((5m, "default", false), A(vm.FeriefriRows[0]));
-        Assert.Equal(5m, vm.FeriefriRows[0].Remaining);
-        Assert.Equal((8m, "own", true), A(vm.FeriefriRows[1]));
-        Assert.Equal(8m, vm.FeriefriRows[1].Remaining);
+        Assert.Equal((5m, "default", false), A(vm.SummaryRows[0]));
+        Assert.Equal(5m, vm.SummaryRows[0].FeriefriRemaining);
+        Assert.Equal((8m, "own", true), A(vm.SummaryRows[1]));
+        Assert.Equal(8m, vm.SummaryRows[1].FeriefriRemaining);
         var again = Reload(Dec18);
-        Assert.Equal((5m, "default", false), A(again.FeriefriRows[0]));
-        Assert.Equal((8m, "own", true), A(again.FeriefriRows[1]));
+        Assert.Equal((5m, "default", false), A(again.SummaryRows[0]));
+        Assert.Equal((8m, "own", true), A(again.SummaryRows[1]));
     }
 
     [Fact]
     public void RowAllowance_EditingEarlierYear_IsInheritedByLaterYear_AndResetFallsBackToInherited()
     {
         var vm = NewVm(Dec18, WithDays([]));
-        vm.FeriefriRows[0].AllowanceDays = 8m;
-        Assert.Equal((8m, "from 2025/26", false), A(vm.FeriefriRows[1]));
-        Assert.Equal("Inherited from 2025/26", vm.FeriefriRows[1].AllowanceTooltip);
+        vm.SummaryRows[0].AllowanceDays = 8m;
+        Assert.Equal((8m, "from 2025/26", false), A(vm.SummaryRows[1]));
+        Assert.StartsWith("Inherited from 2025/26\n", vm.SummaryRows[1].AllowanceTooltip);
 
-        vm.FeriefriRows[1].AllowanceDays = 3m;
-        Assert.Equal((3m, "own", true), A(vm.FeriefriRows[1]));
-        Assert.Equal((8m, "own", true), A(vm.FeriefriRows[0]));
+        vm.SummaryRows[1].AllowanceDays = 3m;
+        Assert.Equal((3m, "own", true), A(vm.SummaryRows[1]));
+        Assert.Equal((8m, "own", true), A(vm.SummaryRows[0]));
 
-        vm.FeriefriRows[1].ResetAllowanceCommand.Execute(null);
-        Assert.Equal((8m, "from 2025/26", false), A(vm.FeriefriRows[1]));
+        vm.SummaryRows[1].ResetAllowanceCommand.Execute(null);
+        Assert.Equal((8m, "from 2025/26", false), A(vm.SummaryRows[1]));
 
         vm.SelectedYear = 2028; // rows 2027/28 and 2028/29 inherit from 2025/26
-        Assert.Equal((8m, "from 2025/26", false), A(vm.FeriefriRows[0]));
+        Assert.Equal((8m, "from 2025/26", false), A(vm.SummaryRows[0]));
     }
 
     [Fact]
     public void RowAllowance_Reset_WhenNothingOwn_IsHarmless()
     {
         var vm = NewVm(Dec18, WithDays([]));
-        vm.FeriefriRows[1].ResetAllowanceCommand.Execute(null);
-        Assert.Equal((5m, "default", false), A(vm.FeriefriRows[1]));
+        vm.SummaryRows[1].ResetAllowanceCommand.Execute(null);
+        Assert.Equal((5m, "default", false), A(vm.SummaryRows[1]));
         Assert.Equal("", vm.ErrorMessage);
     }
 
@@ -314,9 +326,9 @@ public class MainViewModelFeriefriTests : HolidayYearVmTestBase, IDisposable
     public void RowAllowance_SettingSameOwnValueAgain_ChangesNothing()
     {
         var vm = NewVm(Dec18, WithDays([]));
-        vm.FeriefriRows[0].AllowanceDays = 8m;
-        vm.FeriefriRows[0].AllowanceDays = 8m;
-        Assert.Equal((8m, "own", true), A(vm.FeriefriRows[0]));
+        vm.SummaryRows[0].AllowanceDays = 8m;
+        vm.SummaryRows[0].AllowanceDays = 8m;
+        Assert.Equal((8m, "own", true), A(vm.SummaryRows[0]));
         Assert.Equal("", vm.ErrorMessage);
     }
 
@@ -327,9 +339,9 @@ public class MainViewModelFeriefriTests : HolidayYearVmTestBase, IDisposable
         Assert.True(vm.HasFeriefriBanner);
         var raised = new List<string?>();
         vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
-        vm.FeriefriRows[0].AllowanceDays = 0m; // HY2025 none: nothing remains to pay out or lose from it
-        Assert.Equal(0m, vm.FeriefriRows[0].Remaining);
-        Assert.Contains(nameof(MainViewModel.FeriefriRows), raised);
+        vm.SummaryRows[0].AllowanceDays = 0m; // HY2025 none: nothing remains to pay out or lose from it
+        Assert.Equal(0m, vm.SummaryRows[0].FeriefriRemaining);
+        Assert.Contains(nameof(MainViewModel.SummaryRows), raised);
         Assert.Contains(nameof(MainViewModel.FeriefriBanner), raised);
     }
 
@@ -347,12 +359,12 @@ public class MainViewModelFeriefriTests : HolidayYearVmTestBase, IDisposable
         ReadOnly(true);
 
         if (what == "set")
-            vm.FeriefriRows[row].AllowanceDays = 12m;
+            vm.SummaryRows[row].AllowanceDays = 12m;
         else
-            vm.FeriefriRows[row].ResetAllowanceCommand.Execute(null);
+            vm.SummaryRows[row].ResetAllowanceCommand.Execute(null);
 
         Assert.Equal(before, State(vm));
-        Assert.Equal(7m, vm.FeriefriRows[1].AllowanceDays);
+        Assert.Equal(7m, vm.SummaryRows[1].AllowanceDays);
         Assert.StartsWith("Could not save: ", vm.ErrorMessage);
         Assert.Equal("", vm.InfoMessage);
         ReadOnly(false);
@@ -464,17 +476,17 @@ public class MainViewModelFeriefriTests : HolidayYearVmTestBase, IDisposable
     {
         var june = new DateOnly(2026, 6, 15); // 2026/27 starts 1 Sep 2026
         var vm = NewVm(june, WithDays([]));
-        Assert.Equal("2025/26", vm.FeriefriRows[0].Name);
-        Assert.Equal("5 will be paid out in January 2027", vm.FeriefriRows[0].Note);
-        Assert.Equal("2026/27", vm.FeriefriRows[1].Name);
-        Assert.Equal("", vm.FeriefriRows[1].Note);
+        Assert.Equal("2025/26", vm.SummaryRows[0].Name);
+        Assert.Equal("5 will be paid out in January 2027", vm.SummaryRows[0].FeriefriRemainingTooltip);
+        Assert.Equal("2026/27", vm.SummaryRows[1].Name);
+        Assert.Null(vm.SummaryRows[1].FeriefriRemainingTooltip);
 
         // Exactly on 1 Sep it has started.
         var sep1 = NewVmSecond(new DateOnly(2026, 9, 1), WithDays([]));
-        Assert.Equal("5 will be paid out in January 2028", sep1.FeriefriRows[1].Note);
+        Assert.Equal("5 will be paid out in January 2028", sep1.SummaryRows[1].FeriefriRemainingTooltip);
         // The day before it has not.
         var aug31 = NewVmSecond(new DateOnly(2026, 8, 31), WithDays([]));
-        Assert.Equal("", aug31.FeriefriRows[1].Note);
+        Assert.Null(aug31.SummaryRows[1].FeriefriRemainingTooltip);
     }
 
     [Fact]
@@ -486,10 +498,9 @@ public class MainViewModelFeriefriTests : HolidayYearVmTestBase, IDisposable
         var data = WithDays(days);
         data.SetFeriefriAllowance(new HolidayYear(2025), 5m);
         var vm = NewVm(new DateOnly(2026, 6, 15), data);
-        var row = vm.FeriefriRows[1];
+        var row = vm.SummaryRows[1];
         Assert.Equal("2026/27", row.Name);
-        Assert.Equal("5 more than the allowance", row.Note);
-        Assert.True(row.NoteIsError);
+        Assert.Equal("5 more than the allowance", row.FeriefriRemainingTooltip);
     }
     // ---------- rows ----------
 
@@ -498,18 +509,17 @@ public class MainViewModelFeriefriTests : HolidayYearVmTestBase, IDisposable
     {
         // 3 used in Jan: HY2025 remaining 2; open 31 Dec = 2 + 5 = 7 -> 2 will be paid out in January 2027.
         var vm = NewVm(Dec18, WithDays(JanFF(3)));
-        Assert.Equal(2, vm.FeriefriRows.Count);
-        var a = vm.FeriefriRows[0];
+        Assert.Equal(2, vm.SummaryRows.Count);
+        var a = vm.SummaryRows[0];
         Assert.Equal("2025/26", a.Name);
-        Assert.Equal((5m, "default", false), (a.AllowanceDays, a.AllowanceSource, a.AllowanceIsOwn));
-        Assert.Equal((3m, 0m, 2m, 1), (a.Used, a.BookedAhead, a.Remaining, a.RemainingSign));
-        Assert.Equal("2 will be paid out in January 2027", a.Note);
-        Assert.False(a.NoteIsError);
+        Assert.Equal((5m, "default", false), (a.AllowanceDays, Src(a), a.AllowanceIsOwn));
+        Assert.Equal((3m, 0m, 2m, 1), (a.FeriefriUsed, a.FeriefriBookedAhead, a.FeriefriRemaining, a.FeriefriRemainingSign));
+        Assert.Equal("2 will be paid out in January 2027", a.FeriefriRemainingTooltip);
 
-        var b = vm.FeriefriRows[1];
+        var b = vm.SummaryRows[1];
         Assert.Equal("2026/27", b.Name);
-        Assert.Equal(5m, b.Remaining);
-        Assert.Equal("5 will be paid out in January 2028", b.Note); // its own leftover at the 2027 year end (projected)
+        Assert.Equal(5m, b.FeriefriRemaining);
+        Assert.Equal("5 will be paid out in January 2028", b.FeriefriRemainingTooltip); // its own leftover at the 2027 year end (projected)
     }
 
     [Fact]
@@ -519,12 +529,12 @@ public class MainViewModelFeriefriTests : HolidayYearVmTestBase, IDisposable
         var data = WithDays([FF(2026, 12, 21)]);
         data.SetFeriefriAllowance(new HolidayYear(2025), 8m);
         var vm = NewVm(Dec18, data);
-        var a = vm.FeriefriRows[0];
+        var a = vm.SummaryRows[0];
         // allowance 8: 3 were already paid out on 31 Dec 2025 (open 5 + 8 = 13, excess 8, 5 from the older year): 8 - 3 - 1 = 4.
-        Assert.Equal((0m, 1m, 4m), (a.Used, a.BookedAhead, a.Remaining));
-        Assert.Contains("3 were paid out in January 2026", a.Note);
-        Assert.Equal((8m, "own", true), (a.AllowanceDays, a.AllowanceSource, a.AllowanceIsOwn));
-        Assert.Equal((8m, "from 2025/26", false), (vm.FeriefriRows[1].AllowanceDays, vm.FeriefriRows[1].AllowanceSource, vm.FeriefriRows[1].AllowanceIsOwn));
+        Assert.Equal((0m, 1m, 4m), (a.FeriefriUsed, a.FeriefriBookedAhead, a.FeriefriRemaining));
+        Assert.Contains("3 were paid out in January 2026", a.FeriefriRemainingTooltip);
+        Assert.Equal((8m, "own", true), (a.AllowanceDays, Src(a), a.AllowanceIsOwn));
+        Assert.Equal((8m, "from 2025/26", false), (vm.SummaryRows[1].AllowanceDays, Src(vm.SummaryRows[1]), vm.SummaryRows[1].AllowanceIsOwn));
     }
 
     [Fact]
@@ -534,15 +544,14 @@ public class MainViewModelFeriefriTests : HolidayYearVmTestBase, IDisposable
         var data = WithDays([]);
         data.SetFeriefriAllowance(new HolidayYear(2026), 0m);
         var vm = NewVm(Dec18, data);
-        Assert.Equal("5 will be lost", vm.FeriefriRows[0].Note);
+        Assert.Equal("5 will be lost", vm.SummaryRows[0].FeriefriRemainingTooltip);
 
         // 7 stored in HY2025 (allowance 5)
         var over = NewVm(Dec18, WithDays(Enumerable.Range(5, 8).Select(d => FF(2026, 1, d)).Where(d => d.Date.DayOfWeek != DayOfWeek.Saturday && d.Date.DayOfWeek != DayOfWeek.Sunday)));
-        var row = over.FeriefriRows[0];
-        Assert.Equal(-1m, row.Remaining); // Jan 5..9 and Mon 12 = 6 weekdays (the 10th and 11th are a weekend)
-        Assert.Equal(-1, row.RemainingSign);
-        Assert.Equal("1 more than the allowance", row.Note);
-        Assert.True(row.NoteIsError);
+        var row = over.SummaryRows[0];
+        Assert.Equal(-1m, row.FeriefriRemaining); // Jan 5..9 and Mon 12 = 6 weekdays (the 10th and 11th are a weekend)
+        Assert.Equal(-1, row.FeriefriRemainingSign);
+        Assert.Equal("1 more than the allowance", row.FeriefriRemainingTooltip);
     }
 
     [Fact]
@@ -552,7 +561,7 @@ public class MainViewModelFeriefriTests : HolidayYearVmTestBase, IDisposable
         // 5 leftover days of HY2025: "5 were paid out in January 2027".
         var vm = NewVm(today, WithDays([]));
         vm.SelectedYear = 2026;
-        Assert.Equal("5 were paid out in January 2027", vm.FeriefriRows[0].Note);
+        Assert.Equal("5 were paid out in January 2027", vm.SummaryRows[0].FeriefriRemainingTooltip);
 
     }
 
@@ -562,7 +571,7 @@ public class MainViewModelFeriefriTests : HolidayYearVmTestBase, IDisposable
         var today = new DateOnly(2027, 1, 4);
         var vm = NewVm(today, WithDays(JanFF(4)));
         vm.SelectedYear = 2026;
-        Assert.Equal("1 was paid out in January 2027", vm.FeriefriRows[0].Note);
+        Assert.Equal("1 was paid out in January 2027", vm.SummaryRows[0].FeriefriRemainingTooltip);
     }
 
     // ---------- banner ----------
@@ -661,7 +670,7 @@ public class MainViewModelFeriefriTests : HolidayYearVmTestBase, IDisposable
 
     private static string State(MainViewModel vm) => string.Join("\n",
         string.Join("|", vm.Entries.Select(e => $"{e.Period.Start}-{e.Period.End} {e.Period.Type} {e.Period.Amount}")),
-        string.Join("|", vm.FeriefriRows.Select(r => $"{r.Name} {r.AllowanceDays} {r.AllowanceSource} {r.Used} {r.BookedAhead} {r.Remaining} {r.Note}")),
+        string.Join("|", vm.SummaryRows.Select(r => $"{r.Name} {r.AllowanceDays} {Src(r)} {r.FeriefriUsed} {r.FeriefriBookedAhead} {r.FeriefriRemaining} {r.FeriefriRemainingTooltip} {r.TotalRemaining}")),
         vm.FeriefriBanner,
         InMemory(vm));
 
@@ -683,8 +692,8 @@ public class MainViewModelFeriefriTests : HolidayYearVmTestBase, IDisposable
         {
             "partial booking" => () => Enter(vm, Jan12, Jan16), // 6-3 = 3 left, 5 requested
             "full booking" => () => Enter(vm, Jan12, Jan12),
-            "set allowance" => () => vm.FeriefriRows[0].AllowanceDays = 9m,
-            _ => () => vm.FeriefriRows[0].ResetAllowanceCommand.Execute(null),
+            "set allowance" => () => vm.SummaryRows[0].AllowanceDays = 9m,
+            _ => () => vm.SummaryRows[0].ResetAllowanceCommand.Execute(null),
         };
         run();
 

@@ -37,6 +37,11 @@ public class MainViewModelFailedSaveTests : HolidayYearVmTestBase, IDisposable
     }
 
     /// <summary>Every bound value the requirement lists, as text.</summary>
+    private static string Describe(SummaryRow r) =>
+        $"{r.Name}: earned={r.EarnedSoFar} in={r.TransferredIn} proj={r.TransferredInIsProjected} used={r.Used} booked={r.BookedAhead} " +
+        $"rem={r.Remaining} allot={r.AllowanceDays} own={r.AllowanceIsOwn} fUsed={r.FeriefriUsed} fBooked={r.FeriefriBookedAhead} " +
+        $"fRem={r.FeriefriRemaining} total={r.TotalRemaining} tips=[{r.EarnedTooltip}|{r.TransferredInTooltip}|{r.RemainingTooltip}|{r.FeriefriRemainingTooltip}]";
+
     private static string State(MainViewModel vm) => string.Join("\n",
         "entries: " + string.Join(" | ", vm.Entries.Select(e =>
             $"{e.Period.Start}-{e.Period.End} {e.Period.Amount} {e.Period.Description} past={e.IsPast}")),
@@ -45,7 +50,7 @@ public class MainViewModelFailedSaveTests : HolidayYearVmTestBase, IDisposable
         "choices: " + string.Join(",", vm.FirstTrackedChoices.Select(c => c.StartYear)),
         $"limit={vm.TransferLimitDays} src={vm.TransferLimitSource} own={vm.TransferLimitIsOwn}",
         $"payout none={vm.PayoutNone} some={vm.PayoutSome} all={vm.PayoutAll} days={vm.PayoutDays} src={vm.PayoutSource} own={vm.PayoutIsOwn}",
-        "rows: " + string.Join(" | ", vm.HolidayYearRows),
+        "rows: " + string.Join(" | ", vm.SummaryRows.Select(Describe)),
         "status: " + vm.Status,
         "msg: " + vm.StatusMessage + " / " + vm.StatusDetail,
         "earnable: " + vm.EarnableNote,

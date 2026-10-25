@@ -95,6 +95,7 @@ Vacation follows the Danish Holiday Act (ferieloven, samtidighedsferie); full sp
 - Bookings are stored per day (`BookedDay`: date, `DayType` Vacation/Feriefri, `Amount` 1 or 0.5, description), at most one record per date. Ranges are only an input/display concept: `Bookings.BookRange` creates one record per working day, and `Bookings.GroupPeriods` groups days back into periods for display. One booked range may cover at most one year (`Bookings.MaxRangeYears`).
 - Balances count only `Vacation` days on working days, as decimals. Free working days left are counted from today (inclusive) through 31 December; a booked day of either type is not free, a half-booked day is half free.
 - "Used" = vacation dates on or before today; "booked ahead" = after today.
+- A holiday year's remaining days (`HolidayYearBalance.RemainingDays`, like `FeriefriBalance.RemainingDays`) are today's figure: after its deadline (31 December itself still open) the days transferred, paid out or lost are gone, so it is 0 unless over-booked.
 
 ## Conventions
 

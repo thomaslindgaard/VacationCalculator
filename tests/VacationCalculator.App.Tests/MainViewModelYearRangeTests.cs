@@ -21,7 +21,7 @@ public class MainViewModelYearRangeTests : IDisposable
     private static void AssertComputed(MainViewModel vm)
     {
         Assert.NotNull(vm.Status);
-        Assert.Equal(2, vm.HolidayYearRows.Count);
+        Assert.Equal(2, vm.SummaryRows.Count);
         Assert.False(string.IsNullOrEmpty(vm.HolidayYearTitle));
         Assert.False(string.IsNullOrEmpty(vm.DeadlineSettingsTitle));
         _ = vm.StatusMessage;
@@ -63,8 +63,8 @@ public class MainViewModelYearRangeTests : IDisposable
             Assert.Equal(year, vm.SelectedYear);
             AssertComputed(vm);
             // Rows are holiday years Y-1 and Y.
-            Assert.Equal(new HolidayYear(year - 1).ToString(), vm.HolidayYearRows[0].Name);
-            Assert.Equal(new HolidayYear(year).ToString(), vm.HolidayYearRows[1].Name);
+            Assert.Equal(new HolidayYear(year - 1).ToString(), vm.SummaryRows[0].Name);
+            Assert.Equal(new HolidayYear(year).ToString(), vm.SummaryRows[1].Name);
             Assert.Equal(new HolidayYear(year - 1), vm.Status.HolidayYear.HolidayYear);
             // "yyyy" zero-pads the absurd edge years: 31 December 0002.
             Assert.Contains($"31 December {year:D4}", vm.HolidayYearTitle);

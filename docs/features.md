@@ -281,7 +281,7 @@ The interface is available in four languages: **English**, **Danish** (Dansk), *
 
 ## 8. Simplified summary table
 
-**Status:** In progress
+**Status:** Done
 
 The holiday-years card in the summary becomes one table with a row per holiday year shown (the same years as today) and these columns, grouped under two headers:
 
@@ -290,7 +290,7 @@ The holiday-years card in the summary becomes one table with a row per holiday y
 | Year | Transferred in | Earned so far | Used | Booked | Remaining | Allotted | Used | Booked | Remaining | Total remaining |
 
 - **Used** = days on or before today; **Booked** = days after today (for both types, as everywhere else).
-- Vacation **Remaining** is today's figure (a projected transfer-in doesn't count until the previous deadline). Feriefri **Remaining** is today's figure too. **Total remaining** = vacation remaining + Feriefri remaining.
+- Vacation **Remaining** is today's figure (a projected transfer-in doesn't count until the previous deadline; after a year's own deadline it is 0, because what was left has been transferred, paid out or lost, and only an over-booking stays negative). Feriefri **Remaining** is today's figure too. **Total remaining** = vacation remaining + Feriefri remaining.
 - **Allotted** is the Feriefri allowance and stays editable per holiday year in its cell (Enter or Tab saves, as today), with the inherited/own information and a way to reset it.
 - The separate Feriefri rows, the "To next year" and "Use by" columns and all notes in the table are removed. What the notes said (e.g. "advance holiday: 2,42 not earned yet", a projected transfer, "5 will be paid out in January 2028", an allowance that is exceeded) becomes a tooltip on the cell it concerns; the banner under the summary already explains the current year in full sentences. A cell that needs attention (e.g. negative remaining) may still be highlighted.
 - The stat cards above the table don't change.

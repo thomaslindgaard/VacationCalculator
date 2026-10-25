@@ -38,59 +38,100 @@ public sealed record HolidayRow(PublicHoliday Holiday)
     public string RemoveTooltip => Loc.Get(Holiday.IsAutomatic ? "Holidays.RemoveExtra" : "Holidays.Remove");
 }
 
-/// <summary>One line of the Feriefri card.</summary>
-public sealed class FeriefriRow
+/// <summary>
+/// One row of the summary table: a holiday year with its vacation figures and its Feriefri figures. Notes are tooltips of
+/// the cell they concern (null when there is nothing to say, so no empty tooltip box appears).
+/// </summary>
+public sealed class SummaryRow
 {
     private readonly Action<decimal> _setAllowance;
 
     /// <param name="started">Whether the holiday year has started (today is on or after 1 September of its start year).</param>
-    /// <param name="setAllowance">Stores a new allowance for this row's holiday year (saves; may refuse).</param>
-    /// <param name="clearAllowance">Removes this row's own allowance.</param>
-    public FeriefriRow(FeriefriBalance b, bool started, Action<decimal> setAllowance, Action clearAllowance)
+    /// <param name="setAllowance">Stores a new Feriefri allowance for this row's holiday year (saves; may refuse).</param>
+    /// <param name="clearAllowance">Removes this row's own Feriefri allowance.</param>
+    public SummaryRow(HolidayYearBalance v, FeriefriBalance f, bool started, Action<decimal> setAllowance, Action clearAllowance)
     {
         _setAllowance = setAllowance;
-        var a = b.Allowance;
-        Name = b.HolidayYear.ToString();
-        AllowanceDaysValue = b.AllowanceDays;
+        Name = v.HolidayYear.ToString();
+
+        // Vacation days
+        EarnedSoFar = v.EarnedSoFar;
+        EarnedTooltip = Loc.Format("Table.Earned", Loc.Num(v.EarnedSoFar), Loc.Num(v.EarnableDays));
+        TransferredIn = v.TransferredIn;
+        TransferredInIsProjected = v.TransferredInIsProjected;
+        TransferredInTooltip = ShowProjected
+            ? Loc.Format("Table.Projected", Loc.Num(v.TransferredIn)) + ". "
+              + Loc.Format("Table.ProjectedTooltip", v.HolidayYear.Previous.ToString(), DateText.Long(v.HolidayYear.Previous.Deadline))
+            : null;
+        Used = v.UsedDays;
+        BookedAhead = v.BookedAheadDays;
+        Remaining = v.RemainingDays;
+        RemainingSign = Math.Sign(v.RemainingDays);
+        RemainingTooltip = v.ExceedsEarnableBy > 0
+            ? Loc.Format("Note.ExceedsEarnable", Loc.Num(v.ExceedsEarnableBy))
+            : v.ExceedsEarnedSoFarBy > 0 ? Loc.Format("Note.Advance", Loc.Num(v.ExceedsEarnedSoFarBy)) : null;
+
+        // Feriefri
+        var a = f.Allowance;
+        AllowanceDaysValue = f.AllowanceDays;
         AllowanceIsOwn = a.IsOwn;
-        AllowanceSource = a.IsOwn ? Loc.Get("Feriefri.SourceOwn")
-            : a.From is { } from ? Loc.Format("Feriefri.SourceFrom", from.ToString())
-            : Loc.Get("Feriefri.SourceDefault");
-        AllowanceTooltip = a.IsOwn ? Loc.Get("Feriefri.TooltipOwn")
-            : a.From is { } f ? Loc.Format("Feriefri.TooltipInherited", f.ToString())
-            : Loc.Get("Feriefri.TooltipDefault");
-        Used = b.UsedDays;
-        BookedAhead = b.BookedAheadDays;
-        Remaining = b.RemainingDays;
-        RemainingSign = Math.Sign(b.RemainingDays);
-        UsedText = Loc.Format("Feriefri.Used", Loc.Num(b.UsedDays));
-        BookedAheadText = Loc.Format("Feriefri.BookedAhead", Loc.Num(b.BookedAheadDays));
-        RemainingText = Loc.Format("Feriefri.Remaining", Loc.Num(b.RemainingDays));
+        AllowanceTooltip = (a.IsOwn ? Loc.Get("Feriefri.TooltipOwn")
+            : a.From is { } from ? Loc.Format("Feriefri.TooltipInherited", from.ToString())
+            : Loc.Get("Feriefri.TooltipDefault")) + "\n" + Loc.Get("Feriefri.AllowanceBox");
         ResetAllowanceCommand = new RelayCommand(_ => clearAllowance());
+        FeriefriUsed = f.UsedDays;
+        FeriefriBookedAhead = f.BookedAheadDays;
+        FeriefriRemaining = f.RemainingDays;
+        FeriefriRemainingSign = Math.Sign(f.RemainingDays);
 
         // Year-end payout/lost notes only appear once the holiday year has started; before that they are just noise.
         var notes = new List<string>();
-        if (b.ExceedsAllowanceBy > 0)
-            notes.Add(Loc.Format("Feriefri.MoreThanAllowance", Loc.Num(b.ExceedsAllowanceBy)));
+        if (f.ExceedsAllowanceBy > 0)
+            notes.Add(Loc.Format("Feriefri.MoreThanAllowance", Loc.Num(f.ExceedsAllowanceBy)));
         if (started)
         {
-            if (b.PaidOutAtFirstYearEnd > 0)
-                notes.Add(Loc.Tense("Fate.PaidOutJan", b.PaidOutAtFirstYearEnd, b.FirstYearEndPassed,
-                    Loc.Num(b.PaidOutAtFirstYearEnd), b.HolidayYear.StartYear + 1));
-            if (b.PaidOutAtDeadline > 0)
-                notes.Add(Loc.Tense("Fate.PaidOutJan", b.PaidOutAtDeadline, b.DeadlinePassed,
-                    Loc.Num(b.PaidOutAtDeadline), b.HolidayYear.StartYear + 2));
-            if (b.LostAtDeadline > 0)
-                notes.Add(Loc.Tense("Fate.Lost", b.LostAtDeadline, b.DeadlinePassed, Loc.Num(b.LostAtDeadline)));
+            if (f.PaidOutAtFirstYearEnd > 0)
+                notes.Add(Loc.Tense("Fate.PaidOutJan", f.PaidOutAtFirstYearEnd, f.FirstYearEndPassed,
+                    Loc.Num(f.PaidOutAtFirstYearEnd), f.HolidayYear.StartYear + 1));
+            if (f.PaidOutAtDeadline > 0)
+                notes.Add(Loc.Tense("Fate.PaidOutJan", f.PaidOutAtDeadline, f.DeadlinePassed,
+                    Loc.Num(f.PaidOutAtDeadline), f.HolidayYear.StartYear + 2));
+            if (f.LostAtDeadline > 0)
+                notes.Add(Loc.Tense("Fate.Lost", f.LostAtDeadline, f.DeadlinePassed, Loc.Num(f.LostAtDeadline)));
         }
-        Note = string.Join("; ", notes);
-        NoteIsError = b.ExceedsAllowanceBy > 0;
+        FeriefriRemainingTooltip = notes.Count > 0 ? string.Join("; ", notes) : null;
+
+        TotalRemaining = v.RemainingDays + f.RemainingDays;
+        TotalRemainingSign = Math.Sign(TotalRemaining);
     }
 
     public string Name { get; }
+
+    // ---- Vacation days ----
+    public decimal EarnedSoFar { get; }
+
+    /// <summary>"x of y" (earned so far of earnable by 31 August).</summary>
+    public string EarnedTooltip { get; }
+    public decimal TransferredIn { get; }
+
+    /// <summary>The transferred-in figure is a projection that is still counted in the previous holiday year.</summary>
+    public bool TransferredInIsProjected { get; }
+    public bool ShowProjected => TransferredInIsProjected && TransferredIn > 0;
+
+    /// <summary>Explains a projected transfer; null when the figure is not a projection.</summary>
+    public string? TransferredInTooltip { get; }
+    public decimal Used { get; }
+    public decimal BookedAhead { get; }
+    public decimal Remaining { get; }
+    public int RemainingSign { get; }
+
+    /// <summary>Advance holiday or over-booking note; null when there is none.</summary>
+    public string? RemainingTooltip { get; }
+
+    // ---- Feriefri ----
     private decimal AllowanceDaysValue { get; }
 
-    /// <summary>The allowance of this row's holiday year; writing it saves it for that year.</summary>
+    /// <summary>The Feriefri allowance of this row's holiday year; writing it saves it for that year.</summary>
     public decimal AllowanceDays
     {
         get => AllowanceDaysValue;
@@ -103,44 +144,21 @@ public sealed class FeriefriRow
     }
 
     public bool AllowanceIsOwn { get; }
-    public string AllowanceSource { get; }
+
+    /// <summary>Own, inherited from an earlier year or default, plus how to edit it.</summary>
     public string AllowanceTooltip { get; }
     public RelayCommand ResetAllowanceCommand { get; }
-    public decimal Used { get; }
-    public decimal BookedAhead { get; }
-    public decimal Remaining { get; }
-    public string UsedText { get; }
-    public string BookedAheadText { get; }
-    public string RemainingText { get; }
-    public int RemainingSign { get; }
-    public string Note { get; }
+    public decimal FeriefriUsed { get; }
+    public decimal FeriefriBookedAhead { get; }
+    public decimal FeriefriRemaining { get; }
+    public int FeriefriRemainingSign { get; }
 
-    /// <summary>The note as a tooltip; null (no tooltip at all) when there is no note.</summary>
-    public string? NoteTooltip => Note.Length > 0 ? Note : null;
-    public bool NoteIsError { get; }
-}
+    /// <summary>Payout/loss notes and an exceeded allowance; null when there is nothing to say.</summary>
+    public string? FeriefriRemainingTooltip { get; }
 
-/// <summary>One line of the holiday-years card.</summary>
-public sealed record HolidayYearRow(
-    string Name, string Earned, decimal TransferredIn, decimal TransferredOut, decimal Used, decimal BookedAhead,
-    decimal Remaining, int RemainingSign, DateOnly Deadline, string Note, bool NoteIsError,
-    bool TransferredInIsProjected = false, string ProjectedTooltip = "", string ProjectedText = "")
-{
-    /// <summary>The transferred-in figure is a projection that is still counted in the previous holiday year.</summary>
-    public bool ShowProjected => TransferredInIsProjected && TransferredIn > 0;
-
-    public static HolidayYearRow From(HolidayYearBalance b)
-    {
-        var note = b.ExceedsEarnableBy > 0
-            ? Loc.Format("Note.ExceedsEarnable", Loc.Num(b.ExceedsEarnableBy))
-            : b.ExceedsEarnedSoFarBy > 0 ? Loc.Format("Note.Advance", Loc.Num(b.ExceedsEarnedSoFarBy)) : "";
-        return new HolidayYearRow(
-            b.HolidayYear.ToString(), Loc.Format("Table.Earned", Loc.Num(b.EarnedSoFar), Loc.Num(b.EarnableDays)), b.TransferredIn,
-            b.TransferredToNext, b.UsedDays, b.BookedAheadDays, b.RemainingDays, Math.Sign(b.RemainingDays), b.Deadline, note,
-            b.ExceedsEarnableBy > 0, b.TransferredInIsProjected,
-            Loc.Format("Table.ProjectedTooltip", b.HolidayYear.Previous.ToString(), DateText.Long(b.HolidayYear.Previous.Deadline)),
-            Loc.Format("Table.Projected", Loc.Num(b.TransferredIn)));
-    }
+    // ---- Both ----
+    public decimal TotalRemaining { get; }
+    public int TotalRemainingSign { get; }
 }
 
 public sealed class MainViewModel : ObservableObject
@@ -149,8 +167,7 @@ public sealed class MainViewModel : ObservableObject
     private VacationData _data;
     private YearSettings _settings;
     private CalendarYearStatus _status;
-    private IReadOnlyList<HolidayYearRow> _holidayYearRows = [];
-    private IReadOnlyList<FeriefriRow> _feriefriRows = [];
+    private IReadOnlyList<SummaryRow> _summaryRows = [];
     private bool _bookFeriefri;
     private CalendarYear _calendar;
     private IReadOnlyList<MonthView> _calendarMonths = [];
@@ -565,18 +582,11 @@ public sealed class MainViewModel : ObservableObject
         set { if (value) IsListTab = false; }
     }
 
-    /// <summary>The holiday years open around the selected calendar year (the expiring one and the next).</summary>
-    public IReadOnlyList<HolidayYearRow> HolidayYearRows
+    /// <summary>The holiday years open around the selected calendar year (the expiring one and the next), vacation and Feriefri together.</summary>
+    public IReadOnlyList<SummaryRow> SummaryRows
     {
-        get => _holidayYearRows;
-        private set => SetField(ref _holidayYearRows, value);
-    }
-
-    /// <summary>Feriefri balances of the same holiday years as <see cref="HolidayYearRows"/>.</summary>
-    public IReadOnlyList<FeriefriRow> FeriefriRows
-    {
-        get => _feriefriRows;
-        private set => SetField(ref _feriefriRows, value);
+        get => _summaryRows;
+        private set => SetField(ref _summaryRows, value);
     }
 
     /// <summary>Extra banner line about Feriefri days that are paid out or lost at 31 December; empty when none.</summary>
@@ -1146,13 +1156,13 @@ public sealed class MainViewModel : ObservableObject
 
         Status = BalanceCalculator.CalculateCalendarYear(_data, _settings.Year, Today);
         Calendar = CalendarYear.Build(_data, _settings.Year, Today);
-        HolidayYearRows = BalanceCalculator.CalculateHolidayYears(_data, HolidayYear.InCalendarYear(_settings.Year), Today)
-            .Select(HolidayYearRow.From).ToList();
-        FeriefriRows = FeriefriCalculator.CalculateHolidayYears(_data, HolidayYear.InCalendarYear(_settings.Year), Today)
-            .Select(b => new FeriefriRow(
-                b, Today >= new DateOnly(b.HolidayYear.StartYear, 9, 1),
-                days => Apply(() => _data.SetFeriefriAllowance(b.HolidayYear, days)),
-                () => Apply(() => _data.ClearFeriefriAllowance(b.HolidayYear)))).ToList();
+        var years = HolidayYear.InCalendarYear(_settings.Year);
+        var feriefri = FeriefriCalculator.CalculateHolidayYears(_data, years, Today).ToDictionary(b => b.HolidayYear);
+        SummaryRows = BalanceCalculator.CalculateHolidayYears(_data, years, Today)
+            .Select(v => new SummaryRow(
+                v, feriefri[v.HolidayYear], Today >= new DateOnly(v.HolidayYear.StartYear, 9, 1),
+                days => Apply(() => _data.SetFeriefriAllowance(v.HolidayYear, days)),
+                () => Apply(() => _data.ClearFeriefriAllowance(v.HolidayYear)))).ToList();
         OnPropertyChanged(nameof(FeriefriBanner));
         OnPropertyChanged(nameof(HasFeriefriBanner));
         OnPropertyChanged(nameof(EmployedSince));

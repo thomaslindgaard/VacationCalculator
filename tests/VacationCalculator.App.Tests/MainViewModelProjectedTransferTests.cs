@@ -15,22 +15,22 @@ public class MainViewModelProjectedTransferTests : HolidayYearVmTestBase
         var vm = NewVm(Dec18, Seed(20, transferAllowed: true));
 
         // Really existing: 25 - 20 = 5 in 2025/26, plus 6.25 earned in 2026/27 = 11.25 (the 5 are the same 5).
-        Assert.Equal(5m, vm.HolidayYearRows[0].Remaining);
-        Assert.Equal(6.25m, vm.HolidayYearRows[1].Remaining);
-        Assert.Equal(11.25m, vm.HolidayYearRows.Sum(r => r.Remaining));
+        Assert.Equal(5m, vm.SummaryRows[0].Remaining);
+        Assert.Equal(6.25m, vm.SummaryRows[1].Remaining);
+        Assert.Equal(11.25m, vm.SummaryRows.Sum(r => r.Remaining));
     }
 
     [Fact]
     public void Dec18_ProjectedRow_ShowsProjectedLabelAndTooltip()
     {
         var vm = NewVm(Dec18, Seed(20, transferAllowed: true));
-        var row = vm.HolidayYearRows[1];
+        var row = vm.SummaryRows[1];
 
         Assert.True(row.TransferredInIsProjected);
         Assert.True(row.ShowProjected);
-        Assert.False(vm.HolidayYearRows[0].ShowProjected);
-        Assert.Contains("Projected transfer from 2025/26", row.ProjectedTooltip);
-        Assert.Contains("31 December 2026", row.ProjectedTooltip);
+        Assert.False(vm.SummaryRows[0].ShowProjected);
+        Assert.Contains("Projected transfer from 2025/26", row.TransferredInTooltip);
+        Assert.Contains("31 December 2026", row.TransferredInTooltip);
     }
 
     [Fact]
@@ -39,10 +39,10 @@ public class MainViewModelProjectedTransferTests : HolidayYearVmTestBase
         // 2026-12-31 is the deadline day itself: the days still count in 2025/26.
         var vm = NewVm(Dec31, Seed(20, transferAllowed: true));
 
-        Assert.True(vm.HolidayYearRows[1].TransferredInIsProjected);
-        Assert.Equal(5m, vm.HolidayYearRows[0].Remaining);
+        Assert.True(vm.SummaryRows[1].TransferredInIsProjected);
+        Assert.Equal(5m, vm.SummaryRows[0].Remaining);
         // 2026/27 own days only (6.25 or 8.33 depending on whether December counts as completed): never 5 more.
-        Assert.InRange(vm.HolidayYearRows[1].Remaining, 6.25m, 8.34m);
+        Assert.InRange(vm.SummaryRows[1].Remaining, 6.25m, 8.34m);
     }
 
     [Fact]
@@ -50,7 +50,7 @@ public class MainViewModelProjectedTransferTests : HolidayYearVmTestBase
     {
         // Fri 2027-01-01: 2025/26 expired with 5 transferred. 2026/27 earned Sep-Dec = 4 * 25/12 = 8.33, + 5 = 13.33.
         var vm = NewVm(new DateOnly(2027, 1, 1), Seed(20, transferAllowed: true));
-        var row = vm.HolidayYearRows.Single(r => r.Name == "2026/27");
+        var row = vm.SummaryRows.Single(r => r.Name == "2026/27");
 
         Assert.False(row.TransferredInIsProjected);
         Assert.False(row.ShowProjected);
@@ -63,8 +63,8 @@ public class MainViewModelProjectedTransferTests : HolidayYearVmTestBase
     {
         var vm = NewVm(Dec18, Seed(20));
 
-        Assert.All(vm.HolidayYearRows, r => Assert.False(r.TransferredInIsProjected));
-        Assert.All(vm.HolidayYearRows, r => Assert.False(r.ShowProjected));
+        Assert.All(vm.SummaryRows, r => Assert.False(r.TransferredInIsProjected));
+        Assert.All(vm.SummaryRows, r => Assert.False(r.ShowProjected));
     }
 
     [Fact]
@@ -74,11 +74,11 @@ public class MainViewModelProjectedTransferTests : HolidayYearVmTestBase
         data.OpeningBalanceDays = 3;
         var vm = NewVm(Dec18, data);
 
-        Assert.Equal(3m, vm.HolidayYearRows[0].TransferredIn);
-        Assert.False(vm.HolidayYearRows[0].TransferredInIsProjected);
-        Assert.False(vm.HolidayYearRows[0].ShowProjected);
+        Assert.Equal(3m, vm.SummaryRows[0].TransferredIn);
+        Assert.False(vm.SummaryRows[0].TransferredInIsProjected);
+        Assert.False(vm.SummaryRows[0].ShowProjected);
         // Opening balance is actual: 25 + 3 - 0 = 28 remaining.
-        Assert.Equal(28m, vm.HolidayYearRows[0].Remaining);
+        Assert.Equal(28m, vm.SummaryRows[0].Remaining);
     }
 
     [Fact]
@@ -87,8 +87,8 @@ public class MainViewModelProjectedTransferTests : HolidayYearVmTestBase
         // Transfer on but all 25 used: nothing to transfer, so no "(projected)" label.
         var vm = NewVm(Dec18, Seed(25, transferAllowed: true));
 
-        Assert.Equal(0m, vm.HolidayYearRows[1].TransferredIn);
-        Assert.False(vm.HolidayYearRows[1].ShowProjected);
+        Assert.Equal(0m, vm.SummaryRows[1].TransferredIn);
+        Assert.False(vm.SummaryRows[1].ShowProjected);
     }
 
     [Fact]
@@ -103,13 +103,13 @@ public class MainViewModelProjectedTransferTests : HolidayYearVmTestBase
         data.Days.Add(new BookedDay { Date = new DateOnly(2027, 1, 4) });
         data.Days.Add(new BookedDay { Date = new DateOnly(2027, 1, 5) });
         var vm = NewVm(Dec18, data);
-        var row = vm.HolidayYearRows[1];
+        var row = vm.SummaryRows[1];
 
         Assert.Equal(8m, row.BookedAhead);
         Assert.Equal(-1.75m, row.Remaining);
         Assert.Equal(-1, row.RemainingSign);
-        Assert.Contains("advance holiday", row.Note);
-        Assert.Contains("1.75", row.Note);
+        Assert.Contains("advance holiday", row.RemainingTooltip);
+        Assert.Contains("1.75", row.RemainingTooltip);
     }
 
     [Fact]
@@ -128,7 +128,7 @@ public class MainViewModelProjectedTransferTests : HolidayYearVmTestBase
         // 20 used, transfer on, limit 5, 5th week 5: unused 5 -> transferred 5, nothing paid out or lost.
         var vm = NewVm(Dec18, Seed(20, transferAllowed: true));
 
-        Assert.Equal(5m, vm.HolidayYearRows[0].TransferredOut);
+        Assert.Equal(5m, vm.SummaryRows[1].TransferredIn);
         Assert.Equal(5m, vm.Status.HolidayYear.TransferredToNext);
         Assert.Equal(0m, vm.Status.HolidayYear.PaidOutDays);
         Assert.Equal(0m, vm.Status.HolidayYear.LostDays);
@@ -149,7 +149,7 @@ public class MainViewModelProjectedTransferTests : HolidayYearVmTestBase
         var choices = vm.FirstTrackedChoices;
         Assert.Equal(13, choices.Count);
         Assert.Contains(vm.FirstTrackedHolidayYear, choices);
-        Assert.NotEmpty(vm.HolidayYearRows);
+        Assert.NotEmpty(vm.SummaryRows);
         Assert.False(string.IsNullOrEmpty(vm.StatusMessage));
         Assert.True(vm.FirstTrackedHolidayYear.StartYear is >= 1 and <= 9998);
     }
