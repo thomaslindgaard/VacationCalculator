@@ -8,9 +8,12 @@ WPF desktop app (.NET 9, C#) that tracks vacation days under the Danish Holiday 
 dotnet build VacationCalculator.sln
 dotnet test
 dotnet run --project src/VacationCalculator.App
+powershell -ExecutionPolicy Bypass -File build/package.ps1   # release zip in artifacts/
 ```
 
 Run `dotnet build` and `dotnet test` before reporting any change as done.
+
+Releases (feature 9) are a portable zip with a self-contained single-file `VacationCalculator.exe` (publish profile `src/VacationCalculator.App/Properties/PublishProfiles/win-x64.pubxml`; the version is `<Version>` in the App csproj). `build/package.ps1` runs the tests, publishes and zips to `artifacts/VacationCalculator-<version>-win-x64.zip`. A GitHub Release (tag `v<version>`, zip attached) is created by the main session only after the user confirms it.
 
 ## Agent workflow (main session)
 

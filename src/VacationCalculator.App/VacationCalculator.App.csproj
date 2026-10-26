@@ -13,4 +13,18 @@
     <UseWPF>true</UseWPF>
   </PropertyGroup>
 
+  <!-- File properties shown in Explorer: Properties > Details. -->
+  <PropertyGroup>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <Product>Vacation Calculator</Product>
+    <AssemblyTitle>Vacation Calculator</AssemblyTitle>
+    <Company>Thomas Lindgaard</Company>
+    <Authors>Thomas Lindgaard</Authors>
+    <Copyright>© 2026 Thomas Lindgaard</Copyright>
+    <Description>Tracks vacation days under the Danish Holiday Act and warns before unused days expire.</Description>
+  </PropertyGroup>
+
 </Project>
