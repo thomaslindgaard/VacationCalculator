@@ -300,6 +300,21 @@ The holiday-years card in the summary becomes one table with a row per holiday y
 
 ---
 
+## 9. Release packaging (v1.0.0)
+
+**Status:** In progress
+
+- The release is a **portable zip**, no installer: `VacationCalculator-<version>-win-x64.zip` containing a self-contained, single-file `VacationCalculator.exe` for Windows 10/11 x64 that runs from any folder without installing .NET. No trimming (WPF doesn't support it).
+- The version lives in the App project (`Version`, starting at 1.0.0) together with the product name "Vacation Calculator" and the other file properties shown in Windows (Explorer → Properties → Details).
+- Data stays where it always is (`%APPDATA%\VacationCalculator`, or `--data <path>`), so moving or replacing the exe never touches it, and a newer version reads the same file.
+- `build/package.ps1` builds the zip: it runs the tests first and stops if they fail, publishes the App with the release settings and zips the result into `artifacts/` (ignored by git).
+- Release: a GitHub Release tagged `v1.0.0` on https://github.com/thomaslindgaard/VacationCalculator with the zip attached and short release notes. The main session confirms with the user before publishing it.
+- The exe is not code-signed, so Windows SmartScreen may warn on first start ("More info" → "Run anyway").
+
+**Agents:** `wpf-ui` (App project publish settings and version), main session (`build/package.ps1`, `.gitignore`, release), `tester` (runs the packaged exe from the zip), `code-reviewer`.
+
+---
+
 ## Later ideas (not agreed)
 
 - Main-holiday check (hovedferie): warn if fewer than 15 consecutive days (3 weeks) are booked between 1 May and 30 September.
