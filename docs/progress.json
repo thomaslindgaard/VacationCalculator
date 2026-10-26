@@ -10,5 +10,5 @@
   {"id": "6", "feature": "Click and drag booking in the calendar", "size": "M", "points": 2, "status": "Done", "progress": 1, "runsDone": 8, "runsLow": 0, "runsHigh": 0, "commit": "08b3750"},
   {"id": "7", "feature": "Translations (Danish, Romanian, Redneck)", "size": "L", "points": 3, "status": "Done", "progress": 1, "runsDone": 12, "runsLow": 0, "runsHigh": 0, "commit": "3ca97a5"},
   {"id": "8", "feature": "Simplified summary table", "size": "M", "points": 2, "status": "Done", "progress": 1, "runsDone": 8, "runsLow": 0, "runsHigh": 0, "commit": "3184d29"},
-  {"id": "9", "feature": "Release packaging (v1.0.0)", "size": "S", "points": 1, "status": "In progress", "progress": 0.05, "runsDone": 0, "runsLow": 3, "runsHigh": 5, "commit": ""}
+  {"id": "9", "feature": "Release packaging (v1.0.0)", "size": "S", "points": 1, "status": "In progress", "progress": 0.9, "runsDone": 3, "runsLow": 0, "runsHigh": 0, "commit": "ec31e63"}
 ]
