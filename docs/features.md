@@ -302,7 +302,7 @@ The holiday-years card in the summary becomes one table with a row per holiday y
 
 ## 9. Release packaging (v1.0.0)
 
-**Status:** In progress
+**Status:** Done ([v1.0.0](https://github.com/thomaslindgaard/VacationCalculator/releases/tag/v1.0.0))
 
 - The release is a **portable zip**, no installer: `VacationCalculator-<version>-win-x64.zip` containing a self-contained, single-file `VacationCalculator.exe` for Windows 10/11 x64 that runs from any folder without installing .NET. No trimming (WPF doesn't support it).
 - The version lives in the App project (`Version`, starting at 1.0.0) together with the product name "Vacation Calculator" and the other file properties shown in Windows (Explorer → Properties → Details).
